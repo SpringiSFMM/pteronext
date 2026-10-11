@@ -6,6 +6,9 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -34,56 +37,88 @@ type GitHubCommit struct {
 	} `json:"commit"`
 }
 
+func isVersionGreater(v1, v2 string) bool {
+	v1Clean := strings.TrimPrefix(v1, "v")
+	v2Clean := strings.TrimPrefix(v2, "v")
+	parts1 := strings.Split(v1Clean, ".")
+	parts2 := strings.Split(v2Clean, ".")
+
+	for i := 0; i < len(parts1) && i < len(parts2); i++ {
+		n1, _ := strconv.Atoi(parts1[i])
+		n2, _ := strconv.Atoi(parts2[i])
+		if n1 > n2 {
+			return true
+		}
+		if n1 < n2 {
+			return false
+		}
+	}
+	return len(parts1) > len(parts2)
+}
+
 // CheckUpdate queries GitHub repository to check for latest commits/releases
 func (s *SystemUpdateController) CheckUpdate(c *gin.Context) {
 	client := &http.Client{Timeout: 6 * time.Second}
-	url := fmt.Sprintf("https://api.github.com/repos/%s/commits/main", s.githubRepo)
 
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed creating update request"})
-		return
-	}
-	req.Header.Set("User-Agent", "PteroNext-Panel-Updater")
-	req.Header.Set("Accept", "application/vnd.github.v3+json")
-
-	resp, err := client.Do(req)
-	if err != nil || resp.StatusCode != http.StatusOK {
-		// Fallback response if rate limited or offline
-		c.JSON(http.StatusOK, gin.H{
-			"update_available": false,
-			"current_version":  s.currentVersion,
-			"latest_version":   s.currentVersion,
-			"commit_sha":       "fc99e4f",
-			"commit_message":   "v2.7.2 enterprise release - crash analyzer & staging",
-			"commit_date":      time.Now().Format("2006-01-02 15:04:05"),
-			"repo_url":         fmt.Sprintf("https://github.com/%s", s.githubRepo),
-			"checked_at":       time.Now().Format(time.RFC3339),
-		})
-		return
-	}
-	defer resp.Body.Close()
+	// 1. Fetch latest commit
+	commitReq, _ := http.NewRequest("GET", fmt.Sprintf("https://api.github.com/repos/%s/commits/main", s.githubRepo), nil)
+	commitReq.Header.Set("User-Agent", "PteroNext-Panel-Updater")
+	commitReq.Header.Set("Accept", "application/vnd.github.v3+json")
 
 	var commit GitHubCommit
-	if err := json.NewDecoder(resp.Body).Decode(&commit); err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"update_available": false,
-			"current_version":  s.currentVersion,
-			"latest_version":   s.currentVersion,
-			"repo_url":         fmt.Sprintf("https://github.com/%s", s.githubRepo),
-		})
-		return
+	var shortSHA string
+	if resp, err := client.Do(commitReq); err == nil && resp.StatusCode == http.StatusOK {
+		_ = json.NewDecoder(resp.Body).Decode(&commit)
+		resp.Body.Close()
+		shortSHA = commit.SHA
+		if len(shortSHA) > 7 {
+			shortSHA = shortSHA[:7]
+		}
 	}
 
-	shortSHA := commit.SHA
-	if len(shortSHA) > 7 {
-		shortSHA = shortSHA[:7]
+	// 2. Fetch latest tags from repository
+	tagsReq, _ := http.NewRequest("GET", fmt.Sprintf("https://api.github.com/repos/%s/tags", s.githubRepo), nil)
+	tagsReq.Header.Set("User-Agent", "PteroNext-Panel-Updater")
+	tagsReq.Header.Set("Accept", "application/vnd.github.v3+json")
+
+	latestTag := ""
+	if resp, err := client.Do(tagsReq); err == nil && resp.StatusCode == http.StatusOK {
+		var tags []struct {
+			Name string `json:"name"`
+		}
+		_ = json.NewDecoder(resp.Body).Decode(&tags)
+		resp.Body.Close()
+		if len(tags) > 0 {
+			latestTag = tags[0].Name
+		}
+	}
+
+	// Fallback to commit message version detection if tags API is rate-limited
+	if latestTag == "" && commit.Commit.Message != "" {
+		re := regexp.MustCompile(`v\d+\.\d+\.\d+`)
+		if m := re.FindString(commit.Commit.Message); m != "" {
+			latestTag = m
+		}
+	}
+
+	if latestTag == "" {
+		latestTag = s.currentVersion
+	}
+
+	updateAvailable := false
+	if latestTag != "" && latestTag != s.currentVersion {
+		updateAvailable = isVersionGreater(latestTag, s.currentVersion)
+	}
+
+	displayLatest := latestTag
+	if shortSHA != "" {
+		displayLatest = fmt.Sprintf("%s (%s)", latestTag, shortSHA)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"update_available": false,
+		"update_available": updateAvailable,
 		"current_version":  s.currentVersion,
-		"latest_version":   fmt.Sprintf("%s (%s)", s.currentVersion, shortSHA),
+		"latest_version":   displayLatest,
 		"commit_sha":       shortSHA,
 		"commit_message":   commit.Commit.Message,
 		"commit_date":      commit.Commit.Author.Date.Format("2006-01-02 15:04:05"),

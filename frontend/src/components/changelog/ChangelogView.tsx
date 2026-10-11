@@ -479,8 +479,19 @@ export const ChangelogView: React.FC = () => {
               <span className="text-sm font-bold text-white font-mono">
                 PteroNext GitHub Feed
               </span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">
-                {updateStatus?.latest_version || 'v2.7.3'} LATEST
+              <span
+                className={`text-[10px] font-mono px-2 py-0.5 rounded font-semibold ${
+                  updateStatus?.update_available
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse'
+                    : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                }`}
+              >
+                {updateStatus?.latest_version || 'v2.7.3'}{' '}
+                {updateStatus?.update_available
+                  ? language === 'de'
+                    ? 'UPDATE VERFÜGBAR'
+                    : 'UPDATE AVAILABLE'
+                  : 'LATEST'}
               </span>
               <a
                 href="https://github.com/SpringiSFMM/pteronext"
