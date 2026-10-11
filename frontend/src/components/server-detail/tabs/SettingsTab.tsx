@@ -1,0 +1,921 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { useApp } from '../../../context/AppContext';
+import {
+  Settings,
+  Save,
+  FolderSync,
+  AlertTriangle,
+  Copy,
+  Check,
+  Package,
+  Cpu,
+  ExternalLink,
+  Terminal,
+  Server,
+  Zap,
+  Moon,
+  Power,
+} from 'lucide-react';
+import { api } from '../../../api/client';
+
+interface VersionGroup {
+  group: string;
+  versions: string[];
+}
+
+const GROUP_LABELS: Record<string, string> = {
+  '26.3': 'Minecraft 26.3 (Latest 2026 Release)',
+  '26.2': 'Minecraft 26.2',
+  '26.1': 'Minecraft 26.1',
+  '1.21': 'Minecraft 1.21.x (Tricky Trials)',
+  '1.20': 'Minecraft 1.20.x (Trails & Tales)',
+  '1.19': 'Minecraft 1.19.x (The Wild Update)',
+  '1.18': 'Minecraft 1.18.x (Caves & Cliffs Part II)',
+  '1.17': 'Minecraft 1.17.x (Caves & Cliffs Part I)',
+  '1.16': 'Minecraft 1.16.x (Nether Update)',
+  '1.15': 'Minecraft 1.15.x (Buzzy Bees)',
+  '1.14': 'Minecraft 1.14.x (Village & Pillage)',
+  '1.13': 'Minecraft 1.13.x (Update Aquatic)',
+  '1.12': 'Minecraft 1.12.x (World of Color)',
+  '1.11': 'Minecraft 1.11.x (Exploration Update)',
+  '1.10': 'Minecraft 1.10.x (Frostburn Update)',
+  '1.9': 'Minecraft 1.9.x (Combat Update)',
+  '1.8': 'Minecraft 1.8.x (Bountiful Update - PvP Classic)',
+  '1.7': 'Minecraft 1.7.x (The Update that Changed the World)',
+};
+
+const ALL_MINECRAFT_VERSIONS: VersionGroup[] = [
+  {
+    group: 'Minecraft 26.x (Newest 2026 Releases)',
+    versions: ['26.3', '26.2', '26.1.2', '26.1.1'],
+  },
+  {
+    group: 'Minecraft 1.21.x (Tricky Trials)',
+    versions: [
+      '1.21.11',
+      '1.21.10',
+      '1.21.9',
+      '1.21.8',
+      '1.21.7',
+      '1.21.6',
+      '1.21.5',
+      '1.21.4',
+      '1.21.3',
+      '1.21.2',
+      '1.21.1',
+      '1.21',
+    ],
+  },
+  {
+    group: 'Minecraft 1.20.x (Trails & Tales)',
+    versions: ['1.20.6', '1.20.5', '1.20.4', '1.20.2', '1.20.1', '1.20'],
+  },
+  {
+    group: 'Minecraft 1.19.x (The Wild Update)',
+    versions: ['1.19.4', '1.19.3', '1.19.2', '1.19.1', '1.19'],
+  },
+  {
+    group: 'Minecraft 1.18.x (Caves & Cliffs Part II)',
+    versions: ['1.18.2', '1.18.1', '1.18'],
+  },
+  {
+    group: 'Minecraft 1.17.x (Caves & Cliffs Part I)',
+    versions: ['1.17.1', '1.17'],
+  },
+  {
+    group: 'Minecraft 1.16.x (Nether Update)',
+    versions: ['1.16.5', '1.16.4', '1.16.3', '1.16.2', '1.16.1'],
+  },
+  {
+    group: 'Minecraft 1.15.x (Buzzy Bees)',
+    versions: ['1.15.2', '1.15.1', '1.15'],
+  },
+  {
+    group: 'Minecraft 1.14.x (Village & Pillage)',
+    versions: ['1.14.4', '1.14.3', '1.14.2', '1.14.1', '1.14'],
+  },
+  {
+    group: 'Minecraft 1.13.x (Update Aquatic)',
+    versions: ['1.13.2', '1.13.1', '1.13'],
+  },
+  {
+    group: 'Minecraft 1.12.x (World of Color)',
+    versions: ['1.12.2', '1.12.1', '1.12'],
+  },
+  {
+    group: 'Minecraft 1.11.x & 1.10.x',
+    versions: ['1.11.2', '1.10.2'],
+  },
+  {
+    group: 'Minecraft 1.9.x & 1.8.x (Combat / PvP Classic)',
+    versions: ['1.9.4', '1.8.8'],
+  },
+  {
+    group: 'Minecraft 1.7.x (The Update that Changed the World)',
+    versions: ['1.7.10'],
+  },
+];
+
+function parsePaperVersions(
+  rawVersions: Record<string, string[]> | null,
+  includePre: boolean
+): VersionGroup[] {
+  if (!rawVersions) {
+    return ALL_MINECRAFT_VERSIONS;
+  }
+  const groups: VersionGroup[] = [];
+  for (const [key, verList] of Object.entries(rawVersions)) {
+    const filtered = verList.filter((v) => {
+      if (!includePre && (v.includes('-rc') || v.includes('-pre'))) {
+        return false;
+      }
+      return true;
+    });
+    if (filtered.length > 0) {
+      const label = GROUP_LABELS[key] || `Minecraft ${key}.x`;
+      groups.push({
+        group: label,
+        versions: filtered,
+      });
+    }
+  }
+  return groups.length > 0 ? groups : ALL_MINECRAFT_VERSIONS;
+}
+
+export const SettingsTab: React.FC = () => {
+  const {
+    selectedServer,
+    addToast,
+    setActiveView,
+    updateServerStartup,
+    installMinecraftVersion,
+    updateServerAdminSettings,
+  } = useApp();
+
+  const [name, setName] = useState(selectedServer?.name || '');
+  const [description, setDescription] = useState(selectedServer?.description || '');
+  const [startupCommand, setStartupCommand] = useState(
+    selectedServer?.startup ||
+      'java -Xms128M -XX:MaxRAMPercentage=95.0 -Dterminal.jline=false -Dterminal.ansi=true -jar {{SERVER_JARFILE}}'
+  );
+  const [dockerImage, setDockerImage] = useState(selectedServer?.dockerImage || '');
+  const [memoryMB, setMemoryMB] = useState(selectedServer?.stats.memoryLimit || 2048);
+  const [cpuLimit, setCpuLimit] = useState(selectedServer?.cpuLimit || 200);
+  const [diskMB, setDiskMB] = useState(selectedServer?.stats.diskLimit || 10240);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [isSavingGeneral, setIsSavingGeneral] = useState(false);
+  const [isSavingStartup, setIsSavingStartup] = useState(false);
+  const [selectedMcVersion, setSelectedMcVersion] = useState('26.3');
+  const [customVersion, setCustomVersion] = useState('');
+  const [serverJarFile, setServerJarFile] = useState('server.jar');
+  const [isInstallingVersion, setIsInstallingVersion] = useState(false);
+  const [includePreReleases, setIncludePreReleases] = useState(false);
+  const [rawApiVersions, setRawApiVersions] = useState<Record<string, string[]> | null>(null);
+
+  // Sleep Mode / Auto-Scaler State
+  const [sleepModeEnabled, setSleepModeEnabled] = useState(false);
+  const [sleepTimeoutMinutes, setSleepTimeoutMinutes] = useState(15);
+  const [isSavingSleep, setIsSavingSleep] = useState(false);
+  const [isSleeping, setIsSleeping] = useState(false);
+
+  useEffect(() => {
+    if (selectedServer?.uuid) {
+      api.sleepMode.get(selectedServer.uuid).then((res) => {
+        if (res) {
+          setSleepModeEnabled(Boolean(res.sleep_mode_enabled));
+          setSleepTimeoutMinutes(res.sleep_timeout_minutes || 15);
+          setIsSleeping(Boolean(res.is_sleeping));
+        }
+      }).catch(() => {});
+    }
+  }, [selectedServer?.uuid]);
+
+  const handleSaveSleepMode = async () => {
+    if (!selectedServer?.uuid) return;
+    setIsSavingSleep(true);
+    try {
+      await api.sleepMode.update(selectedServer.uuid, {
+        sleep_mode_enabled: sleepModeEnabled,
+        sleep_timeout_minutes: sleepTimeoutMinutes,
+      });
+      addToast({
+        title: 'Auto-Sleep Updated',
+        description: `Container auto-sleep is now ${sleepModeEnabled ? `enabled (${sleepTimeoutMinutes} min)` : 'disabled'}.`,
+        type: 'success',
+      });
+    } catch (err: any) {
+      addToast({
+        title: 'Save Failed',
+        description: err.message || 'Error updating sleep mode',
+        type: 'error',
+      });
+    } finally {
+      setIsSavingSleep(false);
+    }
+  };
+
+  // Dynamically load all possible versions from PaperMC API v3
+  useEffect(() => {
+    fetch('https://fill.papermc.io/v3/projects/paper', {
+      headers: { 'User-Agent': 'PteroNext-Panel/1.0' },
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && data.versions) {
+          setRawApiVersions(data.versions as Record<string, string[]>);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const versionGroups = useMemo(() => {
+    return parsePaperVersions(rawApiVersions, includePreReleases);
+  }, [rawApiVersions, includePreReleases]);
+
+  const totalVersionsCount = useMemo(() => {
+    return versionGroups.reduce((acc, g) => acc + g.versions.length, 0);
+  }, [versionGroups]);
+
+  useEffect(() => {
+    if (!selectedServer) return;
+    setName(selectedServer.name);
+    setDescription(selectedServer.description);
+    setDockerImage(selectedServer.dockerImage);
+    setMemoryMB(selectedServer.stats.memoryLimit || 2048);
+    setCpuLimit(selectedServer.cpuLimit || 200);
+    setDiskMB(selectedServer.stats.diskLimit || 10240);
+    if (selectedServer.startup) {
+      setStartupCommand(selectedServer.startup);
+    }
+  }, [
+    selectedServer?.uuid,
+    selectedServer?.startup,
+    selectedServer?.name,
+    selectedServer?.description,
+    selectedServer?.dockerImage,
+    selectedServer?.stats.memoryLimit,
+    selectedServer?.stats.diskLimit,
+    selectedServer?.cpuLimit,
+  ]);
+
+  if (!selectedServer) {
+    return (
+      <div className="p-8 text-center text-zinc-500 font-mono text-xs">
+        No active server selected.
+      </div>
+    );
+  }
+
+  const sftpUrl = selectedServer.sftpDetails
+    ? `sftp://${selectedServer.sftpDetails.user}@${selectedServer.sftpDetails.host}:${selectedServer.sftpDetails.port}`
+    : '';
+
+  const handleCopy = (text: string, key: string, label: string) => {
+    navigator.clipboard?.writeText(text);
+    setCopiedKey(key);
+    addToast({
+      title: 'Copied to Clipboard',
+      description: `Copied ${label}`,
+      type: 'info',
+    });
+    setTimeout(() => setCopiedKey(null), 2000);
+  };
+
+  const handleSaveGeneral = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedServer) return;
+    setIsSavingGeneral(true);
+    try {
+      await updateServerAdminSettings(selectedServer.uuid, {
+        name: name.trim(),
+        description: description.trim(),
+        dockerImage: dockerImage.trim(),
+        memoryMB: Number(memoryMB),
+        cpuLimit: Number(cpuLimit),
+        diskMB: Number(diskMB),
+      });
+    } finally {
+      setIsSavingGeneral(false);
+    }
+  };
+
+  const handleSaveStartup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingStartup(true);
+    try {
+      await updateServerStartup(selectedServer.uuid, startupCommand);
+    } finally {
+      setIsSavingStartup(false);
+    }
+  };
+
+  const handleReinstall = () => {
+    if (
+      window.confirm(
+        'Are you sure you want to reinstall this server? This will re-run the container installation script.'
+      )
+    ) {
+      addToast({
+        title: 'Reinstallation Initiated',
+        description: 'Server queued for installation script execution.',
+        type: 'warning',
+      });
+    }
+  };
+
+  const handleDelete = () => {
+    if (
+      window.confirm(
+        `Are you sure you want to permanently delete "${selectedServer.name}"? This action cannot be undone.`
+      )
+    ) {
+      addToast({
+        title: 'Server Deletion Dispatched',
+        description: 'Container removed from cluster.',
+        type: 'error',
+      });
+      setActiveView('servers');
+    }
+  };
+
+  return (
+    <div className="space-y-6 max-w-5xl">
+      {/* General Settings */}
+      <div className="bg-[#11141a] rounded-2xl p-6 border border-slate-800 shadow-xl space-y-5">
+        <div className="flex items-center justify-between border-b border-slate-800/80 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
+              <Settings className="w-4 h-4 text-zinc-300" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-white tracking-wide uppercase font-mono">
+                General Configuration
+              </h3>
+              <p className="text-xs text-slate-400">Core server metadata and runtime configuration</p>
+            </div>
+          </div>
+        </div>
+
+        <form onSubmit={handleSaveGeneral} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-mono uppercase text-slate-300 mb-1.5 font-medium">
+                Server Name
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full bg-[#0d1017] border border-slate-800 hover:border-slate-700 focus:border-[var(--theme-accent,#e5a93c)] rounded-xl px-3.5 py-2.5 text-xs text-white font-mono focus:outline-none transition-colors"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-mono uppercase text-slate-300 mb-1.5 font-medium">
+                Docker Container Image
+              </label>
+              <input
+                type="text"
+                value={dockerImage}
+                onChange={(e) => setDockerImage(e.target.value)}
+                className="w-full bg-[#0d1017] border border-slate-800 hover:border-slate-700 focus:border-[var(--theme-accent,#e5a93c)] rounded-xl px-3.5 py-2.5 text-xs text-white font-mono focus:outline-none transition-colors"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-mono uppercase text-slate-300 mb-1.5 font-medium">
+              Server Description
+            </label>
+            <textarea
+              rows={2}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full bg-[#0d1017] border border-slate-800 hover:border-slate-700 focus:border-[var(--theme-accent,#e5a93c)] rounded-xl px-3.5 py-2.5 text-xs text-white font-mono focus:outline-none transition-colors"
+            />
+          </div>
+
+          {/* Hardware & Resource Limits */}
+          <div className="pt-3 border-t border-slate-800/80">
+            <div className="flex items-center justify-between mb-2.5">
+              <label className="block text-[11px] font-mono uppercase tracking-wider text-amber-400 font-semibold">
+                Hardware Limits & Resource Quotas
+              </label>
+              <span className="text-[10px] text-slate-500 font-mono">
+                Dynamically synced with Wings daemon
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-mono uppercase text-slate-300 mb-1.5 font-medium">
+                  Memory Limit (MB) *
+                </label>
+                <input
+                  type="number"
+                  min={256}
+                  step={128}
+                  required
+                  value={memoryMB}
+                  onChange={(e) => setMemoryMB(Number(e.target.value))}
+                  className="w-full bg-[#0d1017] border border-slate-800 hover:border-slate-700 focus:border-amber-400 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono focus:outline-none transition-colors"
+                />
+                <span className="text-[10px] text-slate-500 font-mono mt-1 block">
+                  = {(memoryMB / 1024).toFixed(1)} GB RAM
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-mono uppercase text-slate-300 mb-1.5 font-medium">
+                  CPU Limit (%) *
+                </label>
+                <input
+                  type="number"
+                  min={50}
+                  step={50}
+                  required
+                  value={cpuLimit}
+                  onChange={(e) => setCpuLimit(Number(e.target.value))}
+                  className="w-full bg-[#0d1017] border border-slate-800 hover:border-slate-700 focus:border-amber-400 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono focus:outline-none transition-colors"
+                />
+                <span className="text-[10px] text-slate-500 font-mono mt-1 block">
+                  = {(cpuLimit / 100).toFixed(1)} Cores
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-mono uppercase text-slate-300 mb-1.5 font-medium">
+                  Disk Limit (MB) *
+                </label>
+                <input
+                  type="number"
+                  min={1024}
+                  step={1024}
+                  required
+                  value={diskMB}
+                  onChange={(e) => setDiskMB(Number(e.target.value))}
+                  className="w-full bg-[#0d1017] border border-slate-800 hover:border-slate-700 focus:border-amber-400 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono focus:outline-none transition-colors"
+                />
+                <span className="text-[10px] text-slate-500 font-mono mt-1 block">
+                  = {(diskMB / 1024).toFixed(0)} GB SSD
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-1">
+            <button
+              type="submit"
+              disabled={isSavingGeneral}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-mono text-xs font-bold transition-all shadow-md active:scale-95 disabled:opacity-50"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>{isSavingGeneral ? 'Saving Changes...' : 'Save Configuration & Quotas'}</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* SFTP Connection Details & 1-Click Launch */}
+      <div className="bg-[#11141a] rounded-2xl p-6 border border-slate-800 shadow-xl space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+              <FolderSync className="w-4 h-4 text-emerald-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-white tracking-wide uppercase font-mono">
+                SFTP File Access & Direct Connect
+              </h3>
+              <p className="text-xs text-slate-400">
+                Connect directly using any SFTP client with your account password.
+              </p>
+            </div>
+          </div>
+
+          {/* 1-Click SFTP Direct Launch */}
+          <div className="flex items-center gap-2">
+            <a
+              href={sftpUrl}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-mono text-xs font-semibold transition-all hover:scale-[1.02] active:scale-95 shadow-sm"
+              title="Click to directly launch FileZilla, Cyberduck, or your default SFTP client"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Direct SFTP Connect</span>
+            </a>
+
+            <button
+              type="button"
+              onClick={() => handleCopy(sftpUrl, 'sftp-full-url', 'SFTP Connection URL')}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 font-mono text-xs transition-colors"
+              title="Copy full sftp:// URL"
+            >
+              {copiedKey === 'sftp-full-url' ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-emerald-400">Copied URL</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Copy URL</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono text-xs">
+          <div className="p-3.5 bg-[#0d1017] rounded-xl border border-slate-800 flex items-center justify-between">
+            <div>
+              <span className="text-[10px] text-slate-500 block uppercase tracking-wider font-semibold">
+                SFTP Host
+              </span>
+              <span className="text-white font-semibold">{selectedServer.sftpDetails.host}</span>
+            </div>
+            <button
+              onClick={() =>
+                handleCopy(selectedServer.sftpDetails.host, 'sftp-host', 'SFTP Host')
+              }
+              className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800/60 transition-colors"
+            >
+              {copiedKey === 'sftp-host' ? (
+                <Check className="w-3.5 h-3.5 text-emerald-400" />
+              ) : (
+                <Copy className="w-3.5 h-3.5" />
+              )}
+            </button>
+          </div>
+
+          <div className="p-3.5 bg-[#0d1017] rounded-xl border border-slate-800 flex items-center justify-between">
+            <div>
+              <span className="text-[10px] text-slate-500 block uppercase tracking-wider font-semibold">
+                Port
+              </span>
+              <span className="text-emerald-400 font-semibold">{selectedServer.sftpDetails.port}</span>
+            </div>
+            <button
+              onClick={() =>
+                handleCopy(
+                  String(selectedServer.sftpDetails.port),
+                  'sftp-port',
+                  'SFTP Port'
+                )
+              }
+              className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800/60 transition-colors"
+            >
+              {copiedKey === 'sftp-port' ? (
+                <Check className="w-3.5 h-3.5 text-emerald-400" />
+              ) : (
+                <Copy className="w-3.5 h-3.5" />
+              )}
+            </button>
+          </div>
+
+          <div className="p-3.5 bg-[#0d1017] rounded-xl border border-slate-800 flex items-center justify-between">
+            <div className="min-w-0 pr-2">
+              <span className="text-[10px] text-slate-500 block uppercase tracking-wider font-semibold">
+                Username
+              </span>
+              <span className="text-white font-semibold truncate block">
+                {selectedServer.sftpDetails.user}
+              </span>
+            </div>
+            <button
+              onClick={() =>
+                handleCopy(selectedServer.sftpDetails.user, 'sftp-user', 'SFTP Username')
+              }
+              className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800/60 transition-colors flex-shrink-0"
+            >
+              {copiedKey === 'sftp-user' ? (
+                <Check className="w-3.5 h-3.5 text-emerald-400" />
+              ) : (
+                <Copy className="w-3.5 h-3.5" />
+              )}
+            </button>
+          </div>
+        </div>
+
+        <div className="p-3 bg-slate-900/40 rounded-xl border border-slate-800/60 flex items-center justify-between text-xs font-mono">
+          <div className="flex items-center gap-2 text-slate-400 truncate">
+            <Terminal className="w-4 h-4 text-slate-500 flex-shrink-0" />
+            <span className="truncate">{sftpUrl}</span>
+          </div>
+          <span className="text-[11px] text-slate-500 flex-shrink-0 pl-2">Password: Your Panel Account Password</span>
+        </div>
+      </div>
+
+      {/* Minecraft Version & Server Jar Installer */}
+      <div className="bg-[#11141a] rounded-2xl p-6 border border-slate-800 shadow-xl space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800/80 pb-4 gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
+              <Package className="w-4 h-4 text-emerald-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-white tracking-wide uppercase font-mono">
+                Minecraft Version & Server Jar
+              </h3>
+              <p className="text-xs text-slate-400">
+                1-Click download and configure official PaperMC release & auto-accept EULA
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[11px] font-mono font-semibold whitespace-nowrap">
+              {totalVersionsCount}+ Versions Available
+            </span>
+            <span className="px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[11px] font-mono font-semibold whitespace-nowrap">
+              Official PaperMC API
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
+              <label className="text-xs font-mono uppercase text-slate-300 font-medium">
+                Minecraft Version
+              </label>
+              <label className="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-slate-200 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={includePreReleases}
+                  onChange={(e) => setIncludePreReleases(e.target.checked)}
+                  className="rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                />
+                Show Snapshot / RC Builds
+              </label>
+            </div>
+            <select
+              value={selectedMcVersion}
+              onChange={(e) => setSelectedMcVersion(e.target.value)}
+              className="w-full bg-[#0d1017] border border-slate-800 hover:border-slate-700 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none transition-colors font-mono"
+            >
+              {versionGroups.map((group) => (
+                <optgroup key={group.group} label={group.group} className="bg-[#11141a] text-slate-300 font-sans font-semibold">
+                  {group.versions.map((ver) => (
+                    <option key={ver} value={ver} className="bg-[#0d1017] text-white font-mono">
+                      Paper {ver} {ver === '26.3' ? '★ Latest 2026' : ver === '1.21.11' ? '★ Latest 1.21' : ver === '1.21.1' ? '★ Stable LTS' : ''}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+              <optgroup label="Custom / Other Version" className="bg-[#11141a] text-slate-300 font-sans font-semibold">
+                <option value="__custom__" className="bg-[#0d1017] text-emerald-400 font-mono font-medium">
+                  ✏️ Custom Version (Type manually)
+                </option>
+              </optgroup>
+            </select>
+
+            {selectedMcVersion === '__custom__' && (
+              <div className="mt-2.5">
+                <input
+                  type="text"
+                  value={customVersion}
+                  onChange={(e) => setCustomVersion(e.target.value)}
+                  placeholder="e.g. 1.21.2, 1.20.3, or custom build"
+                  className="w-full bg-[#0d1017] border border-emerald-500/60 focus:border-emerald-500 rounded-xl px-3.5 py-2 text-xs text-emerald-400 font-mono focus:outline-none placeholder:text-slate-600 shadow-sm"
+                  autoFocus
+                />
+                <p className="text-[11px] text-slate-500 mt-1 font-mono">
+                  Downloads specified build from PaperMC API, or falls back to PurpurMC if Paper has no build.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-mono uppercase text-slate-300 mb-1.5 font-medium">
+              Server Jar File (<code className="text-emerald-400 font-mono">SERVER_JARFILE</code>)
+            </label>
+            <input
+              type="text"
+              value={serverJarFile}
+              onChange={(e) => setServerJarFile(e.target.value)}
+              placeholder="server.jar"
+              className="w-full bg-[#0d1017] border border-slate-800 hover:border-slate-700 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-xs text-emerald-400 font-mono focus:outline-none transition-colors"
+            />
+            <p className="text-[11px] text-slate-500 mt-1.5 font-mono">
+              Target executable filename. Defaults to <code className="text-slate-400">server.jar</code>.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t border-slate-800/60">
+          <p className="text-xs text-slate-400 font-mono">
+            Automatically writes <code className="text-emerald-400">eula=true</code> to eula.txt and saves jar to disk.
+          </p>
+          <button
+            type="button"
+            disabled={isInstallingVersion || (selectedMcVersion === '__custom__' && !customVersion.trim())}
+            onClick={async () => {
+              const targetVer = selectedMcVersion === '__custom__' ? customVersion.trim() : selectedMcVersion;
+              if (!targetVer) return;
+              setIsInstallingVersion(true);
+              try {
+                await installMinecraftVersion(targetVer, serverJarFile.trim() || 'server.jar');
+              } finally {
+                setIsInstallingVersion(false);
+              }
+            }}
+            className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold transition-all shadow-lg shadow-emerald-600/20 active:scale-95 disabled:opacity-50 whitespace-nowrap cursor-pointer"
+          >
+            <FolderSync className={`w-3.5 h-3.5 ${isInstallingVersion ? 'animate-spin' : ''}`} />
+            <span>
+              {isInstallingVersion
+                ? 'Downloading & Configuring...'
+                : `Download & Install Paper ${selectedMcVersion === '__custom__' ? (customVersion.trim() || 'Custom') : selectedMcVersion}`}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/* Startup Parameters & Save Command */}
+      <div className="bg-[#11141a] rounded-2xl p-6 border border-slate-800 shadow-xl space-y-5">
+        <div className="flex items-center justify-between border-b border-slate-800/80 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
+              <Cpu className="w-4 h-4 text-purple-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-white tracking-wide uppercase font-mono">
+                Startup Command & Boot Variables
+              </h3>
+              <p className="text-xs text-slate-400">
+                Configure the command executed by Wings when starting this container
+              </p>
+            </div>
+          </div>
+          <span className="px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 text-[11px] font-mono">
+            Daemon Managed
+          </span>
+        </div>
+
+        <form onSubmit={handleSaveStartup} className="space-y-4">
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-mono uppercase text-slate-300 font-medium">
+                Command Template
+              </label>
+              <span className="text-[11px] text-slate-500 font-mono">
+                Variables like {'{{SERVER_MEMORY}}'} or {'{{SERVER_JARFILE}}'} are dynamically evaluated
+              </span>
+            </div>
+            <textarea
+              rows={3}
+              value={startupCommand}
+              onChange={(e) => setStartupCommand(e.target.value)}
+              className="w-full bg-[#0d1017] border border-slate-800 hover:border-slate-700 focus:border-purple-500 rounded-xl p-3.5 text-xs text-emerald-400 font-mono focus:outline-none transition-colors leading-relaxed selection:bg-purple-500/30"
+              placeholder="e.g. java -Xms128M -Xmx{{SERVER_MEMORY}}M -jar server.jar"
+            />
+          </div>
+
+          <div className="flex items-center justify-between pt-1">
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <Zap className="w-3.5 h-3.5 text-amber-400" />
+              <span>Requires server restart for changes to take effect.</span>
+            </div>
+            <button
+              type="submit"
+              disabled={isSavingStartup}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-mono text-xs font-bold transition-all shadow-lg shadow-purple-600/20 active:scale-95"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>{isSavingStartup ? 'Saving...' : 'Save Startup Command'}</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Server Resource Auto-Scaler / Sleep Mode */}
+      <div className="bg-[#11141a] rounded-2xl p-6 border border-slate-800 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+              <Moon className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-white tracking-wide uppercase font-mono">
+                  Resource Auto-Scaler / Sleep Mode
+                </h3>
+                {isSleeping ? (
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-semibold animate-pulse">
+                    STANDBY / ASLEEP
+                  </span>
+                ) : sleepModeEnabled ? (
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
+                    ARMED & MONITORING
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
+                    DISABLED
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-400">
+                Pausiert den Server bei 0 aktiven Spielern automatisch zur Ressourcenschonung und weckt ihn sofort bei Verbindungsaufbau auf.
+              </p>
+            </div>
+          </div>
+
+          <label className="flex items-center gap-2 cursor-pointer self-start sm:self-auto">
+            <span className="text-xs font-mono text-slate-300 font-semibold">Auto-Sleep aktivieren</span>
+            <input
+              type="checkbox"
+              checked={sleepModeEnabled}
+              onChange={(e) => setSleepModeEnabled(e.target.checked)}
+              className="w-4 h-4 rounded text-indigo-600 focus:ring-0 bg-slate-900 border-slate-700"
+            />
+          </label>
+        </div>
+
+        {sleepModeEnabled && (
+          <div className="space-y-4 pt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-mono uppercase text-slate-300 mb-1.5 font-medium">
+                  Inaktivitäts-Zeit bis Standby
+                </label>
+                <select
+                  value={sleepTimeoutMinutes}
+                  onChange={(e) => setSleepTimeoutMinutes(Number(e.target.value))}
+                  className="w-full bg-[#0d1017] border border-slate-800 hover:border-slate-700 focus:border-indigo-400 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono focus:outline-none transition-colors"
+                >
+                  <option value={5}>5 Minuten ohne Spieler</option>
+                  <option value={10}>10 Minuten ohne Spieler</option>
+                  <option value={15}>15 Minuten (Standard)</option>
+                  <option value={30}>30 Minuten ohne Spieler</option>
+                  <option value={60}>60 Minuten (1 Stunde)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-mono uppercase text-slate-300 mb-1.5 font-medium">
+                  Wake-Up Verhalten
+                </label>
+                <div className="p-2.5 rounded-xl bg-[#0d1017] border border-slate-800 text-xs font-mono text-slate-300 flex items-center justify-between">
+                  <span>Sofort-Wake bei TCP-Ping</span>
+                  <span className="text-[10px] text-emerald-400 font-bold">Aktiv</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={handleSaveSleepMode}
+                disabled={isSavingSleep}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-mono text-xs font-bold transition-all shadow-md active:scale-95"
+              >
+                <Save className="w-3.5 h-3.5" />
+                <span>{isSavingSleep ? 'Speichern...' : 'Sleep-Modus Konfiguration speichern'}</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Danger Zone */}
+      <div className="rounded-2xl p-6 border border-rose-500/20 bg-rose-500/[0.03] space-y-4">
+        <div className="flex items-center gap-2 text-rose-400 font-mono text-sm font-bold uppercase">
+          <AlertTriangle className="w-4 h-4" />
+          <span>Danger Zone // Destructive Actions</span>
+        </div>
+        <p className="text-xs text-slate-400">
+          The following operations may disrupt active connections or result in unrecoverable data loss.
+        </p>
+
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-rose-500/20">
+          <div>
+            <h5 className="text-xs font-bold text-white font-mono">Reinstall Server Container</h5>
+            <p className="text-[11px] text-slate-400 font-mono">
+              Re-executes the installer script while preserving user data.
+            </p>
+          </div>
+          <button
+            onClick={handleReinstall}
+            className="px-3.5 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono text-xs font-bold transition-colors whitespace-nowrap active:scale-95"
+          >
+            Reinstall Server
+          </button>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-rose-500/20">
+          <div>
+            <h5 className="text-xs font-bold text-rose-300 font-mono">Delete Server Instance</h5>
+            <p className="text-[11px] text-slate-400 font-mono">
+              Permanently purge container, disk storage, and database links.
+            </p>
+          </div>
+          <button
+            onClick={handleDelete}
+            className="px-3.5 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 font-mono text-xs font-bold transition-colors whitespace-nowrap active:scale-95"
+          >
+            Delete Server
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};

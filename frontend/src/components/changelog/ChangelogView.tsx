@@ -1,0 +1,693 @@
+import React, { useState, useEffect } from 'react';
+import { api } from '../../api/client';
+import { useTranslation } from '../../i18n/useTranslation';
+import { useApp } from '../../context/AppContext';
+import {
+  Sparkles,
+  Shield,
+  Zap,
+  CheckCircle2,
+  Calendar,
+  RefreshCw,
+  Search,
+  ChevronDown,
+  ChevronUp,
+  GitBranch,
+  ArrowUpRight,
+  Download,
+  AlertCircle,
+  ExternalLink,
+} from 'lucide-react';
+
+interface Release {
+  version: string;
+  title: string;
+  title_en?: string;
+  date: string;
+  tag?: string;
+  tag_en?: string;
+  highlights?: string[];
+  highlights_en?: string[];
+  features?: string[];
+  features_en?: string[];
+  security?: string[];
+  security_en?: string[];
+  improvements?: string[];
+  improvements_en?: string[];
+}
+
+interface UpdateStatus {
+  update_available: boolean;
+  current_version: string;
+  latest_version: string;
+  commit_sha?: string;
+  commit_message?: string;
+  commit_date?: string;
+  commit_author?: string;
+  repo_url?: string;
+  checked_at?: string;
+}
+
+export const ChangelogView: React.FC = () => {
+  const { language } = useTranslation();
+  const { addToast } = useApp();
+  const [releases, setReleases] = useState<Release[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [expandedReleases, setExpandedReleases] = useState<Record<string, boolean>>({
+    'v2.7.2': true,
+    'v2.7.1': false,
+    'v2.7.0': false,
+    'v2.6.0': false,
+  });
+
+  // GitHub Update State
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [installingUpdate, setInstallingUpdate] = useState(false);
+
+  const toggleRelease = (version: string) => {
+    setExpandedReleases((prev) => ({
+      ...prev,
+      [version]: prev[version] === undefined ? false : !prev[version],
+    }));
+  };
+
+  const expandAll = () => {
+    const all: Record<string, boolean> = {};
+    displayReleases.forEach((r) => {
+      all[r.version] = true;
+    });
+    setExpandedReleases(all);
+  };
+
+  const collapseAll = () => {
+    const all: Record<string, boolean> = {};
+    displayReleases.forEach((r) => {
+      all[r.version] = false;
+    });
+    setExpandedReleases(all);
+  };
+
+  const fetchChangelog = async () => {
+    try {
+      setLoading(true);
+      const res = await api.changelog.get(language);
+      if (res?.releases) {
+        setReleases(res.releases);
+      }
+    } catch (err) {
+      console.error('Failed to load changelog:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const checkForUpdates = async (isManual = false) => {
+    try {
+      setCheckingUpdate(true);
+      const res = await api.updates.check();
+      setUpdateStatus(res);
+      if (isManual) {
+        if (res?.update_available) {
+          addToast({
+            title: language === 'de' ? `Update verfügbar (${res.latest_version})` : `Update Available (${res.latest_version})`,
+            description: res.commit_message
+              ? `${res.commit_message} (${res.commit_sha?.slice(0, 7) || 'HEAD'})`
+              : (language === 'de' ? 'Ein neuer Versionsstand ist auf GitHub verfügbar.' : 'A new version is available on GitHub.'),
+            type: 'info',
+          });
+        } else {
+          addToast({
+            title: language === 'de' ? `System ist aktuell (${res.current_version})` : `System is up to date (${res.current_version})`,
+            description: res.commit_message
+              ? `${language === 'de' ? 'Neuester Commit' : 'Latest commit'}: "${res.commit_message}" (${res.commit_sha?.slice(0, 7) || 'HEAD'})`
+              : (language === 'de' ? 'Alle Komponenten entsprechen dem neuesten GitHub-Stand.' : 'All components match the latest GitHub version.'),
+            type: 'success',
+          });
+        }
+      }
+    } catch (err: any) {
+      console.warn('Update check failed:', err);
+      if (isManual) {
+        addToast({
+          title: language === 'de' ? 'Prüfung fehlgeschlagen' : 'Update Check Failed',
+          description: err.message || (language === 'de' ? 'Verbindung zu GitHub konnte nicht hergestellt werden.' : 'Could not connect to GitHub.'),
+          type: 'error',
+        });
+      }
+    } finally {
+      setCheckingUpdate(false);
+    }
+  };
+
+  const handle1ClickInstall = async () => {
+    try {
+      setInstallingUpdate(true);
+      addToast({
+        title: language === 'de' ? 'Sicherheits-Backup & Update' : 'Safety Backup & Update',
+        description: language === 'de'
+          ? 'Automatisches SQLite-Backup wird erstellt & PteroNext aktualisiert...'
+          : 'Creating automated SQLite backup & updating PteroNext...',
+        type: 'info',
+      });
+      const res = await api.updates.install();
+      addToast({
+        title: language === 'de' ? 'Update erfolgreich initialisiert' : 'Update Successfully Initialized',
+        description: res.message || (language === 'de' ? 'PteroNext startet im Hintergrund sicher neu...' : 'PteroNext restarting safely in background...'),
+        type: 'success',
+      });
+      setTimeout(() => {
+        window.location.reload();
+      }, 3500);
+    } catch (err: any) {
+      addToast({
+        title: language === 'de' ? 'Update fehlgeschlagen' : 'Update Failed',
+        description: err.message || 'Error executing update',
+        type: 'error',
+      });
+      setInstallingUpdate(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchChangelog();
+    checkForUpdates(false);
+  }, [language]);
+
+  const defaultReleases: Release[] = [
+    {
+      version: 'v2.7.2',
+      title: language === 'de'
+        ? 'Crash-Analyzer, File-Time-Machine, Cloudflare DNS, Server-Staging & Suspension Enforcement'
+        : 'Crash Analyzer, File Time-Machine, Cloudflare DNS, Server Staging & Suspension Enforcement',
+      date: 'October 2026',
+      tag: 'LATEST STABLE',
+      features: language === 'de'
+        ? [
+            'Intelligenter Crash-Analyzer: Erkennt Java-Mismatch, Portkonflikte, OOM und YAML-Syntax mit 1-Klick-Lösung',
+            'File-Time-Machine: Automatische Revisionshistorie bei jedem Speichern mit Split-View-Diff (Rot/Grün) und 1-Klick-Zurücksetzen',
+            'Zero-Config Cloudflare DNS: Automatische Erstellung von A- & SRV-Records für nahtloses Verbinden ohne manuelle Portangabe',
+            'Instant Server-Klon / 1-Klick-Staging: Dupliziert Server-Dateien und Ports in Sekundenschnelle für risikofreie Testumgebungen',
+            'Strikte Suspension-Sperre: Suspendierte Server werden sofort gestoppt, Dateimanager und Power-Aktionen gesperrt',
+            'Automatischer GitHub-Changelog Feed & Zero-Data-Loss 1-Klick-Updater mit automatischem Datenbank-Backup',
+          ]
+        : [
+            'Intelligent Crash Analyzer: Detects Java mismatch, port collisions, OOM, and YAML indentation with 1-click automated fix',
+            'File Time-Machine: Micro-snapshots on every save with red/green split diff view and 1-click revision restore',
+            'Zero-Config Cloudflare DNS: Automated A and SRV DNS records for direct player connections without cumbersome ports',
+            'Instant Server Clone / 1-Click Staging: Effortlessly duplicates server directories and ports for isolated sandbox testing',
+            'Strict Suspension Lock: Suspended servers immediately terminate, file editing, uploads, and power actions locked down',
+            'Automated GitHub Changelog feed & zero-data-loss 1-click updater with automated SQLite database snapshots',
+          ],
+      security: language === 'de'
+        ? [
+            'Administrative Suspendierung blockiert nun konsequent Schreibzugriffe, Uploads, Löschungen und Konsolenbefehle',
+            'Automatisches SQLite-Sicherheits-Backup vor jedem System-Update zur Vermeidung jeglichen Datenverlusts',
+          ]
+        : [
+            'Server suspension strictly locks out file modifications, uploads, deletions, and power execution',
+            'Automated SQLite safety backups before system upgrades ensuring zero data loss',
+          ],
+      improvements: language === 'de'
+        ? [
+            'Live GitHub Changelog-Erkennung: Neue Commits und Releases werden automatisch abgefragt und dargestellt',
+            'Prüfen-Button liefert sofortiges visuelles Toast-Feedback mit den neuesten Repository-Metadaten',
+          ]
+        : [
+            'Live GitHub Changelog Recognition: Queries and presents new commits and releases on the fly',
+            'Check button delivers immediate toast feedback detailing latest repository metadata',
+          ],
+    },
+    {
+      version: 'v2.7.1',
+      title: language === 'de'
+        ? 'Discord Bot DM-Code-Verifikation, Server-Mitgliedschaftsprüfung & Globale Profilbilder'
+        : 'Discord Bot DM Code Verification, Server Membership Check & Global Avatars',
+      date: 'October 2026',
+      tag: 'LATEST STABLE',
+      features: language === 'de'
+        ? [
+            'Discord Bot DM-Verifikation: Automatischer 6-stelliger Sicherheitscode direkt per privater Nachricht vom Bot',
+            'Server-Mitgliedschaftsprüfung: Nutzer müssen Mitglied des Discord-Servers sein, sonst weist der Bot die Anfrage ab',
+            'Globale Profilbilder: Eigene hochgeladene Avatare werden nun durchgängig in Sidebar, Header und Co-Pilot-Admin-Präsenz angezeigt',
+            'Sicherer Ablauf mit 10-Minuten-Code-Ablaufdatum und automatischer DM-Erfolgsbestätigung',
+            'Footer-Versionsbadge und GitHub-Updater synchronisiert auf v2.7.1',
+          ]
+        : [
+            'Discord Bot DM Verification: Automated 6-digit security code delivered directly via private bot message',
+            'Guild Membership Check: Enforces that users must belong to the Discord server before receiving a DM',
+            'Global Profile Avatars: Custom uploaded avatars render consistently across navigation, header, and Co-Pilot',
+            'Secure lifecycle with 10-minute expiration window and automated Discord success confirmation message',
+            'Footer version badge and GitHub updater synchronized to v2.7.1',
+          ],
+      security: language === 'de'
+        ? [
+            'Kryptografisch zufällige 6-stellige Einmalcodes mit Verfallszeit',
+            'Ratenbegrenzung und serverseitige Validierung der Discord-User-ID',
+          ]
+        : [
+            'Cryptographically secure 6-digit one-time verification tokens with expiry',
+            'Rate limiting and server-side Discord snowflake validation',
+          ],
+      improvements: language === 'de'
+        ? [
+            'Sidebar-Profilschaltfläche zeigt nun echte Benutzer-Avatare statt nur Initialen',
+            'Co-Pilot Online-Admins zeigen individuelle Profilbilder der Moderatoren',
+          ]
+        : [
+            'Sidebar user profile trigger now displays custom user avatars instead of initials',
+            'Co-Pilot active administrators render individualized moderator avatars',
+          ],
+    },
+    {
+      version: 'v2.7.0',
+      title: language === 'de'
+        ? 'Discord Bot & OAuth2, Auto-Sleep Modus, Command History & 1-Klick GitHub Updater'
+        : 'Discord Bot & OAuth2, Auto-Sleep Mode, Command History & 1-Click GitHub Updater',
+      date: 'October 2026',
+      tag: 'LATEST RELEASE',
+      features: language === 'de'
+        ? [
+            'Discord-Bot & OAuth2-Authentifizierung im Admin-Bereich mit Bot-Token-Verwaltung und 1-Klick Discord-Login',
+            'Server Resource Auto-Scaler / Sleep-Modus: Automatische Container-Pause bei 0 Spielern mit Sofort-Aufweckung',
+            'RCON & Terminal Befehls-Historie mit Pfeiltasten Hoch/Runter sowie Autovervollständigung für Standardbefehle',
+            'Direkter Profilbild-Upload in den Benutzereinstellungen (PNG, JPG, WebP) mit Live-Vorschau',
+            'Echte Browser-URLs (Deep Linking) für alle Ansichten (/changelog, /admin/*, /servers/*, /settings)',
+            'Automatischer GitHub-Update-Checker und 1-Klick-Installation direkt über das Repository',
+            'Vollständig automatische Übersetzung aller Changelogs zwischen Deutsch und Englisch',
+          ]
+        : [
+            'Discord Bot & OAuth2 Authentication in Admin area with bot token management and 1-click Discord login',
+            'Server Resource Auto-Scaler / Sleep Mode: Automatic container suspension when 0 players are active',
+            'RCON & Terminal Command History with Up/Down arrow navigation and smart autocomplete for server commands',
+            'Direct Profile Picture / Avatar upload in User Settings (PNG, JPG, WebP) with instant live preview',
+            'Real Browser URLs & Deep Linking for every view (/changelog, /admin/*, /servers/*, /settings)',
+            'Automatic GitHub update check & 1-click installation directly from the GitHub repository',
+            '100% full automatic translation of all changelog entries between German and English',
+          ],
+      security: language === 'de'
+        ? [
+            'Sichere Token-Speicherung für Discord-Bot-Tokens mit Maskierung in API-Antworten',
+            'Fokus-Border-Bereinigung in der Befehlspalette (CMD+K) ohne unschöne Browser-Ringe',
+            'Exakte Cluster- und Host-Arbeitsspeicherberechnung ohne Fehlanzeigen',
+          ]
+        : [
+            'Secure token storage for Discord Bot tokens with sensitive value masking in API responses',
+            'Focus border sanitization in Command Palette (CMD+K) removing intrusive browser rings',
+            'Accurate host and cluster memory metrics reporting real server allocations',
+          ],
+      improvements: language === 'de'
+        ? [
+            'Cluster Nodes Matrix zeigt nun die exakte Anzahl realer Server anstelle von Port-Allokationen',
+            'Speicher-Metriken synchronisieren nun Host-RAM und Node-Kapazitäten zuverlässig',
+          ]
+        : [
+            'Cluster Nodes Matrix now displays exact unique server instances instead of total port allocations',
+            'Memory telemetry metrics accurately synchronize host RAM and node allocations',
+          ],
+    },
+    {
+      version: 'v2.6.0',
+      title: language === 'de'
+        ? 'Enterprise Themes, Custom CSS Studio, Smooth Accordions & 2FA Recovery'
+        : 'Enterprise Themes, Custom CSS Studio, Smooth Accordions & 2FA Recovery',
+      date: 'October 2026',
+      tag: 'STABLE RELEASE',
+      features: language === 'de'
+        ? [
+            '11 Handgefertigte Themes mit vollständiger Farbharmonie (Cyberpunk, Midnight, Sakura, Aurora, Matrix)',
+            '4 Dynamische Hintergrund-Leinwände: Ambient Dynamic Glow, Cyber Mesh Grid, Pure OLED Black & Classic Dark',
+            'Custom CSS Live Studio in den Benutzereinstellungen mit sofortiger Vorschau ohne Reload',
+            'Zwei-Faktor-Authentifizierung (2FA) Härtung: Case-insensitives Login & serverseitiger Notfall-Reset-CLI-Befehl (-reset-2fa)',
+            'Multi-User Co-Pilot Admin-Präsenz mit interaktiver Liste aller aktiven Admins und deren Aktivitäten',
+            'Sanfte Accordion-Transitions (CSS Grid Animations) im Server-Dashboard und in der Plattform-Navigation',
+          ]
+        : [
+            '11 Handcrafted themes with full color harmony (Cyberpunk, Midnight, Sakura, Aurora, Matrix)',
+            '4 Dynamic background canvases: Ambient Dynamic Glow, Cyber Mesh Grid, Pure OLED Black & Classic Dark',
+            'Custom CSS Live Studio in user account settings with instant preview without page reloads',
+            'Two-Factor Authentication (2FA) hardening: Case-insensitive login & emergency CLI reset (-reset-2fa)',
+            'Multi-User Co-Pilot Admin presence with interactive list of active administrators and their activities',
+            'Smooth accordion transitions (CSS Grid animations) in server dashboard and platform navigation',
+          ],
+      security: language === 'de'
+        ? [
+            '2FA-Aussperrschutz mit automatischem Fallback und Notfall-Reset via CLI (/opt/pteronext/pteronext -reset-2fa)',
+            'Robuste Session-Verifikation mit Argon2id & JWT-Tokens',
+          ]
+        : [
+            '2FA lockout prevention with automatic fallback and emergency CLI reset',
+            'Robust session verification using Argon2id and JWT tokens',
+          ],
+      improvements: language === 'de'
+        ? [
+            'Fehlerbehebung und zentrierte Ausrichtung für Suchleiste im Workload-Dashboard',
+            'Co-Pilot Admin-Präsenz mit interaktiver Liste, Avatar-Indikatoren und Letztgesehen-Telemetrie',
+          ]
+        : [
+            'Bug fix and centered alignment for search bar in workload dashboard',
+            'Co-Pilot Admin presence with interactive roster, avatars, and last-seen telemetry',
+          ],
+    },
+    {
+      version: 'v2.4.0',
+      title: 'Enterprise Security, Sidecars & Co-Pilot',
+      date: 'October 2026',
+      tag: 'MAJOR RELEASE',
+      features: language === 'de'
+        ? [
+            'Player- & Community-Dashboard mit Live-Spielerliste, Web-Chat-Relay und Ban-/Mute-Tabelle',
+            'Port- & Netzwerk-Manager mit Multi-Port Allocation Pool und 1-Click Primary Switch',
+            'Integrierte Container-Sidecars (Redis, PostgreSQL, SQLite) mit Auto-Credential-Injection',
+            'Integrierter Web-DB-Viewer (Table Browser & Safe Query Explorer)',
+          ]
+        : [
+            'Player & Community Dashboard with live player roster, web chat relay, and ban/mute controls',
+            'Port & Network Manager with multi-port allocation pool and 1-click primary switch',
+            'Integrated Container Sidecars (Redis, PostgreSQL, SQLite) with auto-credential injection',
+            'Built-in Web Database Viewer (Table Browser & Safe Query Explorer)',
+          ],
+      security: language === 'de'
+        ? [
+            'Automatische Zensur sensibler Tokens, Passwörter und API-Keys in Konsolen-Logs',
+          ]
+        : [
+            'Automatic redaction and masking of sensitive credentials in console logs',
+          ],
+      improvements: language === 'de'
+        ? [
+            'Multi-Node Load Balancing (automatische Zuweisung nach tatsächlicher RAM/CPU-Auslastung)',
+          ]
+        : [
+            'Multi-Node Load Balancing based on live RAM/CPU telemetry',
+          ],
+    },
+  ];
+
+  const displayReleases = releases.length > 0 ? releases : defaultReleases;
+
+  const filteredReleases = displayReleases.filter((release) => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return true;
+    const titleMatch = release.title.toLowerCase().includes(q);
+    const versionMatch = release.version.toLowerCase().includes(q);
+    const featuresMatch = (release.features || release.highlights || []).some((f) =>
+      f.toLowerCase().includes(q)
+    );
+    const securityMatch = (release.security || []).some((s) => s.toLowerCase().includes(q));
+    const improvementMatch = (release.improvements || []).some((i) => i.toLowerCase().includes(q));
+    return titleMatch || versionMatch || featuresMatch || securityMatch || improvementMatch;
+  });
+
+  return (
+    <div className="space-y-6 max-w-5xl mx-auto">
+      {/* Header Banner */}
+      <div className="cyber-glass rounded-2xl p-6 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-6 h-6 text-indigo-400" />
+            <h1 className="text-xl font-bold text-white tracking-wide font-sans">
+              {language === 'de' ? 'System-Changelog & Release Notes' : 'System Changelog & Release Notes'}
+            </h1>
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-mono">
+              Live Feed
+            </span>
+          </div>
+          <p className="text-xs text-slate-400 mt-1 max-w-xl">
+            {language === 'de'
+              ? 'Übersicht aller Plattform-Updates, Sicherheitserweiterungen, neuer Sidecar-Module und Leistungsoptimierungen für PteroNext.'
+              : 'Overview of platform updates, security hardenings, sidecar modules, and performance optimizations for PteroNext.'}
+          </p>
+        </div>
+
+        <button
+          onClick={fetchChangelog}
+          className="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors self-start md:self-auto"
+          title={language === 'de' ? 'Aktualisieren' : 'Refresh'}
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+        </button>
+      </div>
+
+      {/* GitHub Auto-Update & 1-Click Install Card */}
+      <div className="p-5 rounded-2xl bg-gradient-to-r from-slate-900/90 to-indigo-950/40 border border-indigo-500/30 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-start sm:items-center gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
+            <GitBranch className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-bold text-white font-mono">
+                PteroNext GitHub Feed
+              </span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">
+                {updateStatus?.latest_version || 'v2.7.2'} LATEST
+              </span>
+              <a
+                href="https://github.com/SpringiSFMM/pteronext"
+                target="_blank"
+                rel="noreferrer"
+                className="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-mono transition-colors"
+              >
+                <span>SpringiSFMM/pteronext</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+            <p className="text-xs text-slate-400 font-mono mt-0.5">
+              {updateStatus?.commit_message
+                ? `${language === 'de' ? 'Letzter Commit:' : 'Latest commit:'} "${updateStatus.commit_message}" (${updateStatus.commit_sha || 'f3e29f6'})`
+                : language === 'de'
+                ? 'Automatische Synchronisation mit dem GitHub-Repository aktiv.'
+                : 'Automatic synchronization with GitHub repository active.'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2.5 self-start md:self-auto">
+          <button
+            onClick={() => checkForUpdates(true)}
+            disabled={checkingUpdate}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#161b22] hover:bg-[#21262d] border border-slate-700 text-xs font-mono text-slate-300 hover:text-white transition-colors"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${checkingUpdate ? 'animate-spin' : ''}`} />
+            <span>{language === 'de' ? 'Prüfen' : 'Check'}</span>
+          </button>
+
+          <button
+            onClick={handle1ClickInstall}
+            disabled={installingUpdate}
+            className="btn btn-primary px-3.5 py-2 text-xs font-bold font-mono transition-all shadow-md active:scale-95 flex items-center gap-1.5"
+          >
+            {installingUpdate ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <span>{language === 'de' ? 'Installiere...' : 'Installing...'}</span>
+              </>
+            ) : (
+              <>
+                <Download className="w-3.5 h-3.5" />
+                <span>{language === 'de' ? '1-Klick Update' : '1-Click Update'}</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Search Bar & Accordion Controls */}
+      <div className="cyber-glass rounded-2xl p-4 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3 flex-1">
+          <Search className="w-4 h-4 text-slate-400 shrink-0" />
+          <input
+            type="text"
+            placeholder={
+              language === 'de'
+                ? 'Suche in Update-Notizen, Features oder Sicherheits-Fixes...'
+                : 'Search release notes, features, or security fixes...'
+            }
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-transparent text-xs text-white placeholder-slate-500 border-none outline-none ring-0 focus:outline-none focus:ring-0 font-mono"
+          />
+        </div>
+
+        <div className="flex items-center gap-2 self-end sm:self-auto shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-800">
+          <button
+            onClick={expandAll}
+            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[11px] font-mono transition-colors"
+          >
+            {language === 'de' ? 'Alle ausklappen' : 'Expand All'}
+          </button>
+          <button
+            onClick={collapseAll}
+            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[11px] font-mono transition-colors"
+          >
+            {language === 'de' ? 'Alle einklappen' : 'Collapse All'}
+          </button>
+        </div>
+      </div>
+
+      {/* Release Timeline (Collapsible Accordions) */}
+      <div className="space-y-4">
+        {filteredReleases.map((release) => {
+          const isExpanded = expandedReleases[release.version] ?? (release.version === 'v2.7.2');
+          const featureItems =
+            release.features && release.features.length > 0
+              ? release.features
+              : release.highlights && release.highlights.length > 0
+              ? release.highlights
+              : [];
+
+          const securityItems = release.security || [];
+          const improvementItems = release.improvements || [];
+          const totalCount = featureItems.length + securityItems.length + improvementItems.length;
+
+          return (
+            <div
+              key={release.version}
+              className="cyber-glass rounded-2xl border border-slate-800 hover:border-slate-700/80 transition-all overflow-hidden shadow-lg"
+            >
+              {/* Clickable Header Button */}
+              <button
+                onClick={() => toggleRelease(release.version)}
+                className="w-full p-5 sm:p-6 text-left flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-white/[0.02] transition-colors select-none group"
+                aria-expanded={isExpanded}
+              >
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <span
+                    className={`text-sm font-mono font-bold px-3 py-1 rounded-xl transition-colors ${
+                      release.version === 'v2.7.2'
+                        ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                        : release.version === 'v2.7.1'
+                        ? 'bg-teal-500/15 text-teal-400 border border-teal-500/30'
+                        : release.version === 'v2.7.0'
+                        ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30'
+                        : release.version === 'v2.6.0'
+                        ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30'
+                        : 'bg-slate-800 text-slate-300 border border-slate-700'
+                    }`}
+                  >
+                    {release.version}
+                  </span>
+                  <div className="min-w-0">
+                    <h2 className="text-base font-bold text-white group-hover:text-indigo-300 transition-colors font-sans truncate">
+                      {release.title}
+                    </h2>
+                    {!isExpanded && (
+                      <p className="text-xs text-slate-400 font-mono mt-0.5">
+                        {totalCount} {language === 'de' ? 'Änderungen enthalten • Klicken zum Ausklappen' : 'changes included • Click to expand'}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 shrink-0 self-end sm:self-auto">
+                  <div className="flex items-center gap-1.5 text-xs text-slate-400 font-mono">
+                    <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                    <span>{release.date}</span>
+                  </div>
+                  {release.tag && (
+                    <span
+                      className={`text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
+                        release.version === 'v2.7.2'
+                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                          : release.version === 'v2.7.1'
+                          ? 'bg-teal-500/10 text-teal-400 border border-teal-500/20'
+                          : release.tag.includes('MAJOR')
+                          ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                          : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                      }`}
+                    >
+                      {release.tag}
+                    </span>
+                  )}
+                  <div className="p-1 rounded-lg bg-slate-800/80 group-hover:bg-slate-700 text-slate-400 group-hover:text-white transition-colors">
+                    {isExpanded ? (
+                      <ChevronUp className="w-4 h-4" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4" />
+                    )}
+                  </div>
+                </div>
+              </button>
+
+              {/* Accordion Body */}
+              {isExpanded && (
+                <div className="px-5 pb-6 sm:px-6 space-y-5 border-t border-slate-800/80 pt-5 view-enter">
+                  {/* Highlights / Features */}
+                  {featureItems.length > 0 && (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-xs font-mono font-bold text-indigo-400 uppercase tracking-wider">
+                        <Sparkles className="w-4 h-4 text-indigo-400" />
+                        <span>{language === 'de' ? 'HIGHLIGHTS & NEUE FEATURES' : 'HIGHLIGHTS & NEW FEATURES'}</span>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                        {featureItems.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-start gap-2.5"
+                          >
+                            <CheckCircle2 className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+                            <span className="text-xs text-slate-200 leading-relaxed font-sans">
+                              {item}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Security Guardrails */}
+                  {securityItems.length > 0 && (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-xs font-mono font-bold text-emerald-400 uppercase tracking-wider">
+                        <Shield className="w-4 h-4 text-emerald-400" />
+                        <span>{language === 'de' ? 'SICHERHEIT & SCHUTZ' : 'SECURITY & GUARDRAILS'}</span>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                        {securityItems.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className="p-3.5 rounded-xl bg-emerald-950/20 border border-emerald-500/20 flex items-start gap-2.5"
+                          >
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                            <span className="text-xs text-emerald-200/90 leading-relaxed font-sans">
+                              {item}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Improvements & Fixes */}
+                  {improvementItems.length > 0 && (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-xs font-mono font-bold text-amber-400 uppercase tracking-wider">
+                        <Zap className="w-4 h-4 text-amber-400" />
+                        <span>{language === 'de' ? 'VERBESSERUNGEN & FIXES' : 'PERFORMANCE & IMPROVEMENTS'}</span>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                        {improvementItems.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className="p-3.5 rounded-xl bg-amber-950/20 border border-amber-500/20 flex items-start gap-2.5"
+                          >
+                            <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                            <span className="text-xs text-amber-200/90 leading-relaxed font-sans">
+                              {item}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};

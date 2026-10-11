@@ -1,0 +1,134 @@
+package remote
+
+import (
+	"encoding/json"
+	"net/http"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/pteronext/panel-core/middleware"
+	"github.com/pteronext/panel-core/models"
+	"github.com/pteronext/panel-core/services"
+	"gorm.io/gorm"
+)
+
+type WingsActivityEvent struct {
+	Server    string                 `json:"server"`
+	User      string                 `json:"user"`
+	Event     string                 `json:"event"`
+	Metadata  map[string]interface{} `json:"metadata"`
+	Timestamp string                 `json:"timestamp"`
+	IP        string                 `json:"ip"`
+}
+
+type WingsActivityPayload struct {
+	Data []WingsActivityEvent `json:"data"`
+}
+
+// ActivityRemoteController handles daemon activity events.
+type ActivityRemoteController struct {
+	db           *gorm.DB
+	auditService *services.AuditService
+}
+
+// NewActivityRemoteController creates a new ActivityRemoteController.
+func NewActivityRemoteController(db *gorm.DB, auditService *services.AuditService) *ActivityRemoteController {
+	return &ActivityRemoteController{
+		db:           db,
+		auditService: auditService,
+	}
+}
+
+// PostActivity handles POST /api/remote/activity
+func (c *ActivityRemoteController) PostActivity(ctx *gin.Context) {
+	node, ok := middleware.GetRequestNode(ctx)
+	if !ok || node == nil {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized node."})
+		return
+	}
+
+	var payload WingsActivityPayload
+	if err := ctx.ShouldBindJSON(&payload); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload."})
+		return
+	}
+
+	if len(payload.Data) == 0 {
+		ctx.Status(http.StatusNoContent)
+		return
+	}
+
+	// Collect server and user UUIDs to lookup IDs efficiently
+	serverUUIDs := make([]string, 0, len(payload.Data))
+	userUUIDs := make([]string, 0, len(payload.Data))
+	for _, datum := range payload.Data {
+		if datum.Server != "" {
+			serverUUIDs = append(serverUUIDs, datum.Server)
+		}
+		if datum.User != "" {
+			userUUIDs = append(userUUIDs, datum.User)
+		}
+	}
+
+	serverMap := make(map[string]uint)
+	if len(serverUUIDs) > 0 {
+		var servers []models.Server
+		c.db.Where("uuid IN (?) AND node_id = ?", serverUUIDs, node.ID).Find(&servers)
+		for _, s := range servers {
+			serverMap[s.UUID] = s.ID
+		}
+	}
+
+	userMap := make(map[string]uint)
+	if len(userUUIDs) > 0 {
+		var users []models.User
+		c.db.Where("uuid IN (?)", userUUIDs).Find(&users)
+		for _, u := range users {
+			userMap[u.UUID] = u.ID
+		}
+	}
+
+	logs := make([]models.AuditLog, 0, len(payload.Data))
+	for _, datum := range payload.Data {
+		sID, hasServer := serverMap[datum.Server]
+		if !hasServer {
+			continue
+		}
+
+		var uID *uint
+		if id, hasUser := userMap[datum.User]; hasUser {
+			uID = &id
+		}
+
+		t, err := time.Parse(time.RFC3339, datum.Timestamp)
+		if err != nil {
+			t = time.Now().UTC()
+		}
+
+		metaJSON, _ := json.Marshal(datum.Metadata)
+
+		ip := datum.IP
+		if ip == "" {
+			ip = "127.0.0.1"
+		}
+
+		logs = append(logs, models.AuditLog{
+			UUID:       uuid.New().String(),
+			ActorID:    uID,
+			ActorType:  "user",
+			ServerID:   &sID,
+			Event:      datum.Event,
+			Properties: string(metaJSON),
+			IP:         ip,
+			Timestamp:  t,
+		})
+	}
+
+	if err := c.auditService.LogBatch(logs); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed recording activity logs."})
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
+}

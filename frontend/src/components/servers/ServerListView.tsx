@@ -1,0 +1,284 @@
+import React, { useState } from 'react';
+import { useApp } from '../../context/AppContext';
+import { ServerCard } from './ServerCard';
+import { ServerStatus } from '../../types';
+import {
+  Server,
+  Search,
+  Filter,
+  Plus,
+  LayoutGrid,
+  List as ListIcon,
+  Globe,
+  Copy,
+  Check,
+  Terminal,
+} from 'lucide-react';
+import { StatusBadge } from '../common/StatusBadge';
+import { Modal } from '../common/Modal';
+
+export const ServerListView: React.FC = () => {
+  const {
+    servers,
+    searchQuery,
+    setSearchQuery,
+    selectServerAndNavigate,
+    addToast,
+    setIsCreateServerOpen,
+  } = useApp();
+
+  const [statusFilter, setStatusFilter] = useState<ServerStatus | 'all'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const filteredServers = servers.filter((server) => {
+    const matchesSearch =
+      server.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      server.egg.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      server.allocation.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      server.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    const matchesStatus =
+      statusFilter === 'all' ? true : server.status === statusFilter;
+
+    const matchesCategory =
+      categoryFilter === 'all' ? true : server.category === categoryFilter;
+
+    return matchesSearch && matchesStatus && matchesCategory;
+  });
+
+  const categories = ['all', 'Gaming', 'Database', 'Applications'];
+
+  const handleCopyIp = (e: React.MouseEvent, allocation: string, id: string) => {
+    e.stopPropagation();
+    navigator.clipboard?.writeText(allocation);
+    setCopiedId(id);
+    addToast({
+      title: 'Allocation Copied',
+      description: `Copied ${allocation} to clipboard`,
+      type: 'info',
+    });
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Top Banner / Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#30363d]/80">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">
+            Servers
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1">
+            {filteredServers.length} of {servers.length} instances configured across 4 active nodes
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          {/* View mode toggle */}
+          <div className="hidden sm:flex items-center bg-[#161b22] border border-[#30363d] rounded-lg p-0.5">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`p-1.5 rounded transition-colors ${
+                viewMode === 'grid'
+                  ? 'bg-[#21262d] text-white'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => setViewMode('table')}
+              className={`p-1.5 rounded transition-colors ${
+                viewMode === 'table'
+                  ? 'bg-[#21262d] text-white'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <ListIcon className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <button
+            onClick={() => setIsCreateServerOpen(true)}
+            className="btn btn-primary px-3.5 py-2 text-xs font-semibold shadow-sm flex items-center gap-1.5"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Deploy Instance</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Filter & Search Bar */}
+      <div className="bg-[#161b22] rounded-xl p-4 border border-[#30363d] space-y-3">
+        <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+          {/* Search box */}
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-2.5" />
+            <input
+              type="text"
+              placeholder="Search by server name, egg, IP port, or tags..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-zinc-500"
+            />
+          </div>
+
+          {/* Category Chips */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setCategoryFilter(cat)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors capitalize whitespace-nowrap ${
+                  categoryFilter === cat
+                    ? 'bg-[#21262d] text-white border border-[#30363d]'
+                    : 'bg-[#0d1117] text-slate-400 hover:text-white border border-[#30363d]'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Status Filters */}
+        <div className="flex items-center gap-2 overflow-x-auto pt-2 border-t border-[#30363d]/80">
+          <span className="text-[11px] text-slate-500 uppercase tracking-wider mr-1 flex items-center gap-1 font-mono">
+            <Filter className="w-3 h-3 text-slate-400" /> Status:
+          </span>
+
+          {[
+            { id: 'all', label: 'All' },
+            { id: 'running', label: 'Running' },
+            { id: 'starting', label: 'Starting' },
+            { id: 'stopped', label: 'Stopped' },
+            { id: 'offline', label: 'Offline' },
+          ].map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setStatusFilter(item.id as any)}
+              className={`px-2.5 py-1 rounded-md text-xs transition-colors whitespace-nowrap ${
+                statusFilter === item.id
+                  ? 'bg-[#21262d] text-white font-medium border border-[#30363d]'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Server Listing: Grid View */}
+      {viewMode === 'grid' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredServers.map((server) => (
+            <ServerCard key={server.id} server={server} />
+          ))}
+        </div>
+      ) : (
+        /* Table View */
+        <div className="bg-[#161b22] rounded-xl border border-[#30363d] overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs font-sans">
+              <thead className="bg-[#161b22] text-slate-400 border-b border-[#30363d] font-medium">
+                <tr>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4">Instance / Egg</th>
+                  <th className="py-3 px-4">Node & Allocation</th>
+                  <th className="py-3 px-4">CPU Usage</th>
+                  <th className="py-3 px-4">Memory</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#30363d]/70">
+                {filteredServers.map((server) => (
+                  <tr
+                    key={server.id}
+                    onClick={() => selectServerAndNavigate(server, 'console')}
+                    className="hover:bg-[#1c2128] cursor-pointer transition-colors"
+                  >
+                    <td className="py-3.5 px-4">
+                      <StatusBadge status={server.status} size="sm" />
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <p className="font-medium text-white truncate max-w-[200px]">
+                        {server.name}
+                      </p>
+                      <p className="text-[11px] text-slate-400 font-mono">{server.egg}</p>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={(e) => handleCopyIp(e, server.allocation, server.id)}
+                          className="flex items-center gap-1 text-[11px] font-mono text-slate-300 bg-[#0d1117] hover:bg-[#21262d] px-2 py-0.5 rounded border border-[#30363d] transition-colors"
+                        >
+                          <Globe className="w-3 h-3 text-slate-400" />
+                          <span>{server.allocation}</span>
+                          {copiedId === server.id ? (
+                            <Check className="w-3 h-3 text-emerald-400" />
+                          ) : (
+                            <Copy className="w-3 h-3 text-slate-500" />
+                          )}
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-slate-500 font-mono mt-0.5">{server.node}</p>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className="font-mono text-slate-200">
+                        {server.stats.cpu}%
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 font-mono">
+                      <span className="text-slate-300">
+                        {(server.stats.memory / 1024).toFixed(1)} /{' '}
+                        {(server.stats.memoryLimit / 1024).toFixed(0)} GB
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          selectServerAndNavigate(server, 'console');
+                        }}
+                        className="p-1.5 rounded-md bg-[#21262d] hover:bg-[#30363d] text-slate-300 hover:text-white border border-[#30363d] transition-colors"
+                      >
+                        <Terminal className="w-3.5 h-3.5 text-slate-400" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {filteredServers.length === 0 && (
+        <div className="py-16 text-center bg-[#161b22] rounded-xl border border-[#30363d]">
+          <Server className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+          <h3 className="text-sm font-semibold text-white">
+            No servers found
+          </h3>
+          <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+            No servers matched your current filter query. Try clearing your search or status filters.
+          </p>
+          <button
+            onClick={() => {
+              setSearchQuery('');
+              setStatusFilter('all');
+              setCategoryFilter('all');
+            }}
+            className="mt-4 px-3.5 py-1.5 rounded-lg bg-[#21262d] hover:bg-[#30363d] text-xs text-slate-300 border border-[#30363d] transition-colors"
+          >
+            Reset Filters
+          </button>
+        </div>
+      )}
+
+    </div>
+  );
+};

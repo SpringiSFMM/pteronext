@@ -1,0 +1,50 @@
+# Dependencies
+/vendor
+node_modules
+frontend/node_modules
+.yarn
+
+# Build Artifacts & Binaries
+/public/build
+/public/hot
+frontend/dist
+core/pkg/web/dist
+core/pteronext*
+core/panel-core
+core/coverage.out
+wings/wings-linux*
+deploy-package/
+pteronext-deploy.tar.gz
+*.exe
+*.test
+*.db-shm
+*.db-wal
+*.tsbuildinfo
+result
+
+# Databases & Runtime Data
+*.db
+*.sqlite
+*.sqlite3
+storage/framework/*
+
+# Environment & Secrets
+.env*
+!.env.example
+!.env.ci
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+
+# OS & Editor
+*.DS_Store*
+.DS_Store
+.vscode/*
+.idea
+/nbproject
+/.direnv
+*.log
+.phpunit.result.cache
+.php-cs-fixer.cache
+coverage.xml
