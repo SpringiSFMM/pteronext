@@ -1592,6 +1592,7 @@ export const api = {
       current_tps: number;
       current_mspt: number;
       current_health: string;
+      is_running?: boolean;
       data: Array<{ timestamp: number; tps: number; mspt: number; health: string }>;
     }> => {
       return request(`/api/servers/${serverUuid}/diagnostics/tps-heatmap`);

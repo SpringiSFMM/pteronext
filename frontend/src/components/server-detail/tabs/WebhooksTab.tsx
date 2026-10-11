@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../../../context/AppContext';
+import { useTranslation } from '../../../i18n/useTranslation';
 import api from '../../../api/client';
 import {
   Webhook as WebhookIcon,
@@ -15,6 +16,7 @@ import {
   CheckCircle2,
   Sparkles,
 } from 'lucide-react';
+import { DeleteConfirmModal } from '../../common/DeleteConfirmModal';
 
 interface WebhookItem {
   id: number;
@@ -53,9 +55,14 @@ const AVAILABLE_EVENTS = [
 
 export const WebhooksTab: React.FC = () => {
   const { selectedServer, addToast } = useApp();
+  const { language } = useTranslation();
   const [webhooks, setWebhooks] = useState<WebhookItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Delete Modal State
+  const [deleteTargetWebhook, setDeleteTargetWebhook] = useState<WebhookItem | null>(null);
+  const [isDeletingWebhook, setIsDeletingWebhook] = useState(false);
 
   // Modal State
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -149,24 +156,33 @@ export const WebhooksTab: React.FC = () => {
     }
   };
 
-  const handleDelete = async (webhook: WebhookItem) => {
-    if (!selectedServer?.uuid) return;
-    if (!confirm(`Delete webhook "${webhook.name}"?`)) return;
+  const handleDelete = (webhook: WebhookItem) => {
+    setDeleteTargetWebhook(webhook);
+  };
 
+  const handleConfirmDelete = async () => {
+    if (!selectedServer?.uuid || !deleteTargetWebhook) return;
+    setIsDeletingWebhook(true);
     try {
-      await api.webhooks.delete(selectedServer.uuid, webhook.id);
-      setWebhooks((prev) => prev.filter((w) => w.id !== webhook.id));
+      await api.webhooks.delete(selectedServer.uuid, deleteTargetWebhook.id);
+      setWebhooks((prev) => prev.filter((w) => w.id !== deleteTargetWebhook.id));
       addToast({
-        title: 'Webhook Removed',
-        description: `Webhook "${webhook.name}" was disconnected.`,
+        title: language === 'de' ? 'Webhook entfernt' : 'Webhook Removed',
+        description:
+          language === 'de'
+            ? `Webhook "${deleteTargetWebhook.name}" wurde getrennt.`
+            : `Webhook "${deleteTargetWebhook.name}" was disconnected.`,
         type: 'info',
       });
+      setDeleteTargetWebhook(null);
     } catch (err: any) {
       addToast({
-        title: 'Delete Failed',
+        title: language === 'de' ? 'Löschen fehlgeschlagen' : 'Delete Failed',
         description: err?.message || 'Failed removing webhook.',
         type: 'error',
       });
+    } finally {
+      setIsDeletingWebhook(false);
     }
   };
 
@@ -516,6 +532,21 @@ export const WebhooksTab: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Cyber-Glass Delete Modal */}
+      <DeleteConfirmModal
+        isOpen={!!deleteTargetWebhook}
+        onClose={() => setDeleteTargetWebhook(null)}
+        onConfirm={handleConfirmDelete}
+        title={language === 'de' ? 'Webhook löschen' : 'Delete Webhook'}
+        itemName={deleteTargetWebhook?.name}
+        description={
+          language === 'de'
+            ? `Möchtest du den Webhook "${deleteTargetWebhook?.name}" (${deleteTargetWebhook?.platform}) wirklich unwiderruflich löschen? Es werden keine Benachrichtigungen mehr an diese URL gesendet.`
+            : `Are you sure you want to permanently delete webhook "${deleteTargetWebhook?.name}" (${deleteTargetWebhook?.platform})? Notifications will no longer be sent to this endpoint.`
+        }
+        isDeleting={isDeletingWebhook}
+      />
     </div>
   );
 };

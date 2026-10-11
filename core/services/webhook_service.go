@@ -120,19 +120,7 @@ func (w *WebhookService) TriggerEvent(serverUUID, eventName, title, description 
 		}
 
 		if actionURL != "" {
-			payload.Components = []DiscordActionRow{
-				{
-					Type: 1,
-					Components: []DiscordComponent{
-						{
-							Type:  2,
-							Style: 5,
-							Label: "Open in Panel",
-							URL:   actionURL,
-						},
-					},
-				},
-			}
+			payload.Embeds[0].Description += fmt.Sprintf("\n\n[🔗 Open in Panel](%s)", actionURL)
 		}
 
 		bodyBytes, err := json.Marshal(payload)
@@ -169,7 +157,12 @@ func (w *WebhookService) TriggerEvent(serverUUID, eventName, title, description 
 			}
 			resp.Body.Close()
 
-			w.db.Model(&hook).Update("last_trigger", now)
+			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				w.db.Model(&hook).Update("last_trigger", now)
+				log.Printf("[Webhook] Successfully delivered event %s to %s", eventName, hook.Name)
+			} else {
+				log.Printf("[Webhook] Target %s responded with HTTP %d", hook.Name, resp.StatusCode)
+			}
 		}
 	}()
 }

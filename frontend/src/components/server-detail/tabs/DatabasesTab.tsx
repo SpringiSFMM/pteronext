@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../../context/AppContext';
+import { useTranslation } from '../../../i18n/useTranslation';
 import {
   Database,
   Plus,
@@ -12,15 +13,19 @@ import {
   DatabaseZap,
 } from 'lucide-react';
 import { Modal } from '../../common/Modal';
+import { DeleteConfirmModal } from '../../common/DeleteConfirmModal';
 
 export const DatabasesTab: React.FC = () => {
   const { selectedServer, databases, addDatabase, deleteDatabase, addToast } = useApp();
+  const { language } = useTranslation();
 
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({});
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [dbName, setDbName] = useState('');
   const [dbHost, setDbHost] = useState('db-fra-01.internal.aether.io');
+  const [deleteTargetDb, setDeleteTargetDb] = useState<{ id: string; name: string } | null>(null);
+  const [isDeletingDb, setIsDeletingDb] = useState(false);
 
   const toggleReveal = (id: string) => {
     setRevealedPasswords((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -55,8 +60,17 @@ export const DatabasesTab: React.FC = () => {
   };
 
   const handleDeleteDatabase = (id: string, name: string) => {
-    if (window.confirm(`Are you sure you want to permanently drop database "${name}"? This action cannot be undone.`)) {
-      deleteDatabase(id);
+    setDeleteTargetDb({ id, name });
+  };
+
+  const handleConfirmDeleteDb = async () => {
+    if (!deleteTargetDb) return;
+    setIsDeletingDb(true);
+    try {
+      await deleteDatabase(deleteTargetDb.id);
+      setDeleteTargetDb(null);
+    } finally {
+      setIsDeletingDb(false);
     }
   };
 
@@ -277,6 +291,21 @@ export const DatabasesTab: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Cyber-Glass Delete Modal */}
+      <DeleteConfirmModal
+        isOpen={!!deleteTargetDb}
+        onClose={() => setDeleteTargetDb(null)}
+        onConfirm={handleConfirmDeleteDb}
+        title={language === 'de' ? 'Datenbank löschen' : 'Drop Database'}
+        itemName={deleteTargetDb?.name}
+        description={
+          language === 'de'
+            ? `Möchtest du die Datenbank "${deleteTargetDb?.name}" wirklich unwiderruflich löschen? Alle Tabellen und Daten gehen verloren.`
+            : `Are you sure you want to permanently drop database "${deleteTargetDb?.name}"? All tables and data will be destroyed.`
+        }
+        isDeleting={isDeletingDb}
+      />
     </div>
   );
 };

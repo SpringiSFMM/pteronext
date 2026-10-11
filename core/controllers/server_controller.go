@@ -19,11 +19,12 @@ import (
 
 // ServerController handles REST actions on server containers.
 type ServerController struct {
-	db            *gorm.DB
-	serverService *services.ServerService
-	wingsClient   *services.WingsClient
-	wsHub         *services.WebSocketHub
-	auditService  *services.AuditService
+	db             *gorm.DB
+	serverService  *services.ServerService
+	wingsClient    *services.WingsClient
+	wsHub          *services.WebSocketHub
+	auditService   *services.AuditService
+	webhookService *services.WebhookService
 }
 
 // NewServerController creates a new ServerController.
@@ -33,13 +34,15 @@ func NewServerController(
 	wingsClient *services.WingsClient,
 	wsHub *services.WebSocketHub,
 	auditService *services.AuditService,
+	webhookService *services.WebhookService,
 ) *ServerController {
 	return &ServerController{
-		db:            db,
-		serverService: serverService,
-		wingsClient:   wingsClient,
-		wsHub:         wsHub,
-		auditService:  auditService,
+		db:             db,
+		serverService:  serverService,
+		wingsClient:    wingsClient,
+		wsHub:          wsHub,
+		auditService:   auditService,
+		webhookService: webhookService,
 	}
 }
 
@@ -591,6 +594,31 @@ func (s *ServerController) PowerAction(c *gin.Context) {
 	_ = s.auditService.Log(&user.ID, "user", &server.ID, fmt.Sprintf("server:power.%s", req.Action), map[string]interface{}{
 		"action": req.Action,
 	}, c.ClientIP())
+
+	if s.webhookService != nil {
+		eventMap := map[string]string{
+			"start":   "server.start",
+			"stop":    "server.stop",
+			"restart": "server.restart",
+			"kill":    "server.crash",
+		}
+		evt := eventMap[req.Action]
+		if evt == "" {
+			evt = "server.power"
+		}
+		nodeName := "Wings Node"
+		if server.Node != nil && server.Node.Name != "" {
+			nodeName = server.Node.Name
+		}
+		title := fmt.Sprintf("Power-Aktion: %s", strings.ToUpper(req.Action))
+		desc := fmt.Sprintf("Server **%s** hat das Signal `%s` erhalten (ausgelöst durch Benutzer `%s`).", server.Name, req.Action, user.Username)
+		fields := map[string]string{
+			"Aktion":    req.Action,
+			"Benutzer":  user.Username,
+			"Node Host": nodeName,
+		}
+		s.webhookService.TriggerEvent(server.UUID, evt, title, desc, fields, fmt.Sprintf("https://panel.springisfm.de/server/%s", server.UUID))
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"action":  req.Action,

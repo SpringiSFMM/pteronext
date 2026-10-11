@@ -27,6 +27,8 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { Modal } from '../common/Modal';
+import { DeleteConfirmModal } from '../common/DeleteConfirmModal';
+import { useTranslation } from '../../i18n/useTranslation';
 import { AdminEgg } from '../../types';
 
 const NEST_ICONS = [
@@ -53,6 +55,10 @@ export const AdminEggsView: React.FC = () => {
     updateEgg,
     addToast,
   } = useApp();
+  const { language } = useTranslation();
+
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'nest' | 'egg'; id: string; name: string } | null>(null);
+  const [isDeletingTarget, setIsDeletingTarget] = useState(false);
 
   const [selectedNestId, setSelectedNestId] = useState<string>('');
   const [isCreateNestOpen, setIsCreateNestOpen] = useState(false);
@@ -142,9 +148,23 @@ export const AdminEggsView: React.FC = () => {
     }
   };
 
-  const handleDeleteNest = async (id: string, name: string) => {
-    if (!window.confirm(`Delete nest "${name}"? Nests with eggs cannot be deleted.`)) return;
-    await deleteNest(id);
+  const handleDeleteNest = (id: string, name: string) => {
+    setDeleteTarget({ type: 'nest', id, name });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeletingTarget(true);
+    try {
+      if (deleteTarget.type === 'nest') {
+        await deleteNest(deleteTarget.id);
+      } else {
+        await deleteEgg(deleteTarget.id);
+      }
+      setDeleteTarget(null);
+    } finally {
+      setIsDeletingTarget(false);
+    }
   };
 
   const handleImport = async (e: React.FormEvent) => {
@@ -428,10 +448,7 @@ export const AdminEggsView: React.FC = () => {
                             <Edit3 className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => {
-                              if (!window.confirm(`Delete egg "${egg.name}"?`)) return;
-                              deleteEgg(egg.id);
-                            }}
+                            onClick={() => setDeleteTarget({ type: 'egg', id: egg.id, name: egg.name })}
                             title="Delete egg"
                             className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
                           >
@@ -947,6 +964,33 @@ export const AdminEggsView: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Cyber-Glass Delete Modal */}
+      <DeleteConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleConfirmDelete}
+        title={
+          deleteTarget?.type === 'nest'
+            ? language === 'de'
+              ? 'Nest löschen'
+              : 'Delete Nest'
+            : language === 'de'
+            ? 'Egg löschen'
+            : 'Delete Egg'
+        }
+        itemName={deleteTarget?.name}
+        description={
+          deleteTarget?.type === 'nest'
+            ? language === 'de'
+              ? `Möchtest du das Nest "${deleteTarget?.name}" wirklich löschen? Nester, die noch Eggs enthalten, können nicht gelöscht werden.`
+              : `Are you sure you want to delete nest "${deleteTarget?.name}"? Nests containing eggs cannot be deleted.`
+            : language === 'de'
+            ? `Möchtest du das Egg "${deleteTarget?.name}" wirklich dauerhaft löschen?`
+            : `Are you sure you want to permanently delete egg "${deleteTarget?.name}"?`
+        }
+        isDeleting={isDeletingTarget}
+      />
     </div>
   );
 };

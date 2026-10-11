@@ -19,6 +19,8 @@ import {
   Save,
 } from 'lucide-react';
 import { Modal } from '../common/Modal';
+import { DeleteConfirmModal } from '../common/DeleteConfirmModal';
+import { useTranslation } from '../../i18n/useTranslation';
 import { AdminNode } from '../../types';
 
 export const AdminNodesView: React.FC = () => {
@@ -30,8 +32,11 @@ export const AdminNodesView: React.FC = () => {
     updateAdminNode,
     addToast,
   } = useApp();
+  const { language } = useTranslation();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [deleteTargetNode, setDeleteTargetNode] = useState<AdminNode | null>(null);
+  const [isDeletingNode, setIsDeletingNode] = useState(false);
   const [nodeName, setNodeName] = useState('');
   const [fqdn, setFqdn] = useState('');
   const [description, setDescription] = useState('');
@@ -131,6 +136,17 @@ export const AdminNodesView: React.FC = () => {
       }
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const handleConfirmDeleteNode = async () => {
+    if (!deleteTargetNode) return;
+    setIsDeletingNode(true);
+    try {
+      await deleteAdminNode(deleteTargetNode.id);
+      setDeleteTargetNode(null);
+    } finally {
+      setIsDeletingNode(false);
     }
   };
 
@@ -324,15 +340,7 @@ export const AdminNodesView: React.FC = () => {
 
                         {/* Delete Node */}
                         <button
-                          onClick={() => {
-                            if (
-                              !window.confirm(
-                                `Delete node "${node.name}"? Nodes with assigned servers cannot be deleted.`
-                              )
-                            )
-                              return;
-                            deleteAdminNode(node.id);
-                          }}
+                          onClick={() => setDeleteTargetNode(node)}
                           title="Delete node"
                           className="p-1.5 rounded-lg bg-[#21262d] hover:bg-rose-500/15 text-slate-400 hover:text-rose-400 border border-[#30363d] hover:border-rose-500/30 transition-colors"
                         >
@@ -784,6 +792,21 @@ export const AdminNodesView: React.FC = () => {
           </div>
         ) : null}
       </Modal>
+
+      {/* Cyber-Glass Delete Modal */}
+      <DeleteConfirmModal
+        isOpen={!!deleteTargetNode}
+        onClose={() => setDeleteTargetNode(null)}
+        onConfirm={handleConfirmDeleteNode}
+        title={language === 'de' ? 'Node löschen' : 'Delete Node'}
+        itemName={deleteTargetNode?.name}
+        description={
+          language === 'de'
+            ? `Möchtest du den Node "${deleteTargetNode?.name}" (${deleteTargetNode?.fqdn}) wirklich dauerhaft löschen? Nodes mit zugewiesenen aktiven Containern können nicht gelöscht werden.`
+            : `Are you sure you want to permanently delete node "${deleteTargetNode?.name}" (${deleteTargetNode?.fqdn})? Nodes with assigned servers cannot be deleted.`
+        }
+        isDeleting={isDeletingNode}
+      />
     </div>
   );
 };

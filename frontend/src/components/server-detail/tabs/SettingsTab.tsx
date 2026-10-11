@@ -23,6 +23,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { api } from '../../../api/client';
+import { DeleteConfirmModal } from '../../common/DeleteConfirmModal';
 
 interface VersionGroup {
   group: string;
@@ -177,6 +178,7 @@ export const SettingsTab: React.FC = () => {
   const [customVersion, setCustomVersion] = useState('');
   const [serverJarFile, setServerJarFile] = useState('server.jar');
   const [isInstallingVersion, setIsInstallingVersion] = useState(false);
+  const [dangerModalAction, setDangerModalAction] = useState<'reinstall' | 'delete' | null>(null);
   const [includePreReleases, setIncludePreReleases] = useState(false);
   const [rawApiVersions, setRawApiVersions] = useState<Record<string, string[]> | null>(null);
 
@@ -391,32 +393,35 @@ export const SettingsTab: React.FC = () => {
   };
 
   const handleReinstall = () => {
-    if (
-      window.confirm(
-        'Are you sure you want to reinstall this server? This will re-run the container installation script.'
-      )
-    ) {
-      addToast({
-        title: 'Reinstallation Initiated',
-        description: 'Server queued for installation script execution.',
-        type: 'warning',
-      });
-    }
+    setDangerModalAction('reinstall');
   };
 
   const handleDelete = () => {
-    if (
-      window.confirm(
-        `Are you sure you want to permanently delete "${selectedServer.name}"? This action cannot be undone.`
-      )
-    ) {
+    setDangerModalAction('delete');
+  };
+
+  const handleConfirmDangerAction = () => {
+    if (dangerModalAction === 'reinstall') {
       addToast({
-        title: 'Server Deletion Dispatched',
-        description: 'Container removed from cluster.',
+        title: language === 'de' ? 'Neuinstallation eingeleitet' : 'Reinstallation Initiated',
+        description:
+          language === 'de'
+            ? 'Container-Installationsskript wird ausgeführt.'
+            : 'Server queued for installation script execution.',
+        type: 'warning',
+      });
+    } else if (dangerModalAction === 'delete') {
+      addToast({
+        title: language === 'de' ? 'Server gelöscht' : 'Server Deletion Dispatched',
+        description:
+          language === 'de'
+            ? 'Container und Daten werden bereinigt.'
+            : 'Container removed from cluster.',
         type: 'error',
       });
       setActiveView('servers');
     }
+    setDangerModalAction(null);
   };
 
   return (
@@ -1144,6 +1149,39 @@ export const SettingsTab: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Cyber-Glass Confirmation Modal for Reinstall/Delete */}
+      <DeleteConfirmModal
+        isOpen={!!dangerModalAction}
+        onClose={() => setDangerModalAction(null)}
+        onConfirm={handleConfirmDangerAction}
+        title={
+          dangerModalAction === 'reinstall'
+            ? language === 'de'
+              ? 'Server neu installieren'
+              : 'Reinstall Server'
+            : language === 'de'
+            ? 'Server unwiderruflich löschen'
+            : 'Delete Server Instance'
+        }
+        itemName={selectedServer.name}
+        description={
+          dangerModalAction === 'reinstall'
+            ? language === 'de'
+              ? `Möchtest du "${selectedServer.name}" wirklich neu installieren? Das Installations-Skript des Containers wird erneut ausgeführt.`
+              : `Are you sure you want to reinstall "${selectedServer.name}"? This will re-run the container installation script.`
+            : language === 'de'
+            ? `Möchtest du den Server "${selectedServer.name}" wirklich dauerhaft löschen? Der Container, alle Dateien und Datenbankverknüpfungen werden gelöscht.`
+            : `Are you sure you want to permanently delete "${selectedServer.name}"? This will purge the container, disk storage, and database links.`
+        }
+        confirmText={
+          dangerModalAction === 'reinstall'
+            ? language === 'de'
+              ? 'Neu installieren'
+              : 'Reinstall'
+            : undefined
+        }
+      />
     </div>
   );
 };

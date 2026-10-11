@@ -24,6 +24,7 @@ import {
   Terminal,
 } from 'lucide-react';
 import { Modal } from '../../common/Modal';
+import { DeleteConfirmModal } from '../../common/DeleteConfirmModal';
 
 interface EventActionStep {
   type: string;
@@ -62,6 +63,8 @@ export const SchedulesTab: React.FC = () => {
   const [triggers, setTriggers] = useState<EventTriggerRule[]>([]);
   const [isNewTriggerModalOpen, setIsNewTriggerModalOpen] = useState(false);
   const [testingTriggerId, setTestingTriggerId] = useState<string | null>(null);
+  const [deleteTargetTrigger, setDeleteTargetTrigger] = useState<EventTriggerRule | null>(null);
+  const [isDeletingTrigger, setIsDeletingTrigger] = useState(false);
 
   // New Trigger form fields
   const [newTriggerName, setNewTriggerName] = useState('');
@@ -187,18 +190,33 @@ export const SchedulesTab: React.FC = () => {
     }
   };
 
-  const handleDeleteTrigger = async (ruleId: string) => {
-    if (!selectedServer?.uuid) return;
+  const handleConfirmDeleteTrigger = async () => {
+    if (!selectedServer?.uuid || !deleteTargetTrigger) return;
+    setIsDeletingTrigger(true);
+    const targetId = deleteTargetTrigger.id;
     try {
-      await api.automation.deleteTrigger(selectedServer.uuid, ruleId);
+      // Optimistic instant UI removal
+      setTriggers((prev) => prev.filter((t) => t.id !== targetId));
+      await api.automation.deleteTrigger(selectedServer.uuid, targetId);
       addToast({
         title: language === 'de' ? 'Trigger gelöscht' : 'Trigger Deleted',
-        description: 'Regel entfernt.',
+        description:
+          language === 'de'
+            ? 'Der Automations-Trigger wurde dauerhaft gelöscht.'
+            : 'Automation trigger deleted successfully.',
         type: 'info',
       });
+      setDeleteTargetTrigger(null);
       fetchTriggers();
     } catch (e: any) {
-      addToast({ title: 'Fehler', description: e.message, type: 'error' });
+      addToast({
+        title: language === 'de' ? 'Fehler beim Löschen' : 'Deletion Error',
+        description: e.message || 'Trigger konnte nicht gelöscht werden.',
+        type: 'error',
+      });
+      fetchTriggers();
+    } finally {
+      setIsDeletingTrigger(false);
     }
   };
 
@@ -302,24 +320,24 @@ export const SchedulesTab: React.FC = () => {
                       onClick={() => handleTestTrigger(rule)}
                       disabled={testingTriggerId === rule.id}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 font-bold transition-all active:scale-95 disabled:opacity-50"
-                      title="Simuliert den Event-Trigger und führt alle Ketten-Aktionen aus"
+                      title={language === 'de' ? 'Simuliert den Event-Trigger und führt alle Ketten-Aktionen aus' : 'Simulate event trigger and run chained actions'}
                     >
                       {testingTriggerId === rule.id ? (
                         <>
                           <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-400" />
-                          <span>Führe aus...</span>
+                          <span>{language === 'de' ? 'Führe aus...' : 'Running...'}</span>
                         </>
                       ) : (
                         <>
                           <Play className="w-3.5 h-3.5 text-amber-400" />
-                          <span>Kette testen</span>
+                          <span>{language === 'de' ? 'Kette testen' : 'Test Chain'}</span>
                         </>
                       )}
                     </button>
                     <button
-                      onClick={() => handleDeleteTrigger(rule.id)}
+                      onClick={() => setDeleteTargetTrigger(rule)}
                       className="p-1.5 rounded-xl bg-slate-800 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition-colors"
-                      title="Löschen"
+                      title={language === 'de' ? 'Löschen' : 'Delete'}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -329,7 +347,9 @@ export const SchedulesTab: React.FC = () => {
                 {/* Chained Action Visual Steps */}
                 <div className="p-3 rounded-xl bg-[#0a0e17] border border-slate-800/80 mt-3">
                   <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-2">
-                    Verkettete Aktionsfolge ({rule.actions.length} Schritte nacheinander):
+                    {language === 'de'
+                      ? `Verkettete Aktionsfolge (${rule.actions.length} Schritte nacheinander):`
+                      : `Chained Action Sequence (${rule.actions.length} sequential steps):`}
                   </div>
                   <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none flex-wrap sm:flex-nowrap">
                     {rule.actions.map((act, idx) => (
@@ -426,15 +446,17 @@ export const SchedulesTab: React.FC = () => {
       <Modal
         isOpen={isNewTriggerModalOpen}
         onClose={() => setIsNewTriggerModalOpen(false)}
-        title="Neuen Smart Webhook-Trigger erstellen"
+        title={language === 'de' ? 'Neuen Smart Webhook-Trigger erstellen' : 'Create Smart Webhook Trigger'}
       >
         <form onSubmit={handleCreateTrigger} className="space-y-4 font-mono text-xs">
           <div>
-            <label className="block text-slate-300 font-bold mb-1">Name des Triggers</label>
+            <label className="block text-slate-300 font-bold mb-1">
+              {language === 'de' ? 'Name des Triggers' : 'Trigger Name'}
+            </label>
             <input
               type="text"
               required
-              placeholder="z. B. Auto-Recovery bei Crash"
+              placeholder={language === 'de' ? 'z. B. Auto-Recovery bei Crash' : 'e.g. Crash Auto-Recovery'}
               value={newTriggerName}
               onChange={(e) => setNewTriggerName(e.target.value)}
               className="w-full bg-[#0d1117] border border-[#30363d] focus:border-amber-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none"
@@ -442,29 +464,53 @@ export const SchedulesTab: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-slate-300 font-bold mb-1">Ereignis-Bedingung</label>
+            <label className="block text-slate-300 font-bold mb-1">
+              {language === 'de' ? 'Ereignis-Bedingung' : 'Event Condition'}
+            </label>
             <select
               value={newTriggerEvent}
               onChange={(e) => setNewTriggerEvent(e.target.value)}
               className="w-full bg-[#0d1117] border border-[#30363d] focus:border-amber-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none"
             >
-              <option value="server_crash">Server crasht (Exit-Code != 0)</option>
-              <option value="ram_exceeded">RAM-Auslastung &gt; 90 % für 5 Minuten</option>
-              <option value="players_zero">Spielerzahl fällt auf 0 (Inaktivität)</option>
-              <option value="tps_drop">TPS fallen unter 12 für &gt; 15 Sekunden</option>
+              <option value="server_crash">
+                {language === 'de' ? 'Server crasht (Exit-Code != 0)' : 'Server crashes (Exit code != 0)'}
+              </option>
+              <option value="ram_exceeded">
+                {language === 'de' ? 'RAM-Auslastung > 90 % für 5 Minuten' : 'RAM usage > 90% for 5 minutes'}
+              </option>
+              <option value="players_zero">
+                {language === 'de' ? 'Spielerzahl fällt auf 0 (Inaktivität)' : 'Player count drops to 0 (Idle)'}
+              </option>
+              <option value="tps_drop">
+                {language === 'de' ? 'TPS fallen unter 12 für > 15 Sekunden' : 'TPS drops below 12 for > 15 seconds'}
+              </option>
             </select>
           </div>
 
           <div>
-            <label className="block text-slate-300 font-bold mb-1">Aktionsketten-Vorlage</label>
+            <label className="block text-slate-300 font-bold mb-1">
+              {language === 'de' ? 'Aktionsketten-Vorlage' : 'Action Chain Template'}
+            </label>
             <select
               value={newTriggerChainPreset}
               onChange={(e) => setNewTriggerChainPreset(e.target.value)}
               className="w-full bg-[#0d1117] border border-[#30363d] focus:border-amber-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none"
             >
-              <option value="crash_restart">Discord Crash-Alert → 3s warten → Auto-Restart Container</option>
-              <option value="ram_heapdump">Admin Discord-Warnung → JVM Heap-Dump erstellen → Chat Broadcast</option>
-              <option value="backup_hibernate">save-all → 5s warten → Backup erstellen → Server in Ruhezustand stoppen</option>
+              <option value="crash_restart">
+                {language === 'de'
+                  ? 'Discord Crash-Alert → 3s warten → Auto-Restart Container'
+                  : 'Discord Crash Alert → Wait 3s → Auto-Restart Container'}
+              </option>
+              <option value="ram_heapdump">
+                {language === 'de'
+                  ? 'Admin Discord-Warnung → JVM Heap-Dump erstellen → Chat Broadcast'
+                  : 'Admin Discord Alert → JVM Heap Dump → Chat Broadcast'}
+              </option>
+              <option value="backup_hibernate">
+                {language === 'de'
+                  ? 'save-all → 5s warten → Backup erstellen → Server in Ruhezustand stoppen'
+                  : 'save-all → Wait 5s → Create Backup → Stop Server into Hibernate'}
+              </option>
             </select>
           </div>
 
@@ -485,13 +531,13 @@ export const SchedulesTab: React.FC = () => {
               onClick={() => setIsNewTriggerModalOpen(false)}
               className="px-4 py-2 rounded-xl text-slate-400 hover:text-white transition-colors"
             >
-              Abbrechen
+              {language === 'de' ? 'Abbrechen' : 'Cancel'}
             </button>
             <button
               type="submit"
               className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold transition-all shadow-md active:scale-95"
             >
-              Trigger speichern
+              {language === 'de' ? 'Trigger speichern' : 'Save Trigger'}
             </button>
           </div>
         </form>
@@ -501,17 +547,17 @@ export const SchedulesTab: React.FC = () => {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title="Create New Cron Schedule"
+        title={language === 'de' ? 'Neuen Cron-Zeitplan erstellen' : 'Create New Cron Schedule'}
       >
         <form onSubmit={handleCreateSchedule} className="space-y-4">
           <div>
             <label className="block text-xs font-mono uppercase text-slate-300 mb-1.5">
-              Schedule Name
+              {language === 'de' ? 'Zeitplan Name' : 'Schedule Name'}
             </label>
             <input
               type="text"
               required
-              placeholder="Daily Maintenance Restart"
+              placeholder={language === 'de' ? 'z. B. Täglicher Wartungs-Neustart' : 'Daily Maintenance Restart'}
               value={taskName}
               onChange={(e) => setTaskName(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white font-mono focus:outline-none focus:border-[var(--theme-accent,#e5a93c)]"
@@ -520,7 +566,7 @@ export const SchedulesTab: React.FC = () => {
 
           <div>
             <label className="block text-xs font-mono uppercase text-slate-300 mb-1.5">
-              Cron Expression
+              {language === 'de' ? 'Cron Ausdruck' : 'Cron Expression'}
             </label>
             <input
               type="text"
@@ -537,17 +583,32 @@ export const SchedulesTab: React.FC = () => {
               onClick={() => setIsModalOpen(false)}
               className="px-4 py-2 rounded-xl text-xs font-mono text-slate-400 hover:text-white"
             >
-              Cancel
+              {language === 'de' ? 'Abbrechen' : 'Cancel'}
             </button>
             <button
               type="submit"
               className="px-4 py-2 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-mono font-bold text-xs"
             >
-              Create Schedule
+              {language === 'de' ? 'Zeitplan anlegen' : 'Create Schedule'}
             </button>
           </div>
         </form>
       </Modal>
+
+      {/* Cyber-Glass Delete Modal for Event Triggers */}
+      <DeleteConfirmModal
+        isOpen={!!deleteTargetTrigger}
+        onClose={() => setDeleteTargetTrigger(null)}
+        onConfirm={handleConfirmDeleteTrigger}
+        title={language === 'de' ? 'Event-Trigger löschen' : 'Delete Event Trigger'}
+        itemName={deleteTargetTrigger?.name}
+        description={
+          language === 'de'
+            ? `Möchtest du die Automations-Regel "${deleteTargetTrigger?.name}" wirklich dauerhaft löschen?`
+            : `Are you sure you want to permanently delete the automation trigger rule "${deleteTargetTrigger?.name}"?`
+        }
+        isDeleting={isDeletingTrigger}
+      />
     </div>
   );
 };

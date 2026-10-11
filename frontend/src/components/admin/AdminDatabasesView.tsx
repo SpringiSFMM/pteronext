@@ -18,6 +18,8 @@ import {
   Cpu,
 } from 'lucide-react';
 import { Modal } from '../common/Modal';
+import { DeleteConfirmModal } from '../common/DeleteConfirmModal';
+import { useTranslation } from '../../i18n/useTranslation';
 
 export const AdminDatabasesView: React.FC = () => {
   const {
@@ -29,10 +31,13 @@ export const AdminDatabasesView: React.FC = () => {
     refreshAdminDatabases,
     addToast,
   } = useApp();
+  const { language } = useTranslation();
 
   const [activeTab, setActiveTab] = useState<'hosts' | 'databases'>('hosts');
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddHostOpen, setIsAddHostOpen] = useState(false);
+  const [deleteTargetHost, setDeleteTargetHost] = useState<{ id: string; name: string } | null>(null);
+  const [isDeletingHost, setIsDeletingHost] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
@@ -109,13 +114,18 @@ export const AdminDatabasesView: React.FC = () => {
     }
   };
 
-  const handleDeleteHost = async (id: string, name: string) => {
-    if (
-      window.confirm(
-        `Are you sure you want to delete database host "${name}"? Existing databases on this host must be removed first.`
-      )
-    ) {
-      await deleteDatabaseHost(id);
+  const handleDeleteHost = (id: string, name: string) => {
+    setDeleteTargetHost({ id, name });
+  };
+
+  const handleConfirmDeleteHost = async () => {
+    if (!deleteTargetHost) return;
+    setIsDeletingHost(true);
+    try {
+      await deleteDatabaseHost(deleteTargetHost.id);
+      setDeleteTargetHost(null);
+    } finally {
+      setIsDeletingHost(false);
     }
   };
 
@@ -591,6 +601,21 @@ export const AdminDatabasesView: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Cyber-Glass Delete Modal */}
+      <DeleteConfirmModal
+        isOpen={!!deleteTargetHost}
+        onClose={() => setDeleteTargetHost(null)}
+        onConfirm={handleConfirmDeleteHost}
+        title={language === 'de' ? 'Datenbank-Host löschen' : 'Delete Database Host'}
+        itemName={deleteTargetHost?.name}
+        description={
+          language === 'de'
+            ? `Möchtest du den Datenbank-Host "${deleteTargetHost?.name}" wirklich löschen? Bestehende Datenbanken auf diesem Host müssen zuvor entfernt werden.`
+            : `Are you sure you want to delete database host "${deleteTargetHost?.name}"? Existing databases on this host must be removed first.`
+        }
+        isDeleting={isDeletingHost}
+      />
     </div>
   );
 };

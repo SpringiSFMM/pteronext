@@ -24,6 +24,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { Modal } from '../../common/Modal';
+import { DeleteConfirmModal } from '../../common/DeleteConfirmModal';
 
 interface Allocation {
   id: number;
@@ -77,6 +78,21 @@ export const NetworkTab: React.FC = () => {
   const [preflightData, setPreflightData] = useState<any>(null);
   const [loadingPreflight, setLoadingPreflight] = useState(false);
   const [remappingPort, setRemappingPort] = useState<number | null>(null);
+
+  // Cyber-Glass Delete Confirm Modal State
+  const [deleteModalState, setDeleteModalState] = useState<{
+    isOpen: boolean;
+    type: 'allocation' | 'proxy' | 'dns';
+    title?: string;
+    itemName?: string;
+    description?: string;
+    data: any;
+  }>({
+    isOpen: false,
+    type: 'allocation',
+    data: null,
+  });
+  const [isDeletingItem, setIsDeletingItem] = useState(false);
 
   const fetchNetworkData = async () => {
     if (!selectedServer?.uuid) return;
@@ -179,24 +195,18 @@ export const NetworkTab: React.FC = () => {
     }
   };
 
-  const handleDeleteProxy = async (proxyId: string, domain: string) => {
+  const handleDeleteProxy = (proxyId: string, domain: string) => {
     if (!selectedServer?.uuid) return;
-    if (!window.confirm(language === 'de' ? `Soll der Reverse-Proxy für ${domain} wirklich entfernt werden?` : `Remove reverse proxy for ${domain}?`)) return;
-    try {
-      await api.reverseProxy.delete(selectedServer.uuid, proxyId);
-      addToast({
-        title: language === 'de' ? 'Proxy entfernt' : 'Proxy Removed',
-        description: language === 'de' ? `${domain} wurde aus Caddy gelöscht.` : `${domain} was removed from Caddy.`,
-        type: 'info',
-      });
-      fetchReverseProxies();
-    } catch (err: any) {
-      addToast({
-        title: language === 'de' ? 'Löschen fehlgeschlagen' : 'Deletion Failed',
-        description: err.message || 'Error deleting reverse proxy',
-        type: 'error',
-      });
-    }
+    setDeleteModalState({
+      isOpen: true,
+      type: 'proxy',
+      title: language === 'de' ? 'Reverse-Proxy entfernen' : 'Remove Reverse Proxy',
+      itemName: domain,
+      description: language === 'de'
+        ? `Soll der Reverse-Proxy für "${domain}" wirklich dauerhaft entfernt werden? Die Caddy SSL-Konfiguration wird bereinigt.`
+        : `Are you sure you want to remove the reverse proxy for "${domain}"? The Caddy SSL configuration will be unlinked.`,
+      data: { proxyId, domain },
+    });
   };
 
   const handleAutoRemap = async (port: number) => {
@@ -252,24 +262,18 @@ export const NetworkTab: React.FC = () => {
     }
   };
 
-  const handleDeleteDns = async (domainId: number, hostname: string) => {
+  const handleDeleteDns = (domainId: number, hostname: string) => {
     if (!selectedServer?.uuid) return;
-    if (!window.confirm(language === 'de' ? `Soll ${hostname} und die zugehörigen Cloudflare DNS-Records wirklich gelöscht werden?` : `Delete ${hostname} and all associated Cloudflare DNS records?`)) return;
-    try {
-      await api.dns.delete(selectedServer.uuid, domainId);
-      addToast({
-        title: language === 'de' ? 'DNS gelöscht' : 'DNS Deleted',
-        description: language === 'de' ? `${hostname} wurde aus Cloudflare entfernt.` : `${hostname} removed from Cloudflare.`,
-        type: 'info',
-      });
-      fetchDnsDomains();
-    } catch (err: any) {
-      addToast({
-        title: language === 'de' ? 'Löschen fehlgeschlagen' : 'Deletion Failed',
-        description: err.message || 'Error deleting DNS records',
-        type: 'error',
-      });
-    }
+    setDeleteModalState({
+      isOpen: true,
+      type: 'dns',
+      title: language === 'de' ? 'DNS-Record löschen' : 'Delete DNS Record',
+      itemName: hostname,
+      description: language === 'de'
+        ? `Soll "${hostname}" und alle zugehörigen Cloudflare DNS-Records (A & SRV) wirklich unwiderruflich gelöscht werden?`
+        : `Are you sure you want to delete "${hostname}" and all associated Cloudflare DNS records (A & SRV)?`,
+      data: { domainId, hostname },
+    });
   };
 
   const copyToClipboard = (text: string, key: string) => {
@@ -327,35 +331,74 @@ export const NetworkTab: React.FC = () => {
     }
   };
 
-  const handleDeleteAllocation = async (alloc: Allocation) => {
+  const handleDeleteAllocation = (alloc: Allocation) => {
     if (!selectedServer?.uuid) return;
     if (alloc.is_primary || alloc.id === primaryId) {
       addToast({
-        title: 'Protected Allocation',
-        description: 'You cannot remove the primary server port. Promote another port first.',
+        title: language === 'de' ? 'Geschützte Zuweisung' : 'Protected Allocation',
+        description: language === 'de'
+          ? 'Der primäre Server-Port kann nicht freigegeben werden. Setze zuvor einen anderen Port als primär.'
+          : 'You cannot remove the primary server port. Promote another port first.',
         type: 'warning',
       });
       return;
     }
 
-    if (!window.confirm(`Release port ${alloc.port} back to the node allocation pool?`)) {
-      return;
-    }
+    setDeleteModalState({
+      isOpen: true,
+      type: 'allocation',
+      title: language === 'de' ? 'Port freigeben' : 'Release Port Allocation',
+      itemName: `Port ${alloc.port} (${alloc.ip})`,
+      description: language === 'de'
+        ? `Möchtest du Port ${alloc.port} wirklich wieder für den Node-Allocation-Pool freigeben?`
+        : `Release port ${alloc.port} back to the node allocation pool?`,
+      data: alloc,
+    });
+  };
 
+  const handleConfirmDelete = async () => {
+    if (!selectedServer?.uuid || !deleteModalState.data) return;
+    setIsDeletingItem(true);
     try {
-      await api.network.delete(selectedServer.uuid, alloc.id);
-      addToast({
-        title: 'Port Released',
-        description: `Port ${alloc.port} has been unassigned and returned to pool.`,
-        type: 'info',
-      });
-      fetchNetworkData();
+      if (deleteModalState.type === 'allocation') {
+        const alloc = deleteModalState.data as Allocation;
+        await api.network.delete(selectedServer.uuid, alloc.id);
+        addToast({
+          title: language === 'de' ? 'Port freigegeben' : 'Port Released',
+          description: language === 'de'
+            ? `Port ${alloc.port} wurde zurück in den Node-Pool übergeben.`
+            : `Port ${alloc.port} has been unassigned and returned to pool.`,
+          type: 'info',
+        });
+        fetchNetworkData();
+      } else if (deleteModalState.type === 'proxy') {
+        const { proxyId, domain } = deleteModalState.data;
+        await api.reverseProxy.delete(selectedServer.uuid, proxyId);
+        addToast({
+          title: language === 'de' ? 'Proxy entfernt' : 'Proxy Removed',
+          description: language === 'de' ? `${domain} wurde aus Caddy gelöscht.` : `${domain} was removed from Caddy.`,
+          type: 'info',
+        });
+        fetchReverseProxies();
+      } else if (deleteModalState.type === 'dns') {
+        const { domainId, hostname } = deleteModalState.data;
+        await api.dns.delete(selectedServer.uuid, domainId);
+        addToast({
+          title: language === 'de' ? 'DNS gelöscht' : 'DNS Deleted',
+          description: language === 'de' ? `${hostname} wurde aus Cloudflare entfernt.` : `${hostname} removed from Cloudflare.`,
+          type: 'info',
+        });
+        fetchDnsDomains();
+      }
+      setDeleteModalState((prev) => ({ ...prev, isOpen: false }));
     } catch (err: any) {
       addToast({
-        title: 'Deletion Failed',
-        description: err.message || 'Could not release port',
+        title: language === 'de' ? 'Löschen fehlgeschlagen' : 'Deletion Failed',
+        description: err.message || 'Error deleting item',
         type: 'error',
       });
+    } finally {
+      setIsDeletingItem(false);
     }
   };
 
@@ -1087,6 +1130,17 @@ export const NetworkTab: React.FC = () => {
           </div>
         </Modal>
       )}
+
+      {/* Cyber-Glass Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={deleteModalState.isOpen}
+        onClose={() => setDeleteModalState((prev) => ({ ...prev, isOpen: false }))}
+        onConfirm={handleConfirmDelete}
+        title={deleteModalState.title}
+        itemName={deleteModalState.itemName}
+        description={deleteModalState.description}
+        isDeleting={isDeletingItem}
+      />
     </div>
   );
 };

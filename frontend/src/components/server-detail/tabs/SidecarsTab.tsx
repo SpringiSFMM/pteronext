@@ -20,6 +20,8 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { Modal } from '../../common/Modal';
+import { DeleteConfirmModal } from '../../common/DeleteConfirmModal';
+import { useTranslation } from '../../../i18n/useTranslation';
 
 interface SidecarInstance {
   id: number;
@@ -37,11 +39,16 @@ interface SidecarInstance {
 
 export const SidecarsTab: React.FC = () => {
   const { selectedServer, addToast } = useApp();
+  const { language } = useTranslation();
 
   const [sidecars, setSidecars] = useState<SidecarInstance[]>([]);
   const [loading, setLoading] = useState(true);
   const [revealedPasswords, setRevealedPasswords] = useState<Record<number, boolean>>({});
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  // Delete modal state
+  const [deleteTargetSidecar, setDeleteTargetSidecar] = useState<SidecarInstance | null>(null);
+  const [isDeletingSidecar, setIsDeletingSidecar] = useState(false);
 
   // Creation modal
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -171,24 +178,33 @@ export const SidecarsTab: React.FC = () => {
     }
   };
 
-  const handleDeleteSidecar = async (sidecar: SidecarInstance) => {
-    if (!selectedServer?.uuid) return;
-    if (!window.confirm(`Permanently remove sidecar container "${sidecar.name}"?`)) return;
+  const handleDeleteSidecar = (sidecar: SidecarInstance) => {
+    setDeleteTargetSidecar(sidecar);
+  };
 
+  const handleConfirmDeleteSidecar = async () => {
+    if (!selectedServer?.uuid || !deleteTargetSidecar) return;
+    setIsDeletingSidecar(true);
     try {
-      await api.sidecars.delete(selectedServer.uuid, sidecar.id);
+      await api.sidecars.delete(selectedServer.uuid, deleteTargetSidecar.id);
       addToast({
-        title: 'Sidecar Removed',
-        description: `${sidecar.name} was successfully detached and deleted.`,
+        title: language === 'de' ? 'Sidecar entfernt' : 'Sidecar Removed',
+        description:
+          language === 'de'
+            ? `${deleteTargetSidecar.name} wurde erfolgreich getrennt und gelöscht.`
+            : `${deleteTargetSidecar.name} was successfully detached and deleted.`,
         type: 'info',
       });
+      setDeleteTargetSidecar(null);
       fetchSidecars();
     } catch (err: any) {
       addToast({
-        title: 'Delete Failed',
+        title: language === 'de' ? 'Löschen fehlgeschlagen' : 'Delete Failed',
         description: err.message || 'Could not delete sidecar',
         type: 'error',
       });
+    } finally {
+      setIsDeletingSidecar(false);
     }
   };
 
@@ -640,6 +656,21 @@ export const SidecarsTab: React.FC = () => {
           </div>
         </Modal>
       )}
+
+      {/* Cyber-Glass Delete Modal */}
+      <DeleteConfirmModal
+        isOpen={!!deleteTargetSidecar}
+        onClose={() => setDeleteTargetSidecar(null)}
+        onConfirm={handleConfirmDeleteSidecar}
+        title={language === 'de' ? 'Sidecar löschen' : 'Delete Sidecar'}
+        itemName={deleteTargetSidecar?.name}
+        description={
+          language === 'de'
+            ? `Möchtest du den Sidecar-Container "${deleteTargetSidecar?.name}" (${deleteTargetSidecar?.type}) wirklich dauerhaft entfernen? Alle Daten im Container gehen verloren.`
+            : `Are you sure you want to permanently remove sidecar container "${deleteTargetSidecar?.name}" (${deleteTargetSidecar?.type})? All local instance data will be lost.`
+        }
+        isDeleting={isDeletingSidecar}
+      />
     </div>
   );
 };

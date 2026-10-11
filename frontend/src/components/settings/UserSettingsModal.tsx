@@ -30,6 +30,7 @@ import {
   Unlink,
 } from 'lucide-react';
 import { Modal } from '../common/Modal';
+import { DeleteConfirmModal } from '../common/DeleteConfirmModal';
 import { api } from '../../api/client';
 import { useApp } from '../../context/AppContext';
 import { COLOR_THEMES, BACKGROUND_EFFECTS, ColorTheme, BackgroundEffect } from '../../types';
@@ -136,6 +137,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
   const [newlyCreatedKeySecret, setNewlyCreatedKeySecret] = useState<string | null>(null);
   const [copiedRawKey, setCopiedRawKey] = useState(false);
   const [isDeletingKeyId, setIsDeletingKeyId] = useState<number | null>(null);
+  const [deleteApiKeyTarget, setDeleteApiKeyTarget] = useState<{ id: number; memo?: string } | null>(null);
 
   // Fetch account data and keys on modal open
   useEffect(() => {
@@ -500,22 +502,28 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
     }
   };
 
-  const handleDeleteApiKey = async (id: number) => {
-    if (!confirm('Are you sure you want to permanently revoke this API key?')) {
-      return;
-    }
-    setIsDeletingKeyId(id);
+  const handleDeleteApiKey = (id: number, memo?: string) => {
+    setDeleteApiKeyTarget({ id, memo });
+  };
+
+  const handleConfirmDeleteApiKey = async () => {
+    if (!deleteApiKeyTarget) return;
+    setIsDeletingKeyId(deleteApiKeyTarget.id);
     try {
-      await api.apiKeys.delete(id);
-      setApiKeys((prev) => prev.filter((k) => k.id !== id));
+      await api.apiKeys.delete(deleteApiKeyTarget.id);
+      setApiKeys((prev) => prev.filter((k) => k.id !== deleteApiKeyTarget.id));
       addToast({
-        title: 'API Key Revoked',
-        description: 'The API key has been deleted.',
+        title: language === 'de' ? 'API-Schlüssel widerrufen' : 'API Key Revoked',
+        description:
+          language === 'de'
+            ? 'Der API-Schlüssel wurde dauerhaft gelöscht.'
+            : 'The API key has been deleted.',
         type: 'info',
       });
+      setDeleteApiKeyTarget(null);
     } catch (err: any) {
       addToast({
-        title: 'Revoke Failed',
+        title: language === 'de' ? 'Widerruf fehlgeschlagen' : 'Revoke Failed',
         description: err.message || 'Failed deleting key.',
         type: 'error',
       });
@@ -525,7 +533,8 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
   };
 
   return (
-    <Modal
+    <>
+      <Modal
       isOpen={isOpen}
       onClose={onClose}
       title="User Account Settings"
@@ -1384,7 +1393,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
 
                       <button
                         type="button"
-                        onClick={() => handleDeleteApiKey(k.id)}
+                        onClick={() => handleDeleteApiKey(k.id, k.memo || k.identifier)}
                         disabled={isDeletingKeyId === k.id}
                         className="p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
                         title="Revoke API Key"
@@ -1746,6 +1755,22 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
         )}
       </div>
     </Modal>
+
+    {/* Cyber-Glass Delete Confirm Modal for API Key Revocation */}
+    <DeleteConfirmModal
+      isOpen={!!deleteApiKeyTarget}
+      onClose={() => setDeleteApiKeyTarget(null)}
+      onConfirm={handleConfirmDeleteApiKey}
+      title={language === 'de' ? 'API-Schlüssel widerrufen' : 'Revoke API Key'}
+      itemName={deleteApiKeyTarget?.memo || `Key #${deleteApiKeyTarget?.id}`}
+      description={
+        language === 'de'
+          ? `Möchtest du den API-Schlüssel "${deleteApiKeyTarget?.memo || deleteApiKeyTarget?.id}" wirklich dauerhaft widerrufen? Alle Anwendungen, die diesen Schlüssel verwenden, verlieren sofort ihren Zugriff.`
+          : `Are you sure you want to permanently revoke API key "${deleteApiKeyTarget?.memo || deleteApiKeyTarget?.id}"? Any external services using this token will lose access immediately.`
+      }
+      isDeleting={isDeletingKeyId !== null}
+    />
+  </>
   );
 };
 

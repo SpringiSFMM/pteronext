@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { useTranslation } from '../../i18n/useTranslation';
 import { Plus, ShieldCheck, Trash2, Inbox, UserRound, UserPlus } from 'lucide-react';
 import { Modal } from '../common/Modal';
+import { DeleteConfirmModal } from '../common/DeleteConfirmModal';
 
 export const AdminUsersView: React.FC = () => {
   const { adminUsers, adminLoading, createAdminUser, deleteAdminUser } = useApp();
+  const { language } = useTranslation();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [deleteTargetUser, setDeleteTargetUser] = useState<any | null>(null);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -29,6 +34,17 @@ export const AdminUsersView: React.FC = () => {
       setEmail('');
       setPassword('');
       setIsRootAdmin(false);
+    }
+  };
+
+  const handleConfirmDeleteUser = async () => {
+    if (!deleteTargetUser) return;
+    setIsDeletingUser(true);
+    try {
+      await deleteAdminUser(deleteTargetUser.id);
+      setDeleteTargetUser(null);
+    } finally {
+      setIsDeletingUser(false);
     }
   };
 
@@ -144,10 +160,7 @@ export const AdminUsersView: React.FC = () => {
 
                     <td className="py-3 px-4 text-right">
                       <button
-                        onClick={() => {
-                          if (!window.confirm(`Delete account "${user.username}"?`)) return;
-                          deleteAdminUser(user.id);
-                        }}
+                        onClick={() => setDeleteTargetUser(user)}
                         title="Delete account"
                         className="p-1.5 rounded-md bg-[#21262d] hover:bg-rose-500/15 text-slate-400 hover:text-rose-400 border border-[#30363d] hover:border-rose-500/30 transition-colors"
                       >
@@ -233,6 +246,21 @@ export const AdminUsersView: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Cyber-Glass Delete Modal */}
+      <DeleteConfirmModal
+        isOpen={!!deleteTargetUser}
+        onClose={() => setDeleteTargetUser(null)}
+        onConfirm={handleConfirmDeleteUser}
+        title={language === 'de' ? 'Benutzerkonto löschen' : 'Delete User Account'}
+        itemName={deleteTargetUser?.username}
+        description={
+          language === 'de'
+            ? `Möchtest du das Benutzerkonto "${deleteTargetUser?.username}" (${deleteTargetUser?.email}) wirklich dauerhaft löschen?`
+            : `Are you sure you want to permanently delete user account "${deleteTargetUser?.username}" (${deleteTargetUser?.email})?`
+        }
+        isDeleting={isDeletingUser}
+      />
     </div>
   );
 };

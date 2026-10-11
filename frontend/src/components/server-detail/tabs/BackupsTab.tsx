@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../../../context/AppContext';
+import { useTranslation } from '../../../i18n/useTranslation';
 import api from '../../../api/client';
+import { DeleteConfirmModal } from '../../common/DeleteConfirmModal';
 import {
   Archive,
   Plus,
@@ -37,7 +39,10 @@ interface BackupItem {
 
 export const BackupsTab: React.FC = () => {
   const { selectedServer, addToast } = useApp();
+  const { language } = useTranslation();
   const [backups, setBackups] = useState<BackupItem[]>([]);
+  const [deleteTargetBackup, setDeleteTargetBackup] = useState<BackupItem | null>(null);
+  const [isDeletingBackup, setIsDeletingBackup] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -165,32 +170,45 @@ export const BackupsTab: React.FC = () => {
     }
   };
 
-  const handleDelete = async (backup: BackupItem) => {
+  const handleDelete = (backup: BackupItem) => {
     if (!selectedServer?.uuid) return;
     if (backup.is_locked) {
       addToast({
-        title: 'Backup Locked',
-        description: 'Unlock this backup before deleting it.',
+        title: language === 'de' ? 'Backup geschützt' : 'Backup Locked',
+        description:
+          language === 'de'
+            ? 'Entsperre dieses Backup zuerst, bevor du es löschst.'
+            : 'Unlock this backup before deleting it.',
         type: 'warning',
       });
       return;
     }
-    if (!confirm(`Permanently delete backup "${backup.name}"?`)) return;
+    setDeleteTargetBackup(backup);
+  };
 
+  const handleConfirmDeleteBackup = async () => {
+    if (!selectedServer?.uuid || !deleteTargetBackup) return;
+    setIsDeletingBackup(true);
     try {
-      await api.backups.delete(selectedServer.uuid, backup.uuid);
-      setBackups((prev) => prev.filter((b) => b.uuid !== backup.uuid));
+      await api.backups.delete(selectedServer.uuid, deleteTargetBackup.uuid);
+      setBackups((prev) => prev.filter((b) => b.uuid !== deleteTargetBackup.uuid));
       addToast({
-        title: 'Backup Deleted',
-        description: `Archive "${backup.name}" has been removed.`,
+        title: language === 'de' ? 'Backup gelöscht' : 'Backup Deleted',
+        description:
+          language === 'de'
+            ? `Archiv "${deleteTargetBackup.name}" wurde dauerhaft entfernt.`
+            : `Archive "${deleteTargetBackup.name}" has been removed.`,
         type: 'success',
       });
+      setDeleteTargetBackup(null);
     } catch (err: any) {
       addToast({
-        title: 'Delete Failed',
+        title: language === 'de' ? 'Löschen fehlgeschlagen' : 'Delete Failed',
         description: err?.message || 'Failed to remove backup.',
         type: 'error',
       });
+    } finally {
+      setIsDeletingBackup(false);
     }
   };
 
@@ -824,6 +842,21 @@ export const BackupsTab: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Cyber-Glass Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={!!deleteTargetBackup}
+        onClose={() => setDeleteTargetBackup(null)}
+        onConfirm={handleConfirmDeleteBackup}
+        title={language === 'de' ? 'Backup löschen' : 'Delete Backup'}
+        itemName={deleteTargetBackup?.name}
+        description={
+          language === 'de'
+            ? `Möchtest du das Backup-Archiv "${deleteTargetBackup?.name}" wirklich unwiderruflich löschen? Alle gespeicherten Serverdaten dieser Sicherung gehen verloren.`
+            : `Are you sure you want to permanently delete backup archive "${deleteTargetBackup?.name}"? All stored snapshot data in this archive will be lost.`
+        }
+        isDeleting={isDeletingBackup}
+      />
     </div>
   );
 };

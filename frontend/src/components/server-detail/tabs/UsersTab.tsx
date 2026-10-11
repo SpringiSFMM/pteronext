@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../../context/AppContext';
+import { useTranslation } from '../../../i18n/useTranslation';
 import { SubUser } from '../../../types';
 import {
   Users,
@@ -20,6 +21,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { Modal } from '../../common/Modal';
+import { DeleteConfirmModal } from '../../common/DeleteConfirmModal';
 
 interface PathRule {
   pattern: string;
@@ -33,8 +35,11 @@ interface CommandRule {
 
 export const UsersTab: React.FC = () => {
   const { users, addUser, deleteUser, addToast } = useApp();
+  const { language } = useTranslation();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [deleteTargetSubUser, setDeleteTargetSubUser] = useState<SubUser | null>(null);
+  const [isDeletingSubUser, setIsDeletingSubUser] = useState(false);
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'Moderator' | 'Builder' | 'Support' | 'Operator' | 'Custom'>('Moderator');
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([
@@ -136,6 +141,25 @@ export const UsersTab: React.FC = () => {
 
     setIsModalOpen(false);
     setEmail('');
+  };
+
+  const handleConfirmDeleteSubUser = async () => {
+    if (!deleteTargetSubUser) return;
+    setIsDeletingSubUser(true);
+    try {
+      await deleteUser(deleteTargetSubUser.id);
+      addToast({
+        title: language === 'de' ? 'Benutzerzugriff widerrufen' : 'Access Revoked',
+        description:
+          language === 'de'
+            ? `Zugriff für ${deleteTargetSubUser.username} wurde entfernt.`
+            : `Access revoked for ${deleteTargetSubUser.username}.`,
+        type: 'info',
+      });
+      setDeleteTargetSubUser(null);
+    } finally {
+      setIsDeletingSubUser(false);
+    }
   };
 
   return (
@@ -296,8 +320,8 @@ export const UsersTab: React.FC = () => {
                 </span>
                 {user.role !== 'Admin' && (
                   <button
-                    onClick={() => deleteUser(user.id)}
-                    title="Revoke User Access"
+                    onClick={() => setDeleteTargetSubUser(user)}
+                    title={language === 'de' ? 'Benutzerzugriff widerrufen' : 'Revoke User Access'}
                     className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-slate-900 transition-colors"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -526,6 +550,21 @@ export const UsersTab: React.FC = () => {
           </form>
         </Modal>
       )}
+
+      {/* Cyber-Glass Delete Modal */}
+      <DeleteConfirmModal
+        isOpen={!!deleteTargetSubUser}
+        onClose={() => setDeleteTargetSubUser(null)}
+        onConfirm={handleConfirmDeleteSubUser}
+        title={language === 'de' ? 'Benutzerzugriff widerrufen' : 'Revoke Sub-User Access'}
+        itemName={deleteTargetSubUser?.username}
+        description={
+          language === 'de'
+            ? `Möchtest du den Zugriff für Sub-User "${deleteTargetSubUser?.username}" (${deleteTargetSubUser?.email}) auf diesen Server wirklich widerrufen?`
+            : `Are you sure you want to permanently revoke server access for sub-user "${deleteTargetSubUser?.username}" (${deleteTargetSubUser?.email})?`
+        }
+        isDeleting={isDeletingSubUser}
+      />
     </div>
   );
 };

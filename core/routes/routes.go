@@ -74,7 +74,7 @@ func SetupRouter(
 	router.POST("/api/auth/register", authCtrl.Register)
 
 	// Server, Node, Schedule, Database, APIKey, Audit, and WebSocket controllers
-	serverCtrl := controllers.NewServerController(db, serverService, wingsClient, wsHub, auditService)
+	serverCtrl := controllers.NewServerController(db, serverService, wingsClient, wsHub, auditService, webhookService)
 	nodeCtrl := controllers.NewNodeController(db, cfg)
 	schedCtrl := controllers.NewScheduleController(db)
 	dbCtrl := controllers.NewDatabaseController(db)
@@ -95,7 +95,7 @@ func SetupRouter(
 	securityCtrl := controllers.NewSecurityController(scannerService, cfg.DBPath)
 	crashCtrl := controllers.NewCrashController(db, wingsClient)
 	dnsCtrl := controllers.NewDNSController(db)
-	diagnosticsCtrl := controllers.NewDiagnosticsController(db)
+	diagnosticsCtrl := controllers.NewDiagnosticsController(db, wingsClient)
 	automationCtrl := controllers.NewAutomationController(db)
 	migrationCtrl := controllers.NewMigrationController(db)
 	reverseProxyCtrl := controllers.NewReverseProxyController(db)
