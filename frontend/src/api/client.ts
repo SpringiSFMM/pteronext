@@ -1444,6 +1444,109 @@ export const api = {
     },
   },
 
+  // Minecraft World & .mca Region Viewer
+  world: {
+    getMeta: async (serverUuid: string): Promise<{
+      server_uuid: string;
+      server_name: string;
+      spawn_point: { x: number; z: number };
+      world_border: { center_x: number; center_z: number; size: number };
+      available_regions: string[];
+      total_regions: number;
+    }> => {
+      return request(`/api/servers/${serverUuid}/world/meta`);
+    },
+
+    getRegion: async (serverUuid: string, rx: number = 0, rz: number = 0): Promise<{
+      region_x: number;
+      region_z: number;
+      file_name: string;
+      total_chunks: number;
+      chunks: Array<{
+        x: number;
+        z: number;
+        status: string;
+        biome: string;
+        avg_height: number;
+        color: string;
+      }>;
+      spawn_point: { x: number; z: number };
+      world_border: { center_x: number; center_z: number; size: number };
+    }> => {
+      return request(`/api/servers/${serverUuid}/world/region?rx=${rx}&rz=${rz}`);
+    },
+  },
+
+  // Auto-Updater für Cores (Paper, Purpur, Velocity) & Plugins mit Nightly-Cron & Auto-Revert
+  autoUpdater: {
+    getConfig: async (serverUuid: string): Promise<{
+      server_uuid: string;
+      core_type: string;
+      release_stream: string;
+      nightly_cron: string;
+      auto_restart: boolean;
+      auto_revert: boolean;
+      enabled: boolean;
+      last_snapshot: string;
+      last_updated: string;
+    }> => {
+      return request(`/api/servers/${serverUuid}/auto-updater`);
+    },
+
+    updateConfig: async (serverUuid: string, payload: any): Promise<any> => {
+      return request(`/api/servers/${serverUuid}/auto-updater`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+
+    trigger: async (serverUuid: string): Promise<any> => {
+      return request(`/api/servers/${serverUuid}/auto-updater/trigger`, {
+        method: 'POST',
+      });
+    },
+  },
+
+  // Smart SFTP- & Access-Key-Manager
+  sftpKeys: {
+    list: async (serverUuid: string): Promise<{
+      keys: Array<{
+        id: number;
+        server_id: number;
+        label: string;
+        username: string;
+        password: string;
+        allowed_ips: string;
+        expires_at: string;
+        is_active: boolean;
+        is_expired: boolean;
+        sftp_uri: string;
+        filezilla_uri: string;
+        winscp_link: string;
+      }>;
+      node_host: string;
+      sftp_port: number;
+    }> => {
+      return request(`/api/servers/${serverUuid}/sftp-keys`);
+    },
+
+    create: async (
+      serverUuid: string,
+      payload: { label: string; ttl_hours: number; allowed_ips?: string }
+    ): Promise<any> => {
+      return request(`/api/servers/${serverUuid}/sftp-keys`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+
+    delete: async (serverUuid: string, keyId: number): Promise<any> => {
+      return request(`/api/servers/${serverUuid}/sftp-keys/${keyId}`, {
+        method: 'DELETE',
+      });
+    },
+  },
+
   // Discord OAuth2 & Bot Integrations
   discord: {
     getConfig: async (): Promise<{

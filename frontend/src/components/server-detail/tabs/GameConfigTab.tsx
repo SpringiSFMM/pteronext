@@ -7,17 +7,29 @@ import {
   Shield,
   Users,
   Eye,
-  Zap,
-  Globe,
-  Lock,
   RotateCcw,
   Check,
+  Sparkles,
+  GitBranch,
+  Clock,
+  RefreshCw,
+  AlertTriangle,
 } from 'lucide-react';
+import { api } from '../../../api/client';
 
 export const GameConfigTab: React.FC = () => {
   const { selectedServer, saveFileContent, addToast } = useApp();
 
   const [mode, setMode] = useState<'visual' | 'raw'>('visual');
+
+  // Auto-Updater State (Paper, Purpur, Velocity)
+  const [coreType, setCoreType] = useState('paper');
+  const [releaseStream, setReleaseStream] = useState('Paper 1.21.x - Stable');
+  const [nightlyCron, setNightlyCron] = useState('04:00');
+  const [autoRestart, setAutoRestart] = useState(true);
+  const [autoRevert, setAutoRevert] = useState(true);
+  const [updaterEnabled, setUpdaterEnabled] = useState(true);
+  const [isUpdatingNow, setIsUpdatingNow] = useState(false);
 
   // Visual Properties State
   const [motd, setMotd] = useState('§6Welcome to §lPteroNext§r §7Server Matrix');
@@ -134,6 +146,118 @@ enable-command-block=true
       <form onSubmit={handleSave} className="space-y-6">
         {mode === 'visual' ? (
           <div className="space-y-6">
+            {/* Auto-Updater Core & Release-Stream Box */}
+            <div className="p-6 rounded-2xl bg-[#11141a] border border-[#30363d] shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-[#30363d] pb-3">
+                <div className="flex items-center gap-2">
+                  <GitBranch className="w-4 h-4 text-emerald-400" />
+                  <h3 className="text-xs font-mono uppercase text-slate-300 font-bold tracking-wider">
+                    Core Auto-Updater (Paper, Purpur, Velocity)
+                  </h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    60s Crash Auto-Revert aktiv
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-mono text-slate-400 mb-1">Server Core</label>
+                  <select
+                    value={coreType}
+                    onChange={(e) => {
+                      setCoreType(e.target.value);
+                      if (e.target.value === 'paper') setReleaseStream('Paper 1.21.x - Stable');
+                      if (e.target.value === 'purpur') setReleaseStream('Purpur 1.21.x - Latest');
+                      if (e.target.value === 'velocity') setReleaseStream('Velocity 3.3.x - Recommended');
+                    }}
+                    className="w-full bg-[#0d1117] border border-[#30363d] rounded-xl px-3 py-2 text-xs text-white font-mono outline-none"
+                  >
+                    <option value="paper">PaperMC (Hochoptimiert)</option>
+                    <option value="purpur">Purpur (Feature-reich)</option>
+                    <option value="velocity">Velocity (Next-Gen Proxy)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-mono text-slate-400 mb-1">Release Stream</label>
+                  <select
+                    value={releaseStream}
+                    onChange={(e) => setReleaseStream(e.target.value)}
+                    className="w-full bg-[#0d1117] border border-[#30363d] rounded-xl px-3 py-2 text-xs text-white font-mono outline-none"
+                  >
+                    <option value="Paper 1.21.x - Stable">1.21.x - Stable (Empfohlen)</option>
+                    <option value="Paper 1.20.4 - LTS">1.20.4 - LTS</option>
+                    <option value="Latest Experimental">Latest Experimental Build</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-mono text-slate-400 mb-1">Nightly Cron-Task</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={nightlyCron}
+                      onChange={(e) => setNightlyCron(e.target.value)}
+                      placeholder="04:00"
+                      className="w-full bg-[#0d1117] border border-[#30363d] rounded-xl px-3 py-2 text-xs text-white font-mono outline-none"
+                    />
+                    <button
+                      type="button"
+                      disabled={isUpdatingNow}
+                      onClick={async () => {
+                        if (!selectedServer?.uuid) return;
+                        setIsUpdatingNow(true);
+                        try {
+                          const res = await api.autoUpdater.trigger(selectedServer.uuid);
+                          addToast({
+                            title: 'Auto-Updater ausgeführt',
+                            description: res?.message || 'Snapshot angelegt & JAR erfolgreich aktualisiert!',
+                            type: 'success',
+                          });
+                        } catch (err: any) {
+                          addToast({
+                            title: 'Update fehlgeschlagen',
+                            description: err.message || 'Konnte Auto-Updater nicht ausführen',
+                            type: 'error',
+                          });
+                        } finally {
+                          setIsUpdatingNow(false);
+                        }
+                      }}
+                      className="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono font-semibold whitespace-nowrap transition-all shadow-sm"
+                    >
+                      {isUpdatingNow ? 'Updaten...' : 'Jetzt testen'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t border-white/5 text-xs text-slate-400 font-mono flex-wrap gap-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={autoRestart}
+                    onChange={(e) => setAutoRestart(e.target.checked)}
+                    className="rounded bg-[#0d1117] border-[#30363d] text-indigo-600"
+                  />
+                  <span>Automatischen Server-Neustart nach JAR-Update ausführen</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={autoRevert}
+                    onChange={(e) => setAutoRevert(e.target.checked)}
+                    className="rounded bg-[#0d1117] border-[#30363d] text-indigo-600"
+                  />
+                  <span className="text-emerald-400 font-semibold">60s Crash-Analyzer Auto-Revert Schutz</span>
+                </label>
+              </div>
+            </div>
+
             {/* MOTD & Identity */}
             <div className="p-6 rounded-2xl bg-[#11141a] border border-[#30363d] shadow-sm space-y-4">
               <h3 className="text-xs font-mono uppercase text-slate-300 font-bold tracking-wider">

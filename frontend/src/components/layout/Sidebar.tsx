@@ -30,6 +30,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Gauge,
+  Compass,
 } from 'lucide-react';
 import { ServerDetailTab } from '../../types';
 import { StatusBadge } from '../common/StatusBadge';
@@ -92,6 +93,7 @@ const SERVER_CATEGORIES: ServerTabCategory[] = [
     id: 'services',
     label: 'Services & Extensions',
     tabs: [
+      { id: 'world-map', label: '2D World & Chunks', icon: Compass },
       { id: 'plugin-store', label: 'Plugins & Mods', icon: Package },
       { id: 'game-config', label: 'Game Config', icon: Sliders },
       { id: 'sidecars', label: 'Redis & DB Sidecars', icon: Zap },
@@ -171,6 +173,7 @@ export const Sidebar: React.FC = () => {
       case 'plugin-store': return t('tab_plugins');
       case 'game-config': return t('tab_game_config');
       case 'sidecars': return t('tab_sidecars');
+      case 'world-map': return t('tab_world_map');
       case 'databases': return t('tab_databases');
       case 'schedules': return t('tab_schedules');
       case 'security': return t('tab_security');

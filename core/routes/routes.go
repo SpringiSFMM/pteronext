@@ -282,6 +282,23 @@ func SetupRouter(
 
 			// Instant Server-Klon / 1-Klick-Staging
 			serverAccess.POST("/clone", serverCtrl.CloneServer)
+
+			// Canvas-basierter Minecraft Region- & World-Viewer (.mca Anvil Chunks)
+			worldRegionCtrl := controllers.NewWorldRegionController(db)
+			serverAccess.GET("/world/meta", worldRegionCtrl.GetWorldMeta)
+			serverAccess.GET("/world/region", worldRegionCtrl.GetRegionData)
+
+			// Auto-Updater für Cores (Paper, Purpur, Velocity) & Plugins mit Nightly-Cron & Auto-Revert
+			autoUpdateCtrl := controllers.NewAutoUpdateController(db, fileService, wingsClient)
+			serverAccess.GET("/auto-updater", autoUpdateCtrl.GetConfig)
+			serverAccess.POST("/auto-updater", autoUpdateCtrl.UpdateConfig)
+			serverAccess.POST("/auto-updater/trigger", autoUpdateCtrl.TriggerNightlyUpdate)
+
+			// Smart SFTP- & Access-Key-Manager (Temporäre Gast-Keys, TTL, IP-Whitelisting)
+			sftpKeyCtrl := controllers.NewSftpKeyController(db)
+			serverAccess.GET("/sftp-keys", sftpKeyCtrl.ListKeys)
+			serverAccess.POST("/sftp-keys", sftpKeyCtrl.CreateKey)
+			serverAccess.DELETE("/sftp-keys/:id", sftpKeyCtrl.DeleteKey)
 		}
 
 		// Node management (Admin only)

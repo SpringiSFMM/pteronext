@@ -21,6 +21,10 @@ import {
   ShieldCheck,
   ArrowRight,
   RefreshCw,
+  Key,
+  Trash2,
+  Clock,
+  Plus,
 } from 'lucide-react';
 import { api } from '../../../api/client';
 import { DeleteConfirmModal } from '../../common/DeleteConfirmModal';
@@ -260,6 +264,29 @@ export const SettingsTab: React.FC = () => {
       });
     }
   };
+
+  // Smart SFTP- & Access-Key-Manager State
+  const [sftpKeysList, setSftpKeysList] = useState<any[]>([]);
+  const [isCreatingKey, setIsCreatingKey] = useState(false);
+  const [newKeyLabel, setNewKeyLabel] = useState('Helfer-Zugang');
+  const [newKeyTtl, setNewKeyTtl] = useState(3);
+  const [newKeyIps, setNewKeyIps] = useState('');
+
+  const fetchSftpKeys = async () => {
+    if (!selectedServer?.uuid) return;
+    try {
+      const res = await api.sftpKeys.list(selectedServer.uuid);
+      if (res && res.keys) {
+        setSftpKeysList(res.keys);
+      }
+    } catch (e) {
+      console.warn('Could not load SFTP keys:', e);
+    }
+  };
+
+  useEffect(() => {
+    fetchSftpKeys();
+  }, [selectedServer?.uuid]);
 
   useEffect(() => {
     if (selectedServer?.uuid) {
@@ -687,6 +714,200 @@ export const SettingsTab: React.FC = () => {
             <span className="truncate">{sftpUrl}</span>
           </div>
           <span className="text-[11px] text-slate-500 flex-shrink-0 pl-2">Password: Your Panel Account Password</span>
+        </div>
+
+        {/* Smart SFTP- & Access-Key-Manager (Gast-Keys, TTL, IP-Whitelisting) */}
+        <div className="pt-4 border-t border-slate-800 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="text-xs font-bold text-white uppercase font-mono flex items-center gap-2">
+                <Key className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Smart SFTP- & Guest-Keys (TTL & IP-Whitelist)</span>
+              </h4>
+              <p className="text-[11px] text-slate-400 font-sans">
+                Generiere zeitlich begrenzte Zugänge für Helfer, Entwickler oder Co-Admins mit automatischem Ablauf.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsCreatingKey(!isCreatingKey)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono font-semibold transition-all shadow-sm"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Key erstellen</span>
+            </button>
+          </div>
+
+          {/* New Key Form Drawer */}
+          {isCreatingKey && (
+            <div className="p-4 rounded-xl bg-[#0d1017] border border-indigo-500/30 space-y-3 text-xs font-mono animate-in fade-in duration-150">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] text-slate-400 mb-1">Bezeichnung / Label</label>
+                  <input
+                    type="text"
+                    value={newKeyLabel}
+                    onChange={(e) => setNewKeyLabel(e.target.value)}
+                    placeholder="z. B. Plugin-Dev Gastzugang"
+                    className="w-full bg-[#161b22] border border-[#30363d] rounded-lg px-3 py-1.5 text-white outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-slate-400 mb-1">Gültigkeit / TTL (Stunden)</label>
+                  <select
+                    value={newKeyTtl}
+                    onChange={(e) => setNewKeyTtl(Number(e.target.value))}
+                    className="w-full bg-[#161b22] border border-[#30363d] rounded-lg px-3 py-1.5 text-white outline-none focus:border-indigo-500"
+                  >
+                    <option value={1}>1 Stunde</option>
+                    <option value={3}>3 Stunden (Empfohlen)</option>
+                    <option value={12}>12 Stunden</option>
+                    <option value={24}>24 Stunden (1 Tag)</option>
+                    <option value={72}>72 Stunden (3 Tage)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] text-slate-400 mb-1">IP-Whitelist (Optional)</label>
+                  <input
+                    type="text"
+                    value={newKeyIps}
+                    onChange={(e) => setNewKeyIps(e.target.value)}
+                    placeholder="z. B. 192.168.1.5, 10.0.0.1"
+                    className="w-full bg-[#161b22] border border-[#30363d] rounded-lg px-3 py-1.5 text-white outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCreatingKey(false)}
+                  className="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!selectedServer?.uuid) return;
+                    try {
+                      const res = await api.sftpKeys.create(selectedServer.uuid, {
+                        label: newKeyLabel.trim(),
+                        ttl_hours: newKeyTtl,
+                        allowed_ips: newKeyIps.trim(),
+                      });
+                      addToast({
+                        title: 'SFTP-Key generiert',
+                        description: res.message || 'Temporärer Gast-Key aktiv!',
+                        type: 'success',
+                      });
+                      setIsCreatingKey(false);
+                      fetchSftpKeys();
+                    } catch (err: any) {
+                      addToast({
+                        title: 'Fehler',
+                        description: err.message || 'Konnte Key nicht anlegen',
+                        type: 'error',
+                      });
+                    }
+                  }}
+                  className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+                >
+                  Erstellen & Aktivieren
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Active Keys Table / Cards */}
+          <div className="space-y-2">
+            {sftpKeysList.length === 0 ? (
+              <div className="p-3 text-center text-slate-500 font-mono text-xs border border-dashed border-slate-800 rounded-xl">
+                Keine temporären Gast-Keys aktiv.
+              </div>
+            ) : (
+              sftpKeysList.map((k) => (
+                <div
+                  key={k.id}
+                  className="p-3 bg-[#0d1017] rounded-xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono"
+                >
+                  <div className="space-y-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-white">{k.label}</span>
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded-full ${
+                          k.is_expired
+                            ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                            : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                        }`}
+                      >
+                        {k.is_expired ? 'Abgelaufen' : 'Aktiv'}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-400 flex items-center gap-3 flex-wrap">
+                      <span>User: <code className="text-indigo-300">{k.username}.{selectedServer.identifier}</code></span>
+                      <span>Pass: <code className="text-indigo-300">{k.password}</code></span>
+                      {k.allowed_ips && (
+                        <span>IPs: <code className="text-amber-400">{k.allowed_ips}</code></span>
+                      )}
+                      <span className="text-slate-500">
+                        Gültig bis: {new Date(k.expires_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    {/* 1-Klick FileZilla / URI */}
+                    <a
+                      href={k.sftp_uri}
+                      className="px-2.5 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 font-semibold transition-all flex items-center gap-1.5"
+                      title="In FileZilla öffnen (sftp://)"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      <span>FileZilla</span>
+                    </a>
+
+                    {/* 1-Klick WinSCP */}
+                    <a
+                      href={k.winscp_link}
+                      className="px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-semibold transition-all flex items-center gap-1.5"
+                      title="In WinSCP öffnen"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      <span>WinSCP</span>
+                    </a>
+
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!selectedServer?.uuid) return;
+                        try {
+                          await api.sftpKeys.delete(selectedServer.uuid, k.id);
+                          addToast({
+                            title: 'Key widerrufen',
+                            description: 'Gast-Key erfolgreich gelöscht.',
+                            type: 'info',
+                          });
+                          fetchSftpKeys();
+                        } catch (err: any) {
+                          addToast({
+                            title: 'Fehler',
+                            description: err.message,
+                            type: 'error',
+                          });
+                        }
+                      }}
+                      className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-white/5 transition-colors"
+                      title="Key sofort widerrufen"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
 

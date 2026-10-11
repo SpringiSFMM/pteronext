@@ -1,6 +1,7 @@
 import React from 'react';
 import { Sidebar } from './Sidebar';
 import { MobileHeader } from './MobileHeader';
+import { ModernNavbar } from './ModernNavbar';
 import { Footer } from './Footer';
 import { ToastContainer } from '../common/Toast';
 import { UserSettingsModal } from '../settings/UserSettingsModal';
@@ -33,6 +34,11 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       <div className={`${isSidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64'} flex flex-col min-h-screen transition-[padding] duration-300 ease-in-out`}>
         {/* Mobile Header Bar */}
         <MobileHeader />
+
+        {/* Modern Top Navbar for Desktop */}
+        <div className="hidden lg:block">
+          <ModernNavbar />
+        </div>
 
         {/* Dynamic Main View */}
         <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">

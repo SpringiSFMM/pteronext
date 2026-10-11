@@ -38,15 +38,66 @@ func (ch *ChangelogController) GetChangelog(c *gin.Context) {
 
 	rawReleases := []ReleaseItem{
 		{
+			Version:       "v2.8.0",
+			Date:          "October 2026",
+			Title:         "Major Release: Physical Server Purge, 2D Anvil Region-Viewer, Auto-Updater & Smart SFTP-Keys",
+			TitleEN:       "Major Release: Physical Server Purge, 2D Anvil Region-Viewer, Auto-Updater & Smart SFTP-Keys",
+			Description:   "Großes Funktions-Update: Physische und kaskadierende Server-Löschung, 5-Stufen Setup-Wizard mit Lockfile, Canvas-basierter Minecraft Region-Viewer (.mca), Core Auto-Updater mit 60s Crash Auto-Revert und temporäre SFTP-Gast-Keys mit TTL & IP-Whitelisting.",
+			DescriptionEN: "Major feature release: physical & cascading server purge, 5-step onboarding wizard with lockfile, canvas-based Minecraft anvil region viewer (.mca), core auto-updater with 60s crash auto-revert, and temporary SFTP guest keys with TTL & IP whitelisting.",
+			Tag:           "LATEST STABLE",
+			TagEN:         "LATEST STABLE",
+			IsLatest:      true,
+			Highlights: []string{
+				"Physische Server-Bereinigung: Synchrone Wings-Löschung & kaskadierender DB-Purge",
+				"ModernNavbar: Live GitHub/Local Versionsabgleich & globales Theme im Admin-Dashboard",
+				"First-Run Setup-Wizard: 5-Schritte Assistent (DB, Discord, Cloudflare, Root Admin Springi_SFM) & .setup_locked Lockfile",
+				"Minecraft 2D Region-Viewer: Canvas-Top-Down-Karte für .mca Chunks, Biome, Höhen & Live-Marker",
+				"Core Auto-Updater: Paper/Purpur/Velocity Streams mit 04:00 Uhr Nightly-Cron & 60s Crash Auto-Revert",
+				"Smart SFTP-Keys: Gast-Keys mit TTL, IP-Whitelisting & 1-Klick FileZilla / WinSCP URI",
+			},
+			HighlightsEN: []string{
+				"Physical Server Purge: Synchronous Wings deletion & cascading database purge",
+				"ModernNavbar: Live GitHub/local version sync & global theme selector in admin dashboard",
+				"First-Run Setup Wizard: 5-step onboarding (DB, Discord, Cloudflare, Root Admin Springi_SFM) & .setup_locked lockfile",
+				"Minecraft 2D Region Viewer: Canvas top-down map for .mca chunks, biomes, elevations & live markers",
+				"Core Auto-Updater: Paper/Purpur/Velocity streams with 04:00 AM nightly cron & 60s crash auto-revert",
+				"Smart SFTP Keys: Temporary guest keys with TTL, IP whitelisting & 1-click FileZilla / WinSCP URIs",
+			},
+			Features: []string{
+				"Automatischer Pre-Update Snapshot für Server-Cores",
+				"Direkte Anvil .mca Header-Extraktion für 32x32 Chunks",
+				"Sicherheits-Lockfile verhindert unautorisierten Re-Setup",
+			},
+			FeaturesEN: []string{
+				"Automated pre-update snapshots for server core jars",
+				"Direct anvil .mca header extraction for 32x32 chunks",
+				"Security lockfile prevents unauthorized re-setup",
+			},
+			Security: []string{
+				"IP-Whitelisting pro SFTP-Schlüssel verhindert unberechtigte Remote-Logins",
+				"Automatische TTL-Ungültigkeit für Gast-Keys schützt Serverdaten",
+			},
+			SecurityEN: []string{
+				"Per-key IP whitelisting prevents unauthorized remote logins",
+				"Automated TTL expiration for guest keys protects server data",
+			},
+			Improvements: []string{
+				"Restrukturiertes Server-Dashboard mit aufgeräumten Quick-Actions und Telemetrie",
+			},
+			ImprovementsEN: []string{
+				"Restructured server dashboard with streamlined quick actions and telemetry",
+			},
+		},
+		{
 			Version:       "v2.7.4",
 			Date:          "October 2026",
 			Title:         "Neues Panel-Logo, Entfernung von Mock-Daten & Bereinigung von ANSI-Farbcodes",
 			TitleEN:       "New Panel Logo, Removal of Mock Data & ANSI Color Code Cleanup",
 			Description:   "Integriert das neue PteroNext-Logo, entfernt alle verbliebenen Mock-Daten im Diagnostik-Radar/Lag-Dump und bereinigt ANSI-Farbcode-Reste bei Spielernamen.",
 			DescriptionEN: "Integrates the new PteroNext logo, removes all remaining mock data in Diagnostics Radar and Lag Dumps, and cleans ANSI color code artifacts from player names.",
-			Tag:           "LATEST STABLE",
-			TagEN:         "LATEST STABLE",
-			IsLatest:      true,
+			Tag:           "STABLE",
+			TagEN:         "STABLE",
+			IsLatest:      false,
 			Highlights: []string{
 				"Neues modernes Origami-Logo im Header, Login-Screen und Favicon",
 				"Bereinigung von ANSI-Farbcodes: Keine fehlerhaften Präfixe wie 93m mehr in Spielernamen",

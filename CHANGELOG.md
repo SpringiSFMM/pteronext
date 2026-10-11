@@ -3,6 +3,15 @@ This file is a running track of new features and fixes to each version of the pa
 
 This project follows [Semantic Versioning](http://semver.org) guidelines.
 
+## v2.8.0
+### Added
+* **Physical Server Purge**: Server deletion now synchronously triggers Wings daemon RPC, stops/removes the Docker container, recursively deletes `/servers/<uuid>` and runs a cascading purge across all relational database models.
+* **ModernNavbar & Global Themes**: Redesigned modern top navbar featuring live GitHub and local tag synchronization (`v2.8.0`). Admin dashboard now features a global color theme selector with real-time accent updates.
+* **First-Run Onboarding Setup Wizard**: 5-step interactive setup wizard handling database configuration (SQLite WAL / PostgreSQL / MariaDB), Discord bot tokens & verification guilds, Cloudflare DNS automation tokens, initial Root Admin (`Springi_SFM`), and `.setup_locked` permanent security locking.
+* **Canvas-based Minecraft Region-Viewer**: Integrated 2D top-down Anvil map renderer extracting `.mca` chunk locations, biome categories, average elevation and real-time markers (Spawn, WorldBorder, active chunks).
+* **Core Auto-Updater**: Automated release-stream subscriptions for Paper, Purpur and Velocity, nightly cron automation (04:00 AM) with pre-update backups and a 60-second crash auto-revert recovery hook.
+* **Smart SFTP- & Access-Key-Manager**: Temporary guest credentials with configurable TTL expiration, per-key IP whitelisting, daemon authentication integration, and 1-click `sftp://` URI generation for FileZilla and WinSCP.
+
 ## v1.12.3
 ### Fixed
 * Adds a rate limit when changing email addresses on an account to prevent account enumeration.

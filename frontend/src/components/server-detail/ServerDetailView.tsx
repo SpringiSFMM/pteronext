@@ -17,6 +17,7 @@ import { PluginStoreTab } from './tabs/PluginStoreTab';
 import { BackupsTab } from './tabs/BackupsTab';
 import { WebhooksTab } from './tabs/WebhooksTab';
 import { DiagnosticsTab } from './tabs/DiagnosticsTab';
+import { WorldRegionViewerTab } from './tabs/WorldRegionViewerTab';
 
 export const ServerDetailView: React.FC = () => {
   const { activeServerTab, selectedServer } = useApp();
@@ -47,6 +48,7 @@ export const ServerDetailView: React.FC = () => {
         {activeServerTab === 'backups' && <BackupsTab key={`backups-${serverKey}`} />}
         {activeServerTab === 'game-config' && <GameConfigTab key={`game-config-${serverKey}`} />}
         {activeServerTab === 'plugin-store' && <PluginStoreTab key={`plugin-store-${serverKey}`} />}
+        {activeServerTab === 'world-map' && <WorldRegionViewerTab key={`world-map-${serverKey}`} />}
         {activeServerTab === 'schedules' && <SchedulesTab key={`schedules-${serverKey}`} />}
         {activeServerTab === 'databases' && <DatabasesTab key={`databases-${serverKey}`} />}
         {activeServerTab === 'users' && <UsersTab key={`users-${serverKey}`} />}

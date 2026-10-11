@@ -275,6 +275,7 @@ export type ServerDetailTab =
   | 'audit'
   | 'game-config'
   | 'plugin-store'
+  | 'world-map'
   | 'webhooks'
   | 'diagnostics'
   | 'settings';

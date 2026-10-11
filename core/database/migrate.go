@@ -41,6 +41,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.FileRevision{},
 		&models.ServerCustomDomain{},
 		&models.ServerTrigger{},
+		&models.SftpAccessKey{},
 	}
 
 	for _, table := range tables {

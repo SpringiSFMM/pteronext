@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -518,23 +519,53 @@ func (s *ServerController) DeleteServer(c *gin.Context) {
 	server, _ := middleware.GetRequestServer(c)
 	user, _ := middleware.GetRequestUser(c)
 
-	// Instruct Wings daemon to delete the server environment
+	// 1. Instruct Wings daemon to delete the server environment & container
 	if server.Node != nil {
-		go func(n *models.Node, sUUID string) {
-			_ = s.wingsClient.DeleteServer(n, sUUID)
-		}(server.Node, server.UUID)
+		if err := s.wingsClient.DeleteServer(server.Node, server.UUID); err != nil {
+			log.Printf("[ServerController] Wings delete warning for %s: %v", server.UUID, err)
+		}
 	}
 
-	// Unlink allocation
-	s.db.Model(&models.Allocation{}).Where("server_id = ?", server.ID).Update("server_id", nil)
-
-	if err := s.db.Delete(server).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed deleting server."})
-		return
+	// 2. Fallback physical cleanup of local server directory if present (/servers/<uuid> or ./servers/<uuid>)
+	localPaths := []string{
+		fmt.Sprintf("/servers/%s", server.UUID),
+		fmt.Sprintf("./servers/%s", server.UUID),
+		fmt.Sprintf("servers/%s", server.UUID),
+		fmt.Sprintf("/var/lib/pterodactyl/volumes/%s", server.UUID),
 	}
+	for _, lp := range localPaths {
+		if fi, err := os.Stat(lp); err == nil && fi.IsDir() {
+			log.Printf("[ServerController] Removing local server directory: %s", lp)
+			_ = os.RemoveAll(lp)
+		}
+	}
+
+	// 3. Cascading DB cleanups
+	s.db.Transaction(func(tx *gorm.DB) error {
+		// Unlink allocations
+		tx.Model(&models.Allocation{}).Where("server_id = ?", server.ID).Update("server_id", nil)
+		// Delete dependent models
+		tx.Where("server_id = ?", server.ID).Delete(&models.ServerVariable{})
+		tx.Where("server_id = ?", server.ID).Delete(&models.Schedule{})
+		tx.Where("server_id = ?", server.ID).Delete(&models.Task{})
+		tx.Where("server_id = ?", server.ID).Delete(&models.Subuser{})
+		tx.Where("server_id = ?", server.ID).Delete(&models.Database{})
+		tx.Where("server_id = ?", server.ID).Delete(&models.Backup{})
+		tx.Where("server_id = ?", server.ID).Delete(&models.Webhook{})
+		tx.Where("server_id = ?", server.ID).Delete(&models.Sidecar{})
+		tx.Where("server_id = ?", server.ID).Delete(&models.ServerCustomDomain{})
+		tx.Where("server_id = ?", server.ID).Delete(&models.ServerTrigger{})
+		tx.Where("server_id = ?", server.ID).Delete(&models.FileRevision{})
+		// Unlink audits
+		tx.Model(&models.AuditLog{}).Where("server_id = ?", server.ID).Update("server_id", nil)
+
+		// Hard delete the server record
+		return tx.Unscoped().Delete(server).Error
+	})
 
 	_ = s.auditService.Log(&user.ID, "user", &server.ID, "server:delete", map[string]interface{}{
 		"name": server.Name,
+		"uuid": server.UUID,
 	}, c.ClientIP())
 
 	c.Status(http.StatusNoContent)

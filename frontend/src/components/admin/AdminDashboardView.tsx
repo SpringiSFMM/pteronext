@@ -24,7 +24,9 @@ import {
   Lock,
   Key,
   Bot,
+  Palette,
 } from 'lucide-react';
+import { COLOR_THEMES } from '../../types';
 
 export const AdminDashboardView: React.FC = () => {
   const {
@@ -40,6 +42,8 @@ export const AdminDashboardView: React.FC = () => {
     selectServerAndNavigate,
     addToast,
     language,
+    colorTheme,
+    setColorTheme,
   } = useApp();
 
   // Discord Bot & OAuth Integration State
@@ -795,6 +799,73 @@ export const AdminDashboardView: React.FC = () => {
               </div>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Global Theme & UI Styling Configuration */}
+      <div className="p-6 rounded-2xl bg-[#11141a] border border-[#30363d] space-y-4">
+        <div className="flex items-center justify-between border-b border-[#30363d] pb-3">
+          <div className="flex items-center gap-2">
+            <Palette className="w-4 h-4 text-indigo-400" />
+            <h2 className="text-sm font-bold text-white tracking-wide">
+              {language === 'de' ? 'Globales Panel Theme & Akzentfarben' : 'Global Panel Theme & Accent Colors'}
+            </h2>
+          </div>
+          <span className="text-xs font-mono text-slate-400">
+            {language === 'de' ? 'Aktuell:' : 'Current:'} <strong className="text-white capitalize">{colorTheme}</strong>
+          </span>
+        </div>
+
+        <p className="text-xs text-slate-400">
+          {language === 'de'
+            ? 'Wähle das systemweite Erscheinungsbild für alle Nutzer und Dashboards. Die Akzentfarbe wird in Echtzeit auf Navbar, Sidebar, Badges und Buttons angewendet.'
+            : 'Select the system-wide visual appearance for all users and dashboards. Accent colors are applied in real time to navbars, sidebars, badges, and action buttons.'}
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 pt-2">
+          {COLOR_THEMES.map((theme) => {
+            const isSelected = colorTheme === theme.id;
+            return (
+              <button
+                key={theme.id}
+                onClick={() => {
+                  setColorTheme(theme.id);
+                  addToast({
+                    title: language === 'de' ? 'Theme aktualisiert' : 'Theme Updated',
+                    description: `${theme.name} ${language === 'de' ? 'wurde aktiviert' : 'has been activated'}`,
+                    type: 'success',
+                  });
+                }}
+                className={`p-3.5 rounded-xl border text-left transition-all relative flex flex-col justify-between gap-3 ${
+                  isSelected
+                    ? 'bg-[#161b22] border-indigo-500 ring-1 ring-indigo-500/50 shadow-md'
+                    : 'bg-[#0d1017] border-[#2b3342] hover:border-[#484f58] hover:bg-[#161b22]/50'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <span
+                      className="w-4 h-4 rounded-full border border-white/20 shrink-0 shadow-sm"
+                      style={{ backgroundColor: theme.accent }}
+                    />
+                    <span className="text-xs font-bold text-white tracking-tight">{theme.name}</span>
+                  </div>
+                  {isSelected && (
+                    <CheckCircle2 className="w-4 h-4 text-indigo-400 shrink-0" />
+                  )}
+                </div>
+
+                <p className="text-[11px] text-slate-400 line-clamp-2 leading-relaxed">
+                  {theme.description}
+                </p>
+
+                <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[10px] font-mono text-slate-500">
+                  <span className="px-1.5 py-0.5 rounded bg-white/5">{theme.badge}</span>
+                  <span style={{ color: theme.accent }}>{theme.accent}</span>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

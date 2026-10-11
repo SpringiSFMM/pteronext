@@ -37,6 +37,7 @@ export interface Translations {
   tab_plugins: string;
   tab_game_config: string;
   tab_sidecars: string;
+  tab_world_map: string;
   tab_security: string;
   tab_backups: string;
   tab_schedules: string;
@@ -194,6 +195,7 @@ export const translations: Record<Language, Translations> = {
     tab_plugins: 'Plugins & Mods',
     tab_game_config: 'Game Config',
     tab_sidecars: 'DB-Sidecars',
+    tab_world_map: '2D World & Chunks',
     tab_security: 'JAR-Scanner & Schutz',
     tab_backups: 'Backups',
     tab_schedules: 'Zeitpläne',
@@ -350,6 +352,7 @@ export const translations: Record<Language, Translations> = {
     tab_plugins: 'Plugins & Mods',
     tab_game_config: 'Game Config',
     tab_sidecars: 'DB Sidecars',
+    tab_world_map: '2D World & Chunks',
     tab_security: 'JAR Scanner & Shield',
     tab_backups: 'Backups',
     tab_schedules: 'Schedules',
