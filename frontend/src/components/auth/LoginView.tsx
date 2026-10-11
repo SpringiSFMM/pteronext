@@ -199,11 +199,11 @@ export const LoginView: React.FC = () => {
       <div className="w-full max-w-md bg-[#10141d]/90 backdrop-blur-2xl border border-zinc-800/80 rounded-3xl p-8 shadow-2xl relative z-10 space-y-6 animate-in fade-in zoom-in-95 duration-200">
         {/* Brand Header */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-700/80 shadow-inner mb-1">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-700/80 shadow-inner mb-1 p-2">
             {is2FARequired ? (
               <ShieldCheck className="w-7 h-7 text-emerald-400" />
             ) : (
-              <Server className="w-7 h-7 text-white" />
+              <img src="/logo.png" alt="PteroNext Logo" className="w-10 h-10 object-contain" />
             )}
           </div>
           <div className="flex items-center justify-center gap-2">

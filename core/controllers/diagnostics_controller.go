@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -185,50 +187,49 @@ func (dc *DiagnosticsController) GetRadar(c *gin.Context) {
 		return
 	}
 
-	hotspots := []RadarHotspot{
-		{
-			ID:          "hotspot-1",
-			World:       "world",
-			ChunkX:      8,
-			ChunkZ:      -20,
-			BlockX:      140,
-			BlockZ:      -320,
-			Count:       2840,
-			Type:        "entities",
-			Severity:    "critical",
-			Description: "2.840 Entities in Welt 'world' bei X: 140, Z: -320",
-			SuspectType: "Große automatische Villager- / Mob-Farm mit Entity-Clustering",
-		},
-		{
-			ID:          "hotspot-2",
-			World:       "world_nether",
-			ChunkX:      -14,
-			ChunkZ:      4,
-			BlockX:      -224,
-			BlockZ:      64,
-			Count:       840,
-			Type:        "tile_entities",
-			Severity:    "warning",
-			Description: "840 Hoppers in Welt 'world_nether' bei X: -224, Z: 64",
-			SuspectType: "Umfangreiches Trichter-Sortiersystem ohne Behälter-Locks",
-		},
+	// Check if server directory exists to detect real world folders
+	detectedWorlds := []string{}
+	serverDir := filepath.Join("/var/lib/pterodactyl/volumes", server.UUID)
+	if _, err := os.Stat(serverDir); err != nil {
+		serverDir = filepath.Join("/var/lib/pteronext/servers", server.UUID)
+	}
+
+	if entries, err := os.ReadDir(serverDir); err == nil {
+		for _, entry := range entries {
+			if entry.IsDir() {
+				levelDat := filepath.Join(serverDir, entry.Name(), "level.dat")
+				if _, err := os.Stat(levelDat); err == nil {
+					detectedWorlds = append(detectedWorlds, entry.Name())
+				}
+			}
+		}
+	}
+
+	if len(detectedWorlds) == 0 {
+		detectedWorlds = []string{"world", "world_nether", "world_the_end"}
+	}
+
+	worldSummaries := make([]gin.H, 0, len(detectedWorlds))
+	for _, w := range detectedWorlds {
+		worldSummaries = append(worldSummaries, gin.H{
+			"name":     w,
+			"entities": 0,
+			"tiles":    0,
+			"status":   "optimal",
+		})
 	}
 
 	summary := gin.H{
-		"total_entities": 4120,
-		"total_tiles":    1290,
-		"status":         "warning",
-		"worlds": []gin.H{
-			{"name": "world", "entities": 3120, "tiles": 450, "status": "warning"},
-			{"name": "world_nether", "entities": 840, "tiles": 840, "status": "warning"},
-			{"name": "world_the_end", "entities": 160, "tiles": 0, "status": "optimal"},
-		},
+		"total_entities": 0,
+		"total_tiles":    0,
+		"status":         "optimal",
+		"worlds":         worldSummaries,
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"server_uuid": server.UUID,
 		"is_running":  true,
-		"hotspots":    hotspots,
+		"hotspots":    []RadarHotspot{},
 		"summary":     summary,
 	})
 }
@@ -241,29 +242,8 @@ func (dc *DiagnosticsController) GetLagDumps(c *gin.Context) {
 	dumps, exists := dc.lagDumps[server.UUID]
 	dc.mu.RUnlock()
 
-	if !exists || len(dumps) == 0 {
-		dumps = []LagDumpSnapshot{
-			{
-				ID:          "lagdump-auto-001",
-				Timestamp:   time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
-				DurationSec: 30,
-				AverageTPS:  11.4,
-				AverageMSPT: 87.5,
-				Trigger:     "Automatischer Trigger: TPS < 12 für mehr als 15 Sekunden",
-				TopThreads: []LagThreadDetail{
-					{Name: "Server thread", CPUPercent: 94.2, Activity: "Entity tick loop & Block updates"},
-					{Name: "Chunk Provider Thread", CPUPercent: 38.6, Activity: "Asynchronous chunk loading / Generation"},
-					{Name: "Netty Epoll Server IO", CPUPercent: 12.1, Activity: "Packet serialization"},
-				},
-				Hotspots: []string{
-					"World 'world' Chunk [8, -20] Entity Processing",
-					"World 'world_nether' Chunk [-14, 4] Hopper Ticking",
-				},
-			},
-		}
-		dc.mu.Lock()
-		dc.lagDumps[server.UUID] = dumps
-		dc.mu.Unlock()
+	if !exists || dumps == nil {
+		dumps = []LagDumpSnapshot{}
 	}
 
 	c.JSON(http.StatusOK, gin.H{

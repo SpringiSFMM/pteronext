@@ -38,15 +38,38 @@ func (ch *ChangelogController) GetChangelog(c *gin.Context) {
 
 	rawReleases := []ReleaseItem{
 		{
+			Version:       "v2.7.4",
+			Date:          "October 2026",
+			Title:         "Neues Panel-Logo, Entfernung von Mock-Daten & Bereinigung von ANSI-Farbcodes",
+			TitleEN:       "New Panel Logo, Removal of Mock Data & ANSI Color Code Cleanup",
+			Description:   "Integriert das neue PteroNext-Logo, entfernt alle verbliebenen Mock-Daten im Diagnostik-Radar/Lag-Dump und bereinigt ANSI-Farbcode-Reste bei Spielernamen.",
+			DescriptionEN: "Integrates the new PteroNext logo, removes all remaining mock data in Diagnostics Radar and Lag Dumps, and cleans ANSI color code artifacts from player names.",
+			Tag:           "LATEST STABLE",
+			TagEN:         "LATEST STABLE",
+			IsLatest:      true,
+			Highlights: []string{
+				"Neues modernes Origami-Logo im Header, Login-Screen und Favicon",
+				"Bereinigung von ANSI-Farbcodes: Keine fehlerhaften Präfixe wie 93m mehr in Spielernamen",
+				"Entfernung sämtlicher Mock-Daten im Radar- und Lag-Dump-System",
+				"Saubere Empty-States für Welten- und Thread-Diagnostik",
+			},
+			HighlightsEN: []string{
+				"New modern origami logo across header, login screen, and favicon",
+				"ANSI escape code stripping: No corrupted prefixes like 93m in player usernames",
+				"Removal of all mock radar hotspots and mock automated lag dumps",
+				"Clean empty states for world entity radar and thread analysis",
+			},
+		},
+		{
 			Version:       "v2.7.3",
 			Date:          "October 2026",
 			Title:         "Live-Player Tracking Fix & Bereinigung des In-Game Chat Relays",
 			TitleEN:       "Live Player Tracking Fix & In-Game Chat Relay Cleanup",
 			Description:   "Behebt dauerhaft angezeigte Geister-Spieler (Ghost Players) durch direkte Live-Server-Abfrage und entfernt System-/Daemon-Ausgaben aus dem Spieler-Chat.",
 			DescriptionEN: "Fixes ghost players remaining indefinitely in active players list via live server query, and removes system/daemon logs from the in-game player chat relay.",
-			Tag:           "LATEST STABLE",
-			TagEN:         "LATEST STABLE",
-			IsLatest:      true,
+			Tag:           "STABLE",
+			TagEN:         "STABLE",
+			IsLatest:      false,
 			Highlights: []string{
 				"Präzises Live-Player Tracking: Abfrage des tatsächlichen Serverzustands via TCP Server List Ping und Join/Leave-Log-Auswertung statt statischem usercache.json",
 				"Keine Geisterspieler mehr: Ausgeloggte oder getrennte Spieler verschwinden sofort aus der Liste der aktiven Spieler",

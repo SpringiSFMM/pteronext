@@ -313,8 +313,16 @@ export const DiagnosticsTab: React.FC = () => {
             <div>
               <h3 className="text-base font-bold text-white font-mono flex items-center gap-2">
                 <span>{t('diag_radar_title')}</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                  {radarHotspots.length} {language === 'de' ? 'Hotspots erkannt' : 'Hotspots Detected'}
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    radarHotspots.length === 0
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                      : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                  }`}
+                >
+                  {radarHotspots.length === 0
+                    ? (language === 'de' ? 'Optimal / Keine Hotspots' : 'Optimal / No Hotspots')
+                    : `${radarHotspots.length} ${language === 'de' ? 'Hotspots erkannt' : 'Hotspots Detected'}`}
                 </span>
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">{t('diag_radar_desc')}</p>
@@ -341,11 +349,15 @@ export const DiagnosticsTab: React.FC = () => {
                 </div>
                 <div className="flex justify-between text-slate-400 text-[11px]">
                   <span>{language === 'de' ? 'Entities:' : 'Entities:'}</span>
-                  <span className="text-white font-semibold">{w.entities.toLocaleString()}</span>
+                  <span className="text-white font-semibold">
+                    {w.entities > 0 ? w.entities.toLocaleString() : (language === 'de' ? 'Normal' : 'Optimal')}
+                  </span>
                 </div>
                 <div className="flex justify-between text-slate-400 text-[11px] mt-0.5">
                   <span>{language === 'de' ? 'Tile Entities:' : 'Tile Entities:'}</span>
-                  <span className="text-white font-semibold">{w.tiles.toLocaleString()}</span>
+                  <span className="text-white font-semibold">
+                    {w.tiles > 0 ? w.tiles.toLocaleString() : (language === 'de' ? 'Normal' : 'Optimal')}
+                  </span>
                 </div>
               </div>
             ))}
@@ -469,9 +481,16 @@ export const DiagnosticsTab: React.FC = () => {
 
         {/* Snapshot history */}
         <div className="space-y-2.5 font-mono text-xs">
-          {lagDumps.map((dump) => (
-            <div
-              key={dump.id}
+          {lagDumps.length === 0 ? (
+            <div className="p-6 text-center text-slate-500 font-mono text-xs bg-slate-900/40 rounded-xl border border-slate-800">
+              {language === 'de'
+                ? 'Keine automatischen oder manuellen Lag-Dumps vorhanden. Starte bei Performance-Einbrüchen oben einen manuellen Snapshot zur Thread-Analyse.'
+                : 'No automated or manual lag dumps recorded. Trigger a manual snapshot above to analyze threads during performance drops.'}
+            </div>
+          ) : (
+            lagDumps.map((dump) => (
+              <div
+                key={dump.id}
               className="p-4 rounded-xl bg-[#0a0e17] border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-slate-700 transition-colors"
             >
               <div>
@@ -497,7 +516,7 @@ export const DiagnosticsTab: React.FC = () => {
                 <span>{language === 'de' ? 'Snapshot analysieren' : 'Analyze Snapshot'}</span>
               </button>
             </div>
-          ))}
+          )))}
         </div>
       </div>
 

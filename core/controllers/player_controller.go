@@ -174,13 +174,27 @@ func pingMinecraftSLP(host string, port int, timeout time.Duration) (*mcPingResp
 }
 
 var (
-	mcJoinRegex     = regexp.MustCompile(`(?i)(?:\[.+\]:?\s+)?([a-zA-Z0-9_]{3,16})\s+joined the game`)
-	mcUUIDJoinRegex = regexp.MustCompile(`(?i)UUID of player ([a-zA-Z0-9_]{3,16}) is ([a-f0-9\-]{32,36})`)
-	mcLoginRegex    = regexp.MustCompile(`(?i)Player logged in:\s*([a-zA-Z0-9_]{3,16})`)
-	mcLeaveRegex    = regexp.MustCompile(`(?i)(?:\[.+\]:?\s+)?([a-zA-Z0-9_]{3,16})\s+(?:left the game|lost connection|disconnected)`)
-	mcKickRegex     = regexp.MustCompile(`(?i)(?:Disconnecting|Kicked)\s+([a-zA-Z0-9_]{3,16})`)
-	mcStopRegex     = regexp.MustCompile(`(?i)(?:Stopping the server|Closing Server|Stopping server)`)
+	ansiRegex         = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]|\x1b\([a-zA-Z]|\x1b\][^\a\x1b]*(\a|\x1b\\)`)
+	mcColorCodeRegex  = regexp.MustCompile(`§[0-9a-fk-or]`)
+	ansiResidueRegex  = regexp.MustCompile(`^[0-9]{1,3}m`)
+	mcJoinRegex       = regexp.MustCompile(`(?i)(?:\[.+\]:?\s+)?([a-zA-Z0-9_]{3,16})\s+joined the game`)
+	mcUUIDJoinRegex   = regexp.MustCompile(`(?i)UUID of player ([a-zA-Z0-9_]{3,16}) is ([a-f0-9\-]{32,36})`)
+	mcLoginRegex      = regexp.MustCompile(`(?i)Player logged in:\s*([a-zA-Z0-9_]{3,16})`)
+	mcLeaveRegex      = regexp.MustCompile(`(?i)(?:\[.+\]:?\s+)?([a-zA-Z0-9_]{3,16})\s+(?:left the game|lost connection|disconnected)`)
+	mcKickRegex       = regexp.MustCompile(`(?i)(?:Disconnecting|Kicked)\s+([a-zA-Z0-9_]{3,16})`)
+	mcStopRegex       = regexp.MustCompile(`(?i)(?:Stopping the server|Closing Server|Stopping server)`)
 )
+
+func sanitizeLogLine(line string) string {
+	line = ansiRegex.ReplaceAllString(line, "")
+	line = mcColorCodeRegex.ReplaceAllString(line, "")
+	return line
+}
+
+func sanitizePlayerName(name string) string {
+	name = ansiResidueRegex.ReplaceAllString(name, "")
+	return strings.TrimSpace(name)
+}
 
 // GetPlayers handles GET /api/servers/:uuid/players
 func (p *PlayerController) GetPlayers(c *gin.Context) {
@@ -275,29 +289,45 @@ func (p *PlayerController) GetPlayers(c *gin.Context) {
 	if len(onlineMap) == 0 && server.Node != nil {
 		logs, err := p.wingsClient.FetchServerLogs(server.Node, server.UUID, 250)
 		if err == nil && len(logs) > 0 {
-			for _, line := range logs {
+			for _, rawLine := range logs {
+				line := sanitizeLogLine(rawLine)
 				if mcStopRegex.MatchString(line) {
 					clear(onlineMap)
 					continue
 				}
 				if m := mcJoinRegex.FindStringSubmatch(line); len(m) > 1 {
-					onlineMap[strings.ToLower(m[1])] = ""
+					cleanName := sanitizePlayerName(m[1])
+					if cleanName != "" {
+						onlineMap[strings.ToLower(cleanName)] = ""
+					}
 					continue
 				}
 				if m := mcUUIDJoinRegex.FindStringSubmatch(line); len(m) > 2 {
-					onlineMap[strings.ToLower(m[1])] = m[2]
+					cleanName := sanitizePlayerName(m[1])
+					if cleanName != "" {
+						onlineMap[strings.ToLower(cleanName)] = m[2]
+					}
 					continue
 				}
 				if m := mcLoginRegex.FindStringSubmatch(line); len(m) > 1 {
-					onlineMap[strings.ToLower(m[1])] = ""
+					cleanName := sanitizePlayerName(m[1])
+					if cleanName != "" {
+						onlineMap[strings.ToLower(cleanName)] = ""
+					}
 					continue
 				}
 				if m := mcLeaveRegex.FindStringSubmatch(line); len(m) > 1 {
-					delete(onlineMap, strings.ToLower(m[1]))
+					cleanName := sanitizePlayerName(m[1])
+					if cleanName != "" {
+						delete(onlineMap, strings.ToLower(cleanName))
+					}
 					continue
 				}
 				if m := mcKickRegex.FindStringSubmatch(line); len(m) > 1 {
-					delete(onlineMap, strings.ToLower(m[1]))
+					cleanName := sanitizePlayerName(m[1])
+					if cleanName != "" {
+						delete(onlineMap, strings.ToLower(cleanName))
+					}
 					continue
 				}
 			}
@@ -308,6 +338,16 @@ func (p *PlayerController) GetPlayers(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"data": []PlayerInfo{}})
 		return
 	}
+
+	// Clean any residual keys in onlineMap
+	cleanOnlineMap := make(map[string]string)
+	for k, v := range onlineMap {
+		cleanK := sanitizePlayerName(k)
+		if cleanK != "" {
+			cleanOnlineMap[strings.ToLower(cleanK)] = v
+		}
+	}
+	onlineMap = cleanOnlineMap
 
 	if len(onlineMap) == 0 {
 		c.JSON(http.StatusOK, gin.H{"data": []PlayerInfo{}})
@@ -324,8 +364,11 @@ func (p *PlayerController) GetPlayers(c *gin.Context) {
 		}
 		_ = json.Unmarshal(ucBytes, &uc)
 		for _, u := range uc {
-			usercacheUUID[strings.ToLower(u.Name)] = u.UUID
-			usercacheProperName[strings.ToLower(u.Name)] = u.Name
+			cleanName := sanitizePlayerName(u.Name)
+			if cleanName != "" {
+				usercacheUUID[strings.ToLower(cleanName)] = u.UUID
+				usercacheProperName[strings.ToLower(cleanName)] = cleanName
+			}
 		}
 	}
 
@@ -356,6 +399,10 @@ func (p *PlayerController) GetPlayers(c *gin.Context) {
 			Location:      "world",
 			AvatarURL:     avatarURL,
 		})
+	}
+
+	if onlineConfirmed && pingRes.Players.Online > 0 && len(players) > pingRes.Players.Online {
+		players = players[:pingRes.Players.Online]
 	}
 
 	c.JSON(http.StatusOK, gin.H{"data": players})

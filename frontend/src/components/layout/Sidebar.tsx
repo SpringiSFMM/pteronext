@@ -350,21 +350,8 @@ export const Sidebar: React.FC = () => {
               onClick={() => handleNavClick('dashboard')}
               className="flex items-center gap-2.5 cursor-pointer group"
             >
-              <div className="w-8 h-8 rounded-lg bg-[#161b22] border border-[#30363d] flex items-center justify-center text-[var(--theme-accent)] group-hover:border-[#484f58] transition-colors">
-                <svg
-                  className="w-4 h-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
-                  <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
-                  <line x1="6" y1="6" x2="6.01" y2="6" />
-                  <line x1="6" y1="18" x2="6.01" y2="18" />
-                </svg>
+              <div className="w-8 h-8 rounded-lg bg-[#161b22] border border-[#30363d] flex items-center justify-center p-1 group-hover:border-[#484f58] transition-colors overflow-hidden">
+                <img src="/logo.png" alt="Logo" className="w-6 h-6 object-contain" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
