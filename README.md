@@ -1,7 +1,7 @@
 # PteroNext — Next-Generation Cloud-Native Game Server Platform
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v2.7.2-indigo?style=for-the-badge" alt="Version 2.7.2">
+  <img src="https://img.shields.io/badge/version-v2.7.3-indigo?style=for-the-badge" alt="Version 2.7.3">
   <img src="https://img.shields.io/badge/architecture-Single%20Binary%20Go%20%2B%20React-emerald?style=for-the-badge" alt="Go + React Single Binary">
   <img src="https://img.shields.io/badge/author-Springi--SFM-violet?style=for-the-badge" alt="Author Springi-SFM">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="License MIT">

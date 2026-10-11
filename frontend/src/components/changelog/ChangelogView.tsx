@@ -55,7 +55,8 @@ export const ChangelogView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedReleases, setExpandedReleases] = useState<Record<string, boolean>>({
-    'v2.7.2': true,
+    'v2.7.3': true,
+    'v2.7.2': false,
     'v2.7.1': false,
     'v2.7.0': false,
     'v2.6.0': false,
@@ -177,12 +178,49 @@ export const ChangelogView: React.FC = () => {
 
   const defaultReleases: Release[] = [
     {
+      version: 'v2.7.3',
+      title: language === 'de'
+        ? 'Live-Player Tracking Fix & Bereinigung des In-Game Chat Relays'
+        : 'Live Player Tracking Fix & In-Game Chat Relay Cleanup',
+      date: 'October 2026',
+      tag: 'LATEST STABLE',
+      features: language === 'de'
+        ? [
+            'Präzises Live-Player Tracking: Abfrage des tatsächlichen Serverzustands via TCP Server List Ping und Join/Leave-Log-Auswertung statt statischem usercache.json',
+            'Keine Geisterspieler mehr: Ausgeloggte oder getrennte Spieler verschwinden sofort aus der Liste der aktiven Spieler',
+            'Bereinigter Spieler-Chat: Vollständige Entfernung von System-Gateways, Node-Statusmeldungen und Daemon-Logs aus dem In-Game-Chat',
+            'Automatisches Leeren der aktiven Spieler bei gestopptem oder suspendiertem Server',
+          ]
+        : [
+            'Accurate live player tracking: Queries actual server state via TCP Server List Ping and real join/leave logs instead of static usercache.json',
+            'No more ghost players: Disconnected or offline players are immediately removed from active players',
+            'Cleaned player chat relay: Complete removal of system gateway ads, node status reports, and daemon console logs from player chat',
+            'Automatic player list reset when server is offline or suspended',
+          ],
+      security: language === 'de'
+        ? [
+            'Entfernung aller statischen Mock-Daten und Platzhalter-Benutzer aus der API',
+          ]
+        : [
+            'Elimination of all static mock data and placeholder demo users from the API',
+          ],
+      improvements: language === 'de'
+        ? [
+            'Direkte Echtzeit-Synchronisation der aktiven Spieler über WebSocket und Server-Ping',
+            'Strikter Filter für In-Game-Chat-Relay verhindert jegliches Einfließen von Konsole-Bannern',
+          ]
+        : [
+            'Direct real-time active player synchronization via WebSocket and server ping',
+            'Strict filter for in-game chat relay preventing console banners and node statuses from leaking',
+          ],
+    },
+    {
       version: 'v2.7.2',
       title: language === 'de'
         ? 'Crash-Analyzer, File-Time-Machine, Cloudflare DNS, Server-Staging & Suspension Enforcement'
         : 'Crash Analyzer, File Time-Machine, Cloudflare DNS, Server Staging & Suspension Enforcement',
       date: 'October 2026',
-      tag: 'LATEST STABLE',
+      tag: 'STABLE',
       features: language === 'de'
         ? [
             'Intelligenter Crash-Analyzer: Erkennt Java-Mismatch, Portkonflikte, OOM und YAML-Syntax mit 1-Klick-Lösung',
@@ -442,7 +480,7 @@ export const ChangelogView: React.FC = () => {
                 PteroNext GitHub Feed
               </span>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">
-                {updateStatus?.latest_version || 'v2.7.2'} LATEST
+                {updateStatus?.latest_version || 'v2.7.3'} LATEST
               </span>
               <a
                 href="https://github.com/SpringiSFMM/pteronext"
@@ -530,7 +568,7 @@ export const ChangelogView: React.FC = () => {
       {/* Release Timeline (Collapsible Accordions) */}
       <div className="space-y-4">
         {filteredReleases.map((release) => {
-          const isExpanded = expandedReleases[release.version] ?? (release.version === 'v2.7.2');
+          const isExpanded = expandedReleases[release.version] ?? (release.version === 'v2.7.3');
           const featureItems =
             release.features && release.features.length > 0
               ? release.features
@@ -556,12 +594,14 @@ export const ChangelogView: React.FC = () => {
                 <div className="flex items-center gap-3.5 min-w-0">
                   <span
                     className={`text-sm font-mono font-bold px-3 py-1 rounded-xl transition-colors ${
-                      release.version === 'v2.7.2'
+                      release.version === 'v2.7.3'
                         ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                        : release.version === 'v2.7.1'
+                        : release.version === 'v2.7.2'
                         ? 'bg-teal-500/15 text-teal-400 border border-teal-500/30'
-                        : release.version === 'v2.7.0'
+                        : release.version === 'v2.7.1'
                         ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30'
+                        : release.version === 'v2.7.0'
+                        ? 'bg-sky-500/15 text-sky-400 border border-sky-500/30'
                         : release.version === 'v2.6.0'
                         ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30'
                         : 'bg-slate-800 text-slate-300 border border-slate-700'
@@ -589,9 +629,9 @@ export const ChangelogView: React.FC = () => {
                   {release.tag && (
                     <span
                       className={`text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
-                        release.version === 'v2.7.2'
+                        release.version === 'v2.7.3'
                           ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                          : release.version === 'v2.7.1'
+                          : release.version === 'v2.7.2'
                           ? 'bg-teal-500/10 text-teal-400 border border-teal-500/20'
                           : release.tag.includes('MAJOR')
                           ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'

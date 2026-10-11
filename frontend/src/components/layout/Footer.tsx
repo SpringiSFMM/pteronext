@@ -29,7 +29,7 @@ export const Footer: React.FC = () => {
             title="System Changelog ansehen"
           >
             <Sparkles className="w-3 h-3 text-indigo-400" />
-            <span>v2.7.2 Release</span>
+            <span>v2.7.3 Release</span>
           </button>
 
           <button

@@ -61,16 +61,8 @@ export const PlayersTab: React.FC = () => {
   const [actionInput, setActionInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Web Chat State
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-    {
-      id: '1',
-      sender: 'System Gateway',
-      message: 'Dual-Way Chat Relay aktiv. Öffentlicher & nationaler Server-Chat synchronisiert (Private MSGs gefiltert).',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      source: 'system',
-    },
-  ]);
+  // Web Chat State (starts clean without artificial system banners)
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -117,10 +109,15 @@ export const PlayersTab: React.FC = () => {
   };
 
   useEffect(() => {
+    if (selectedServer?.status !== 'running') {
+      setPlayers([]);
+      setLoading(false);
+      return;
+    }
     fetchPlayerData();
-    const interval = setInterval(fetchPlayerData, 10000);
+    const interval = setInterval(fetchPlayerData, 8000);
     return () => clearInterval(interval);
-  }, [selectedServer?.uuid]);
+  }, [selectedServer?.uuid, selectedServer?.status]);
 
   // Connect to console WebSocket to stream live in-game Minecraft chat with strict privacy filtering
   useEffect(() => {
@@ -190,12 +187,30 @@ export const PlayersTab: React.FC = () => {
               return;
             }
 
-            // 2. Ignore raw commands other than public broadcasts
+            // 2. Filter out raw system logs, console connection greetings, and node statuses
+            if (
+              clean.includes('[PteroNext') ||
+              clean.includes('[System]') ||
+              clean.includes('[Server thread') ||
+              clean.includes('| Status:') ||
+              clean.includes('Status: running') ||
+              clean.includes('Connected to console') ||
+              clean.includes('Local Wings Node') ||
+              clean.includes('wings.springisfm.de') ||
+              clean.includes('Server Gateway') ||
+              clean.includes('Dual-Way Chat Relay') ||
+              clean.includes('SERVER SUSPENDED') ||
+              clean.includes('Starting minecraft server')
+            ) {
+              return;
+            }
+
+            // 3. Ignore raw commands other than public broadcasts
             if (/Issued server command:/i.test(clean)) {
               return;
             }
 
-            // 3. Web Admin / Staff broadcast detection
+            // 4. Web Admin / Staff broadcast detection
             const webAdminMatch = clean.match(/\[(?:Web Chat|Panel Staff)\]\s*([a-zA-Z0-9_]{3,24}):\s*(.+)/);
             if (webAdminMatch) {
               const adminName = webAdminMatch[1];
@@ -210,17 +225,30 @@ export const PlayersTab: React.FC = () => {
               return;
             }
 
-            // 4. Normalize Minecraft log timestamps (e.g. "[18:30:12 INFO]: " or "[Async Chat Thread...]: ")
+            // 5. Normalize Minecraft log timestamps (e.g. "[18:30:12 INFO]: " or "[Async Chat Thread...]: ")
             let body = clean.replace(/^\[?\d{2}:\d{2}:\d{2}(?:\s+\w+)?\]?\s*(?:\[[^\]]+\]\s*)*:\s*/, '');
             body = body.replace(/^\[(?:Async Chat Thread[^\]]*|Server thread[^\]]*|CHAT|NotSecure)\]:?\s*/i, '');
             body = body.trim();
 
-            // 5. Parse Channel / National / Global public messages (e.g. "[Nation] <Steve> Hi" or "[Global] Steve: Hi")
+            // 6. Parse Channel / National / Global public messages (e.g. "[Nation] <Steve> Hi" or "[Global] Steve: Hi")
             const channelMatch = body.match(/^\[([a-zA-Z0-9_+\-]{1,16})\]\s*(?:<([a-zA-Z0-9_]{3,16})>|([a-zA-Z0-9_]{3,16}):)\s*(.+)$/);
             if (channelMatch) {
               const channelName = channelMatch[1];
               const player = channelMatch[2] || channelMatch[3];
               const text = channelMatch[4];
+
+              const systemKeywords = [
+                'system', 'server', 'node', 'console', 'info', 'warn', 'warning',
+                'error', 'fatal', 'debug', 'pteronext', 'wings', 'daemon', 'root',
+                'admin', 'player action', 'gateway', 'thread', 'worker', 'notice'
+              ];
+              if (
+                systemKeywords.includes(channelName.toLowerCase()) ||
+                systemKeywords.includes(player.toLowerCase())
+              ) {
+                return;
+              }
+
               appendRelayMessage({
                 sender: player,
                 channel: channelName,
@@ -231,7 +259,7 @@ export const PlayersTab: React.FC = () => {
               return;
             }
 
-            // 6. Parse Standard Public Chat (e.g. "<Steve> Hi" or "[NotSecure] <Steve> Hi")
+            // 7. Parse Standard Public Chat (e.g. "<Steve> Hi" or "[NotSecure] <Steve> Hi")
             const standardMatch = body.match(/^<([a-zA-Z0-9_]{3,16})>\s*(.+)$/);
             if (standardMatch) {
               const player = standardMatch[1];
@@ -245,16 +273,18 @@ export const PlayersTab: React.FC = () => {
               return;
             }
 
-            // 7. Parse Server Join/Leave notifications
-            const joinLeaveMatch = body.match(/^([a-zA-Z0-9_]{3,16})\s+(joined the game|left the game)/i);
+            // 8. Track Player Join / Leave / Disconnect in real-time
+            const joinLeaveMatch = body.match(/^([a-zA-Z0-9_]{3,16})\s+(joined the game|left the game|lost connection|disconnected)/i);
             if (joinLeaveMatch) {
               const player = joinLeaveMatch[1];
-              const action = joinLeaveMatch[2];
-              appendRelayMessage({
-                sender: 'Server Gateway',
-                message: `⚡ ${player} ${action}`,
-                source: 'system',
-              });
+              const action = joinLeaveMatch[2].toLowerCase();
+              if (action.includes('left') || action.includes('lost') || action.includes('disconnected')) {
+                setPlayers((prev) => prev.filter((p) => p.name.toLowerCase() !== player.toLowerCase()));
+              } else if (action.includes('joined')) {
+                fetchPlayerData();
+              }
+              // Sync backend
+              setTimeout(fetchPlayerData, 1000);
               return;
             }
           } catch (e) {
@@ -734,7 +764,16 @@ export const PlayersTab: React.FC = () => {
               ref={chatScrollRef}
               className="flex-1 overflow-y-auto py-3 space-y-2.5 pr-1 font-mono text-xs custom-scrollbar"
             >
-              {chatMessages.map((msg) => {
+              {chatMessages.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500 text-xs">
+                  <Gamepad2 className="w-8 h-8 mb-2 text-slate-600 opacity-60" />
+                  <p className="font-semibold text-slate-400">Keine Chat-Nachrichten</p>
+                  <p className="text-[11px] text-slate-500 mt-1 max-w-[220px]">
+                    In-Game-Nachrichten von Spielern und gesendete Web-Nachrichten erscheinen hier live.
+                  </p>
+                </div>
+              ) : (
+                chatMessages.map((msg) => {
                 const isWebAdmin = msg.source === 'web_admin' || msg.isStaff;
                 const isMinecraft = msg.source === 'minecraft';
 
@@ -811,7 +850,7 @@ export const PlayersTab: React.FC = () => {
                     </p>
                   </div>
                 );
-              })}
+              }))}
             </div>
 
             {/* Quick Broadcast Chips */}

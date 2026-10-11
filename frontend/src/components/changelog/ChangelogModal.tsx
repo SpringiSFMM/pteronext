@@ -130,7 +130,7 @@ export const ChangelogModal: React.FC = () => {
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                    {latestRelease.version || changelogData.current_version || 'v2.7.2'}
+                    {latestRelease.version || changelogData.current_version || 'v2.7.3'}
                   </span>
                   <span className="text-[11px] text-slate-400 font-mono">
                     {latestRelease.date || (language === 'de' ? 'Oktober 2026' : 'October 2026')}

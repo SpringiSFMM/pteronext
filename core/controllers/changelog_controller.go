@@ -38,15 +38,52 @@ func (ch *ChangelogController) GetChangelog(c *gin.Context) {
 
 	rawReleases := []ReleaseItem{
 		{
+			Version:       "v2.7.3",
+			Date:          "October 2026",
+			Title:         "Live-Player Tracking Fix & Bereinigung des In-Game Chat Relays",
+			TitleEN:       "Live Player Tracking Fix & In-Game Chat Relay Cleanup",
+			Description:   "Behebt dauerhaft angezeigte Geister-Spieler (Ghost Players) durch direkte Live-Server-Abfrage und entfernt System-/Daemon-Ausgaben aus dem Spieler-Chat.",
+			DescriptionEN: "Fixes ghost players remaining indefinitely in active players list via live server query, and removes system/daemon logs from the in-game player chat relay.",
+			Tag:           "LATEST STABLE",
+			TagEN:         "LATEST STABLE",
+			IsLatest:      true,
+			Highlights: []string{
+				"Präzises Live-Player Tracking: Abfrage des tatsächlichen Serverzustands via TCP Server List Ping und Join/Leave-Log-Auswertung statt statischem usercache.json",
+				"Keine Geisterspieler mehr: Ausgeloggte oder getrennte Spieler verschwinden sofort aus der Liste der aktiven Spieler",
+				"Bereinigter Spieler-Chat: Vollständige Entfernung von System-Gateways, Node-Statusmeldungen und Daemon-Logs aus dem In-Game-Chat",
+				"Automatisches Leeren der aktiven Spieler bei gestopptem oder suspendiertem Server",
+			},
+			HighlightsEN: []string{
+				"Accurate live player tracking: Queries actual server state via TCP Server List Ping and real join/leave logs instead of static usercache.json",
+				"No more ghost players: Disconnected or offline players are immediately removed from active players",
+				"Cleaned player chat relay: Complete removal of system gateway ads, node status reports, and daemon console logs from player chat",
+				"Automatic player list reset when server is offline or suspended",
+			},
+			Features: []string{
+				"Direkte Echtzeit-Synchronisation der aktiven Spieler über WebSocket und Server-Ping",
+				"Strikter Filter für In-Game-Chat-Relay verhindert jegliches Einfließen von Konsole-Bannern",
+			},
+			FeaturesEN: []string{
+				"Direct real-time active player synchronization via WebSocket and server ping",
+				"Strict filter for in-game chat relay preventing console banners and node statuses from leaking",
+			},
+			Security: []string{
+				"Entfernung aller statischen Mock-Daten und Platzhalter-Benutzer",
+			},
+			SecurityEN: []string{
+				"Elimination of all static mock data and placeholder users",
+			},
+		},
+		{
 			Version:       "v2.7.2",
 			Date:          "October 2026",
 			Title:         "Crash-Analyzer, File-Time-Machine, Cloudflare DNS, Server-Staging & Suspension Enforcement",
 			TitleEN:       "Crash Analyzer, File Time-Machine, Cloudflare DNS, Server Staging & Suspension Enforcement",
 			Description:   "5 mächtige Enterprise-Erweiterungen: Intelligenter 1-Klick Crash-Analyzer, Mikro-Snapshots mit Diff-View im Dateimanager, Zero-Config Cloudflare DNS & SRV Automation, 1-Klick Instant Server-Staging sowie administrative Sperre suspendierter Server.",
 			DescriptionEN: "5 major enterprise features: Intelligent 1-click Crash Analyzer, File Time-Machine micro-snapshots with diff-view, Zero-Config Cloudflare DNS & SRV automation, 1-click Instant Server Staging, and strict administrative suspension enforcement.",
-			Tag:           "LATEST STABLE",
-			TagEN:         "LATEST STABLE",
-			IsLatest:      true,
+			Tag:           "STABLE",
+			TagEN:         "STABLE",
+			IsLatest:      false,
 			Highlights: []string{
 				"Intelligenter Crash-Analyzer: Erkennt Java-Mismatch, Portkonflikte, OOM und YAML-Syntax mit 1-Klick-Lösung",
 				"File-Time-Machine: Automatische Revisionshistorie bei jedem Speichern mit Split-View-Diff (Rot/Grün) und 1-Klick-Zurücksetzen",

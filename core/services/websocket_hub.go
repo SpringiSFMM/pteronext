@@ -240,7 +240,7 @@ func (c *Client) readPump(server *models.Server) {
 	}
 	c.sendMessage("status", initialState)
 	c.sendMessage("console output", fmt.Sprintf("\x1b[33m[PteroNext Core]\x1b[0m Connected to console for \x1b[1m%s\x1b[0m (%s)", server.Name, server.Identifier))
-	c.sendMessage("console output", fmt.Sprintf("\x1b[32m[System]\x1b[0m Node: %s (%s) | Status: %s", server.Node.Name, server.Node.FQDN, initialState))
+	c.sendMessage("console output", fmt.Sprintf("\x1b[32m[PteroNext Node]\x1b[0m %s (%s) | Status: %s", server.Node.Name, server.Node.FQDN, initialState))
 	if isSuspended {
 		c.sendMessage("console output", "\x1b[31;1m[SERVER SUSPENDED]\x1b[0m Dieser Server ist administrativ suspendiert. Konsolenbefehle und Prozess-Starts sind gesperrt.")
 	}

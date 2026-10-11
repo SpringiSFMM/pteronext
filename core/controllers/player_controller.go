@@ -1,11 +1,16 @@
 package controllers
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -65,10 +70,137 @@ func (p *PlayerController) getServerDir(server *models.Server) string {
 	return filepath.Join(p.dataDir, "servers", server.UUID)
 }
 
+// mcPingResponse holds player sample and count from Minecraft Server List Ping (1.7+)
+type mcPingResponse struct {
+	Players struct {
+		Online int `json:"online"`
+		Max    int `json:"max"`
+		Sample []struct {
+			Name string `json:"name"`
+			ID   string `json:"id"`
+		} `json:"sample"`
+	} `json:"players"`
+}
+
+func writeVarInt(buf *bytes.Buffer, val int) {
+	uval := uint32(val)
+	for {
+		if (uval & ^uint32(0x7F)) == 0 {
+			buf.WriteByte(byte(uval))
+			return
+		}
+		buf.WriteByte(byte((uval & 0x7F) | 0x80))
+		uval >>= 7
+	}
+}
+
+func readVarInt(r io.Reader) (int, error) {
+	var val uint32
+	var shift uint
+	buf := make([]byte, 1)
+	for {
+		if _, err := io.ReadFull(r, buf); err != nil {
+			return 0, err
+		}
+		b := buf[0]
+		val |= uint32(b&0x7F) << shift
+		if (b & 0x80) == 0 {
+			break
+		}
+		shift += 7
+		if shift >= 35 {
+			return 0, fmt.Errorf("varint too large")
+		}
+	}
+	return int(val), nil
+}
+
+func pingMinecraftSLP(host string, port int, timeout time.Duration) (*mcPingResponse, error) {
+	if host == "" || host == "0.0.0.0" {
+		host = "127.0.0.1"
+	}
+	conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, strconv.Itoa(port)), timeout)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(timeout * 2))
+
+	// 1. Handshake Packet (ID 0x00)
+	var hsPayload bytes.Buffer
+	writeVarInt(&hsPayload, 0x00)
+	writeVarInt(&hsPayload, 47) // Protocol 47 (1.8 - 1.21+ compatible handshake)
+	writeVarInt(&hsPayload, len(host))
+	hsPayload.WriteString(host)
+	hsPayload.WriteByte(byte(port >> 8))
+	hsPayload.WriteByte(byte(port & 0xFF))
+	writeVarInt(&hsPayload, 1) // Next state: 1 (status)
+
+	var hsPacket bytes.Buffer
+	writeVarInt(&hsPacket, hsPayload.Len())
+	hsPacket.Write(hsPayload.Bytes())
+	if _, err := conn.Write(hsPacket.Bytes()); err != nil {
+		return nil, err
+	}
+
+	// 2. Status Request Packet (ID 0x00, length 1)
+	if _, err := conn.Write([]byte{0x01, 0x00}); err != nil {
+		return nil, err
+	}
+
+	// 3. Status Response
+	_, err = readVarInt(conn) // total packet length
+	if err != nil {
+		return nil, err
+	}
+	packetID, err := readVarInt(conn)
+	if err != nil || packetID != 0x00 {
+		return nil, fmt.Errorf("invalid packet id: %d", packetID)
+	}
+	jsonLen, err := readVarInt(conn)
+	if err != nil || jsonLen <= 0 || jsonLen > 1024*1024 {
+		return nil, fmt.Errorf("invalid json length")
+	}
+	jsonBytes := make([]byte, jsonLen)
+	if _, err := io.ReadFull(conn, jsonBytes); err != nil {
+		return nil, err
+	}
+
+	var res mcPingResponse
+	if err := json.Unmarshal(jsonBytes, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+var (
+	mcJoinRegex     = regexp.MustCompile(`(?i)(?:\[.+\]:?\s+)?([a-zA-Z0-9_]{3,16})\s+joined the game`)
+	mcUUIDJoinRegex = regexp.MustCompile(`(?i)UUID of player ([a-zA-Z0-9_]{3,16}) is ([a-f0-9\-]{32,36})`)
+	mcLoginRegex    = regexp.MustCompile(`(?i)Player logged in:\s*([a-zA-Z0-9_]{3,16})`)
+	mcLeaveRegex    = regexp.MustCompile(`(?i)(?:\[.+\]:?\s+)?([a-zA-Z0-9_]{3,16})\s+(?:left the game|lost connection|disconnected)`)
+	mcKickRegex     = regexp.MustCompile(`(?i)(?:Disconnecting|Kicked)\s+([a-zA-Z0-9_]{3,16})`)
+	mcStopRegex     = regexp.MustCompile(`(?i)(?:Stopping the server|Closing Server|Stopping server)`)
+)
+
 // GetPlayers handles GET /api/servers/:uuid/players
 func (p *PlayerController) GetPlayers(c *gin.Context) {
 	server, _ := middleware.GetRequestServer(c)
 	dir := p.getServerDir(server)
+
+	// 1. Verify if container is actually running
+	isRunning := false
+	if server.Node != nil {
+		stats, err := p.wingsClient.FetchServerResources(server.Node, server.UUID)
+		if err == nil && stats != nil && (stats.State == "running" || stats.State == "starting") {
+			isRunning = true
+		}
+	}
+
+	// Server offline or stopped -> strictly 0 players online
+	if !isRunning {
+		c.JSON(http.StatusOK, gin.H{"data": []PlayerInfo{}})
+		return
+	}
 
 	opsMap := make(map[string]bool)
 	if opsBytes, err := os.ReadFile(filepath.Join(dir, "ops.json")); err == nil {
@@ -100,10 +232,91 @@ func (p *PlayerController) GetPlayers(c *gin.Context) {
 		}
 	}
 
-	// Read usercache.json
-	var players []PlayerInfo
-	seen := make(map[string]bool)
+	// Track online players
+	onlineMap := make(map[string]string) // lowercase name -> uuid
+	onlineConfirmed := false
 
+	// Determine port
+	var port int
+	if server.Allocation != nil && server.Allocation.Port > 0 {
+		port = server.Allocation.Port
+	} else if len(server.Allocations) > 0 && server.Allocations[0].Port > 0 {
+		port = server.Allocations[0].Port
+	} else {
+		port = 25565
+	}
+
+	// Ping local host / node FQDN
+	pingHost := "127.0.0.1"
+	if server.Node != nil && server.Node.FQDN != "" && server.Node.FQDN != "localhost" && server.Node.FQDN != "127.0.0.1" {
+		pingHost = server.Node.FQDN
+	}
+
+	pingRes, err := pingMinecraftSLP(pingHost, port, 600*time.Millisecond)
+	if err != nil && pingHost != "127.0.0.1" {
+		pingRes, err = pingMinecraftSLP("127.0.0.1", port, 600*time.Millisecond)
+	}
+
+	if err == nil && pingRes != nil {
+		onlineConfirmed = true
+		if pingRes.Players.Online == 0 {
+			// Zero players online confirmed directly by Minecraft server
+			c.JSON(http.StatusOK, gin.H{"data": []PlayerInfo{}})
+			return
+		}
+		for _, samplePlayer := range pingRes.Players.Sample {
+			if samplePlayer.Name != "" {
+				onlineMap[strings.ToLower(samplePlayer.Name)] = samplePlayer.ID
+			}
+		}
+	}
+
+	// If sample is empty (many servers omit sample or proxy hides it), inspect real-time logs from Wings
+	if len(onlineMap) == 0 && server.Node != nil {
+		logs, err := p.wingsClient.FetchServerLogs(server.Node, server.UUID, 250)
+		if err == nil && len(logs) > 0 {
+			for _, line := range logs {
+				if mcStopRegex.MatchString(line) {
+					clear(onlineMap)
+					continue
+				}
+				if m := mcJoinRegex.FindStringSubmatch(line); len(m) > 1 {
+					onlineMap[strings.ToLower(m[1])] = ""
+					continue
+				}
+				if m := mcUUIDJoinRegex.FindStringSubmatch(line); len(m) > 2 {
+					onlineMap[strings.ToLower(m[1])] = m[2]
+					continue
+				}
+				if m := mcLoginRegex.FindStringSubmatch(line); len(m) > 1 {
+					onlineMap[strings.ToLower(m[1])] = ""
+					continue
+				}
+				if m := mcLeaveRegex.FindStringSubmatch(line); len(m) > 1 {
+					delete(onlineMap, strings.ToLower(m[1]))
+					continue
+				}
+				if m := mcKickRegex.FindStringSubmatch(line); len(m) > 1 {
+					delete(onlineMap, strings.ToLower(m[1]))
+					continue
+				}
+			}
+		}
+	}
+
+	if onlineConfirmed && pingRes.Players.Online == 0 {
+		c.JSON(http.StatusOK, gin.H{"data": []PlayerInfo{}})
+		return
+	}
+
+	if len(onlineMap) == 0 {
+		c.JSON(http.StatusOK, gin.H{"data": []PlayerInfo{}})
+		return
+	}
+
+	// Read usercache.json for UUID & proper display casing
+	usercacheUUID := make(map[string]string)
+	usercacheProperName := make(map[string]string)
 	if ucBytes, err := os.ReadFile(filepath.Join(dir, "usercache.json")); err == nil {
 		var uc []struct {
 			Name string `json:"name"`
@@ -111,54 +324,38 @@ func (p *PlayerController) GetPlayers(c *gin.Context) {
 		}
 		_ = json.Unmarshal(ucBytes, &uc)
 		for _, u := range uc {
-			if seen[strings.ToLower(u.Name)] {
-				continue
-			}
-			seen[strings.ToLower(u.Name)] = true
-
-			cleanUUID := strings.ReplaceAll(u.UUID, "-", "")
-			avatarURL := fmt.Sprintf("https://crafatar.com/avatars/%s?size=64&overlay", cleanUUID)
-
-			players = append(players, PlayerInfo{
-				UUID:          u.UUID,
-				Name:          u.Name,
-				IsOnline:      true, // Active cache
-				IsOp:          opsMap[strings.ToLower(u.Name)] || opsMap[u.UUID],
-				IsWhitelisted: wlMap[strings.ToLower(u.Name)] || wlMap[u.UUID],
-				Ping:          18,
-				Playtime:      "2h 45m",
-				Location:      "world (X: 120, Y: 68, Z: -340)",
-				AvatarURL:     avatarURL,
-			})
+			usercacheUUID[strings.ToLower(u.Name)] = u.UUID
+			usercacheProperName[strings.ToLower(u.Name)] = u.Name
 		}
 	}
 
-	// If no usercache exists yet, supply placeholder demo players so UI is interactive
-	if len(players) == 0 {
-		players = []PlayerInfo{
-			{
-				UUID:          "853c80ef3c3749fdaa49938b679d664b",
-				Name:          "Alex",
-				IsOnline:      true,
-				IsOp:          true,
-				IsWhitelisted: true,
-				Ping:          15,
-				Playtime:      "4h 12m",
-				Location:      "world (X: 204, Y: 72, Z: -15)",
-				AvatarURL:     "https://crafatar.com/avatars/853c80ef3c3749fdaa49938b679d664b?size=64&overlay",
-			},
-			{
-				UUID:          "069a79f444e94726a5bef2a2fce1b21e",
-				Name:          "Notch",
-				IsOnline:      false,
-				IsOp:          false,
-				IsWhitelisted: true,
-				Ping:          42,
-				Playtime:      "12m",
-				Location:      "nether (X: -50, Y: 60, Z: 180)",
-				AvatarURL:     "https://crafatar.com/avatars/069a79f444e94726a5bef2a2fce1b21e?size=64&overlay",
-			},
+	var players []PlayerInfo
+	for lowerName, uuid := range onlineMap {
+		properName := lowerName
+		if pn, ok := usercacheProperName[lowerName]; ok && pn != "" {
+			properName = pn
 		}
+		if uuid == "" {
+			uuid = usercacheUUID[lowerName]
+		}
+
+		cleanUUID := strings.ReplaceAll(uuid, "-", "")
+		avatarURL := fmt.Sprintf("https://minotar.net/helm/%s/64.png", properName)
+		if cleanUUID != "" {
+			avatarURL = fmt.Sprintf("https://crafatar.com/avatars/%s?size=64&overlay", cleanUUID)
+		}
+
+		players = append(players, PlayerInfo{
+			UUID:          uuid,
+			Name:          properName,
+			IsOnline:      true,
+			IsOp:          opsMap[lowerName] || (uuid != "" && opsMap[uuid]),
+			IsWhitelisted: wlMap[lowerName] || (uuid != "" && wlMap[uuid]),
+			Ping:          20,
+			Playtime:      "Live",
+			Location:      "world",
+			AvatarURL:     avatarURL,
+		})
 	}
 
 	c.JSON(http.StatusOK, gin.H{"data": players})
