@@ -311,9 +311,12 @@ interface AppContextType {
   /** Returns from the server workspace to the previous global view. */
   navigateBackFromServer: () => void;
 
-  // Mobile drawer
+  // Mobile drawer & Sidebar Collapse
   isMobileDrawerOpen: boolean;
   setIsMobileDrawerOpen: (open: boolean) => void;
+  isSidebarCollapsed: boolean;
+  setIsSidebarCollapsed: (collapsed: boolean) => void;
+  toggleSidebarCollapse: () => void;
 
   // Account Settings Modal
   isAccountSettingsOpen: boolean;
@@ -690,6 +693,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => api.auth.isAuthenticated());
   const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsedState] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('pteronext_sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const setIsSidebarCollapsed = useCallback((collapsed: boolean) => {
+    setIsSidebarCollapsedState(collapsed);
+    try {
+      localStorage.setItem('pteronext_sidebar_collapsed', String(collapsed));
+    } catch {}
+  }, []);
+
+  const toggleSidebarCollapse = useCallback(() => {
+    setIsSidebarCollapsedState((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('pteronext_sidebar_collapsed', String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [nodes, setNodes] = useState<NodeInfo[]>([]);
@@ -2923,6 +2951,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         navigateBackFromServer,
         isMobileDrawerOpen,
         setIsMobileDrawerOpen,
+        isSidebarCollapsed,
+        setIsSidebarCollapsed,
+        toggleSidebarCollapse,
         isAccountSettingsOpen,
         setIsAccountSettingsOpen,
         currentUser,

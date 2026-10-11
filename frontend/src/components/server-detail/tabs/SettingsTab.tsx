@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../../../context/AppContext';
+import { useTranslation } from '../../../i18n/useTranslation';
 import {
   Settings,
   Save,
@@ -15,6 +16,11 @@ import {
   Zap,
   Moon,
   Power,
+  Radio,
+  HardDrive,
+  ShieldCheck,
+  ArrowRight,
+  RefreshCw,
 } from 'lucide-react';
 import { api } from '../../../api/client';
 
@@ -150,7 +156,9 @@ export const SettingsTab: React.FC = () => {
     updateServerStartup,
     installMinecraftVersion,
     updateServerAdminSettings,
+    adminNodes,
   } = useApp();
+  const { language } = useTranslation();
 
   const [name, setName] = useState(selectedServer?.name || '');
   const [description, setDescription] = useState(selectedServer?.description || '');
@@ -177,6 +185,79 @@ export const SettingsTab: React.FC = () => {
   const [sleepTimeoutMinutes, setSleepTimeoutMinutes] = useState(15);
   const [isSavingSleep, setIsSavingSleep] = useState(false);
   const [isSleeping, setIsSleeping] = useState(false);
+
+  // Feature 2: Multi-Node Live-Migration State
+  const [migrationState, setMigrationState] = useState<any>(null);
+  const [targetNodeId, setTargetNodeId] = useState<number>(0);
+  const [isStartingMigration, setIsStartingMigration] = useState(false);
+
+  const fetchMigrationStatus = async () => {
+    if (!selectedServer?.uuid) return;
+    try {
+      const res = await api.migration.getStatus(selectedServer.uuid);
+      if (res && res.migration) {
+        setMigrationState(res.migration);
+      }
+    } catch (e) {
+      console.warn('Could not load migration status:', e);
+    }
+  };
+
+  useEffect(() => {
+    fetchMigrationStatus();
+  }, [selectedServer?.uuid]);
+
+  useEffect(() => {
+    if (migrationState?.status === 'streaming' || migrationState?.status === 'delta_sync') {
+      const timer = setInterval(() => {
+        fetchMigrationStatus();
+      }, 2000);
+      return () => clearInterval(timer);
+    }
+  }, [migrationState?.status, selectedServer?.uuid]);
+
+  const handleStartMigration = async () => {
+    if (!selectedServer?.uuid) return;
+    const srvNodeId = (selectedServer as any).nodeId || (selectedServer as any).node_id || selectedServer.node;
+    const destNode = targetNodeId || (adminNodes.find((n) => String(n.id) !== String(srvNodeId))?.id ? Number(adminNodes.find((n) => String(n.id) !== String(srvNodeId))?.id) : 2);
+    try {
+      setIsStartingMigration(true);
+      const res = await api.migration.start(selectedServer.uuid, destNode);
+      addToast({
+        title: language === 'de' ? 'Live-Migration gestartet' : 'Live Migration Started',
+        description: res.message || (language === 'de' ? 'Daemon-to-Daemon TLS-Stream aktiv!' : 'Streaming server data...'),
+        type: 'info',
+      });
+      fetchMigrationStatus();
+    } catch (err: any) {
+      addToast({
+        title: language === 'de' ? 'Migrations-Fehler' : 'Migration Error',
+        description: err.message || 'Failed to start live migration',
+        type: 'error',
+      });
+    } finally {
+      setIsStartingMigration(false);
+    }
+  };
+
+  const handleCancelMigration = async () => {
+    if (!selectedServer?.uuid) return;
+    try {
+      await api.migration.cancel(selectedServer.uuid);
+      addToast({
+        title: language === 'de' ? 'Migration abgebrochen' : 'Migration Cancelled',
+        description: language === 'de' ? 'Der Übertragungs-Stream wurde gestoppt.' : 'Transfer stream stopped.',
+        type: 'info',
+      });
+      fetchMigrationStatus();
+    } catch (err: any) {
+      addToast({
+        title: 'Error',
+        description: err.message,
+        type: 'error',
+      });
+    }
+  };
 
   useEffect(() => {
     if (selectedServer?.uuid) {
@@ -874,6 +955,153 @@ export const SettingsTab: React.FC = () => {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Feature 2: Multi-Node Live-Migration (Streaming ohne Ausfallzeit) */}
+      <div className="rounded-2xl p-6 border border-cyan-500/30 bg-gradient-to-br from-[#161b22] to-cyan-950/20 space-y-5 shadow-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
+              <HardDrive className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-bold text-white font-mono">
+                  {language === 'de' ? 'Multi-Node Live-Migration (Zero-Downtime)' : 'Multi-Node Live Migration (Zero-Downtime)'}
+                </h4>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-mono font-semibold">
+                  Daemon-to-Daemon Stream
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {language === 'de'
+                  ? 'Überträgt Serverdaten direkt und verschlüsselt von Node zu Node. Minimaler Switchover durch sekundenschnellen Delta-Sync der letzten Weltdaten.'
+                  : 'Encrypted daemon-to-daemon stream with minimal switchover via instant delta sync of recent world changes.'}
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={fetchMigrationStatus}
+            className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors self-start sm:self-auto"
+            title="Refresh status"
+          >
+            <RefreshCw className={`w-4 h-4 ${migrationState?.status === 'streaming' || migrationState?.status === 'delta_sync' ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+
+        {/* Node Selection & Stream Pipeline Control */}
+        <div className="p-4 rounded-xl bg-[#0d1117] border border-slate-800 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[11px] font-mono uppercase text-slate-400 mb-1.5">
+                {language === 'de' ? 'Aktuelle Quell-Node' : 'Current Source Node'}
+              </label>
+              <div className="p-2.5 rounded-xl bg-[#161b22] border border-slate-800 text-xs font-mono text-white flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>{migrationState?.source_node_name || 'Node #1 (Frankfurt Primary)'}</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-mono uppercase text-slate-400 mb-1.5">
+                {language === 'de' ? 'Ziel-Node (Target Host)' : 'Target Node (Target Host)'}
+              </label>
+              <select
+                value={targetNodeId}
+                onChange={(e) => setTargetNodeId(Number(e.target.value))}
+                disabled={migrationState?.status === 'streaming' || migrationState?.status === 'delta_sync'}
+                className="w-full bg-[#161b22] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:border-cyan-500 outline-none disabled:opacity-50"
+              >
+                <option value={0}>{language === 'de' ? 'Automatisch (Next Available Node)' : 'Automatic (Next Available Node)'}</option>
+                {adminNodes.map((n) => (
+                  <option key={n.id} value={n.id}>
+                    {n.name} ({n.fqdn})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Migration Visualizer Pipeline */}
+          <div className="p-3.5 rounded-xl bg-[#161b22]/70 border border-slate-800/80 space-y-3">
+            <div className="flex items-center justify-between text-xs font-mono">
+              <span className="text-slate-400 font-semibold uppercase text-[10px]">
+                {language === 'de' ? 'Streaming Status' : 'Streaming Pipeline'}
+              </span>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                migrationState?.status === 'streaming'
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                  : migrationState?.status === 'delta_sync'
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                  : migrationState?.status === 'completed'
+                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                  : 'bg-slate-800 text-slate-400 border border-slate-700'
+              }`}>
+                {migrationState?.status?.toUpperCase() || 'IDLE'}
+              </span>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden border border-slate-800 relative">
+              <div
+                className="h-full bg-gradient-to-r from-cyan-500 via-indigo-500 to-emerald-400 transition-all duration-500"
+                style={{ width: `${migrationState?.progress_percent || 0}%` }}
+              />
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-mono text-slate-300">
+              <div className="flex items-center gap-2">
+                <span className="text-cyan-400 font-bold">{migrationState?.progress_percent || 0}%</span>
+                <span className="text-slate-500">•</span>
+                <span className="text-slate-400 truncate max-w-xs">{migrationState?.current_phase || (language === 'de' ? 'Bereit für Live-Stream' : 'Ready for live stream')}</span>
+              </div>
+              <div className="text-[11px] text-slate-400 flex items-center gap-3">
+                <span>{migrationState?.transferred_mb?.toFixed(1) || 0} MB / {migrationState?.total_mb?.toFixed(1) || selectedServer?.stats.diskLimit || 1024} MB</span>
+                <span>{migrationState?.transfer_rate || '128 MB/s'}</span>
+              </div>
+            </div>
+
+            {migrationState?.delta_sync_time_ms && (
+              <div className="p-2 rounded-lg bg-emerald-950/20 border border-emerald-500/30 text-[11px] font-mono text-emerald-300 flex items-center justify-between">
+                <span>{language === 'de' ? 'Delta-Sync Switchover Unterbrechung:' : 'Delta Sync Switchover Downtime:'}</span>
+                <span className="font-bold">{migrationState.delta_sync_time_ms} ms</span>
+              </div>
+            )}
+          </div>
+
+          {/* Action Trigger Buttons */}
+          <div className="flex justify-end gap-2.5 pt-1">
+            {migrationState?.status === 'streaming' || migrationState?.status === 'delta_sync' ? (
+              <button
+                type="button"
+                onClick={handleCancelMigration}
+                className="px-4 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 font-mono text-xs font-bold transition-all active:scale-95"
+              >
+                {language === 'de' ? 'Migration abbrechen' : 'Cancel Migration'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleStartMigration}
+                disabled={isStartingMigration}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-mono text-xs font-bold transition-all shadow-md active:scale-95 disabled:opacity-50"
+              >
+                {isStartingMigration ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>{language === 'de' ? 'Initialisiere Stream...' : 'Initializing Stream...'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-3.5 h-3.5" />
+                    <span>{language === 'de' ? 'Live-Migration starten' : 'Start Live Migration'}</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Danger Zone */}

@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../../context/AppContext';
+import { useTranslation } from '../../../i18n/useTranslation';
+import { api } from '../../../api/client';
 import { ScheduleTask } from '../../../types';
 import {
   Calendar,
@@ -11,16 +13,78 @@ import {
   Trash2,
   ChevronRight,
   Zap,
+  Flame,
+  ArrowRight,
+  ShieldAlert,
+  HardDrive,
+  RefreshCw,
+  Bell,
+  Cpu,
+  Layers,
+  Terminal,
 } from 'lucide-react';
 import { Modal } from '../../common/Modal';
 
-export const SchedulesTab: React.FC = () => {
-  const { schedules, toggleSchedule, triggerScheduleNow, addSchedule, addToast } = useApp();
+interface EventActionStep {
+  type: string;
+  target: string;
+  description: string;
+}
 
+interface EventTriggerRule {
+  id: string;
+  server_uuid: string;
+  name: string;
+  event_type: string;
+  condition_text: string;
+  webhook_url: string;
+  is_enabled: boolean;
+  actions: EventActionStep[];
+  last_triggered?: string;
+  execution_count: number;
+  created_at: string;
+}
+
+export const SchedulesTab: React.FC = () => {
+  const { schedules, toggleSchedule, triggerScheduleNow, addSchedule, addToast, selectedServer } = useApp();
+  const { t, language } = useTranslation();
+
+  // Mode switcher: 'cron' or 'events'
+  const [activeMode, setActiveMode] = useState<'cron' | 'events'>('events');
+
+  // Cron schedule modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [taskName, setTaskName] = useState('');
   const [cronExpression, setCronExpression] = useState('0 4 * * *');
   const [taskDescription, setTaskDescription] = useState('');
+
+  // Event trigger state
+  const [triggers, setTriggers] = useState<EventTriggerRule[]>([]);
+  const [isNewTriggerModalOpen, setIsNewTriggerModalOpen] = useState(false);
+  const [testingTriggerId, setTestingTriggerId] = useState<string | null>(null);
+
+  // New Trigger form fields
+  const [newTriggerName, setNewTriggerName] = useState('');
+  const [newTriggerEvent, setNewTriggerEvent] = useState('server_crash');
+  const [newTriggerCondition, setNewTriggerCondition] = useState('');
+  const [newTriggerWebhook, setNewTriggerWebhook] = useState('');
+  const [newTriggerChainPreset, setNewTriggerChainPreset] = useState('crash_restart');
+
+  const fetchTriggers = async () => {
+    if (!selectedServer?.uuid) return;
+    try {
+      const res = await api.automation.listTriggers(selectedServer.uuid);
+      if (res?.triggers) {
+        setTriggers(res.triggers);
+      }
+    } catch (e) {
+      // quiet fallback
+    }
+  };
+
+  useEffect(() => {
+    fetchTriggers();
+  }, [selectedServer?.uuid]);
 
   const handleCreateSchedule = (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,133 +104,414 @@ export const SchedulesTab: React.FC = () => {
     setTaskDescription('');
   };
 
+  const handleTestTrigger = async (rule: EventTriggerRule) => {
+    if (!selectedServer?.uuid) return;
+    try {
+      setTestingTriggerId(rule.id);
+      const res = await api.automation.testTrigger(selectedServer.uuid, rule.id);
+      addToast({
+        title: language === 'de' ? 'Aktionskette ausgeführt' : 'Event Chain Triggered',
+        description: res.message || 'Alle verketteten Schritte durchlaufen.',
+        type: 'success',
+      });
+      fetchTriggers();
+    } catch (err: any) {
+      addToast({
+        title: 'Fehler',
+        description: err.message || 'Trigger Test fehlgeschlagen.',
+        type: 'error',
+      });
+    } finally {
+      setTestingTriggerId(null);
+    }
+  };
+
+  const handleCreateTrigger = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedServer?.uuid || !newTriggerName.trim()) return;
+
+    let defaultActions: EventActionStep[] = [];
+    if (newTriggerChainPreset === 'crash_restart') {
+      defaultActions = [
+        { type: 'discord', target: 'Crash-Summary', description: 'Discord Alert senden' },
+        { type: 'delay', target: '3', description: 'Warte 3s' },
+        { type: 'power', target: 'restart', description: 'Container neu starten' },
+      ];
+    } else if (newTriggerChainPreset === 'ram_heapdump') {
+      defaultActions = [
+        { type: 'discord', target: 'High RAM Alert', description: 'Admin-Warnung' },
+        { type: 'heapdump', target: 'heapdump.hprof', description: 'JVM Heap-Dump sichern' },
+        { type: 'command', target: 'broadcast Server Wartungsneustart in 30s', description: 'Spieler benachrichtigen' },
+      ];
+    } else if (newTriggerChainPreset === 'backup_hibernate') {
+      defaultActions = [
+        { type: 'command', target: 'save-all', description: 'save-all' },
+        { type: 'delay', target: '5', description: 'Warte 5s' },
+        { type: 'backup', target: 'Zero-Players-Auto-Backup', description: 'Backup erstellen' },
+        { type: 'power', target: 'stop', description: 'Sleep-Modus aktivieren' },
+      ];
+    } else {
+      defaultActions = [
+        { type: 'command', target: 'say Automated Event Chain Started', description: 'Chat Broadcast' },
+        { type: 'delay', target: '2', description: 'Warte 2s' },
+      ];
+    }
+
+    try {
+      const res = await api.automation.createTrigger(selectedServer.uuid, {
+        name: newTriggerName.trim(),
+        event_type: newTriggerEvent,
+        condition_text: newTriggerCondition.trim() || 'Benutzerdefinierte Bedingung',
+        webhook_url: newTriggerWebhook.trim(),
+        is_enabled: true,
+        actions: defaultActions,
+      });
+
+      addToast({
+        title: language === 'de' ? 'Event-Trigger erstellt' : 'Event Trigger Created',
+        description: res.message || 'Trigger erfolgreich gespeichert.',
+        type: 'success',
+      });
+
+      setIsNewTriggerModalOpen(false);
+      setNewTriggerName('');
+      setNewTriggerCondition('');
+      setNewTriggerWebhook('');
+      fetchTriggers();
+    } catch (err: any) {
+      addToast({
+        title: 'Fehler',
+        description: err.message || 'Konnte Trigger nicht anlegen.',
+        type: 'error',
+      });
+    }
+  };
+
+  const handleDeleteTrigger = async (ruleId: string) => {
+    if (!selectedServer?.uuid) return;
+    try {
+      await api.automation.deleteTrigger(selectedServer.uuid, ruleId);
+      addToast({
+        title: language === 'de' ? 'Trigger gelöscht' : 'Trigger Deleted',
+        description: 'Regel entfernt.',
+        type: 'info',
+      });
+      fetchTriggers();
+    } catch (e: any) {
+      addToast({ title: 'Fehler', description: e.message, type: 'error' });
+    }
+  };
+
   return (
-    <div className="space-y-4">
-      {/* Top Header */}
-      <div className="cyber-glass rounded-2xl p-4 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-zinc-300" />
-            <h3 className="text-sm font-semibold text-white font-mono uppercase">
-              AUTOMATED CRON SCHEDULES
-            </h3>
+    <div className="space-y-5 animate-in fade-in duration-150">
+      {/* ── Mode Switcher & Top Header ── */}
+      <div className="cyber-glass rounded-2xl p-4 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-lg">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center bg-[#0d1117] p-1 rounded-xl border border-slate-800 font-mono text-xs">
+            <button
+              onClick={() => setActiveMode('events')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg transition-all ${
+                activeMode === 'events'
+                  ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-zinc-950 font-bold shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span>Smart Event-Chains (No-Code)</span>
+            </button>
+            <button
+              onClick={() => setActiveMode('cron')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg transition-all ${
+                activeMode === 'cron'
+                  ? 'bg-white text-zinc-950 font-bold shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Cron Schedules</span>
+            </button>
           </div>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Execute recurring maintenance, backups, and restarts automatically
-          </p>
         </div>
 
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-mono text-xs font-bold shadow-md transition-all active:scale-95"
-        >
-          <Plus className="w-4 h-4" />
-          <span>New Schedule</span>
-        </button>
+        <div>
+          {activeMode === 'events' ? (
+            <button
+              onClick={() => setIsNewTriggerModalOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-mono text-xs font-bold shadow-md transition-all active:scale-95"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Neuer Event-Trigger</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-mono text-xs font-bold shadow-md transition-all active:scale-95"
+            >
+              <Plus className="w-4 h-4" />
+              <span>New Schedule</span>
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Schedules List */}
-      <div className="grid grid-cols-1 gap-3">
-        {schedules.map((sch) => (
-          <div
-            key={sch.id}
-            className={`cyber-glass rounded-2xl p-4 sm:p-5 border transition-all ${
-              sch.isActive ? 'border-slate-800' : 'border-slate-800/40 opacity-75'
-            }`}
-          >
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-3">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <h4 className="text-sm font-bold text-white font-mono">{sch.name}</h4>
-                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-950 text-zinc-200 border border-slate-800 font-semibold">
-                    {sch.cron}
-                  </span>
-                  <span
-                    className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
-                      sch.isActive
-                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                        : 'bg-slate-800 text-slate-400 border-slate-700'
-                    }`}
-                  >
-                    {sch.isActive ? 'ACTIVE' : 'PAUSED'}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-400">{sch.description}</p>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2 self-start">
-                <button
-                  onClick={() => triggerScheduleNow(sch.id)}
-                  title="Run Schedule Immediately"
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-mono text-xs transition-colors active:scale-95"
-                >
-                  <Play className="w-3.5 h-3.5 fill-current" />
-                  <span>Run Now</span>
-                </button>
-
-                <button
-                  onClick={() => toggleSchedule(sch.id)}
-                  className={`px-3 py-1.5 rounded-xl font-mono text-xs border transition-colors ${
-                    sch.isActive
-                      ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
-                      : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                  }`}
-                >
-                  {sch.isActive ? 'Disable' : 'Enable'}
-                </button>
-              </div>
-            </div>
-
-            {/* Sub details: Last run, Next run, Steps */}
-            <div className="pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-mono text-slate-400">
-              <div className="flex items-center gap-3">
-                <span className="flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                  Last: <span className="text-slate-300">{sch.lastRun || 'Never'}</span>
-                </span>
-                <span>•</span>
-                <span className="flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-zinc-400" />
-                  Next: <span className="text-slate-300">{sch.nextRun}</span>
-                </span>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <span className="text-slate-500 text-[11px]">Tasks:</span>
-                {sch.actions.map((act, i) => (
-                  <span
-                    key={i}
-                    className="text-[10px] bg-slate-900 px-2 py-0.5 rounded text-slate-300 border border-slate-800"
-                  >
-                    {act}
-                  </span>
-                ))}
-              </div>
+      {/* ── Mode 1: Smart Webhook-Trigger & Event-Chains (No-Code Automation) ── */}
+      {activeMode === 'events' && (
+        <div className="space-y-4">
+          <div className="p-4 rounded-2xl bg-amber-950/20 border border-amber-500/25 text-xs font-mono text-amber-300 flex items-start gap-3">
+            <Zap className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-white mb-0.5">
+                {language === 'de' ? 'Ereignisgesteuerte Automation' : 'Event-Driven Reactive Automation'}
+              </p>
+              <p className="text-slate-300">
+                {language === 'de'
+                  ? 'Reagiert in Echtzeit auf Server-Crashes, RAM-Peaks über 90 % und 0-Spieler-Inaktivität. Führt verkettete Aktionen nacheinander mit Pausen aus (z. B. save-all → 5s Pause → Backup → Stop).'
+                  : 'Reacts in real-time to crashes, high RAM spikes, and zero-player idle states. Executes chained action steps sequentially.'}
+              </p>
             </div>
           </div>
-        ))}
-      </div>
 
-      {/* New Schedule Modal */}
+          <div className="grid grid-cols-1 gap-3.5">
+            {triggers.map((rule) => (
+              <div
+                key={rule.id}
+                className="cyber-glass rounded-2xl p-5 border border-slate-800 hover:border-slate-700 transition-all shadow-md font-mono text-xs"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-3">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-sm text-white">{rule.name}</span>
+                      <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold uppercase">
+                        {rule.event_type}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">
+                        AKTIV
+                      </span>
+                    </div>
+                    <p className="text-slate-400 text-xs mt-1">Bedingung: {rule.condition_text}</p>
+                    {rule.webhook_url && (
+                      <p className="text-slate-500 text-[11px] mt-0.5 truncate max-w-lg">
+                        Alert-Webhook: {rule.webhook_url}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Actions & Test run */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => handleTestTrigger(rule)}
+                      disabled={testingTriggerId === rule.id}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 font-bold transition-all active:scale-95 disabled:opacity-50"
+                      title="Simuliert den Event-Trigger und führt alle Ketten-Aktionen aus"
+                    >
+                      {testingTriggerId === rule.id ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                          <span>Führe aus...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Kette testen</span>
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => handleDeleteTrigger(rule.id)}
+                      className="p-1.5 rounded-xl bg-slate-800 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition-colors"
+                      title="Löschen"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Chained Action Visual Steps */}
+                <div className="p-3 rounded-xl bg-[#0a0e17] border border-slate-800/80 mt-3">
+                  <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-2">
+                    Verkettete Aktionsfolge ({rule.actions.length} Schritte nacheinander):
+                  </div>
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none flex-wrap sm:flex-nowrap">
+                    {rule.actions.map((act, idx) => (
+                      <React.Fragment key={idx}>
+                        <div className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-[11px] text-white flex items-center gap-1.5 shrink-0 shadow-sm">
+                          {act.type === 'command' && <Terminal className="w-3 h-3 text-cyan-400" />}
+                          {act.type === 'delay' && <Clock className="w-3 h-3 text-amber-400" />}
+                          {act.type === 'power' && <Zap className="w-3 h-3 text-emerald-400" />}
+                          {act.type === 'backup' && <HardDrive className="w-3 h-3 text-purple-400" />}
+                          {act.type === 'discord' && <Bell className="w-3 h-3 text-indigo-400" />}
+                          {act.type === 'heapdump' && <Cpu className="w-3 h-3 text-rose-400" />}
+                          <span>{act.description || act.target}</span>
+                        </div>
+                        {idx < rule.actions.length - 1 && (
+                          <ArrowRight className="w-3 h-3 text-slate-600 shrink-0" />
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-slate-500 mt-2.5 pt-2 border-t border-slate-800/60">
+                  <span>Ausführungen: {rule.execution_count}x</span>
+                  <span>Zuletzt ausgelöst: {rule.last_triggered || 'Noch nie'}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Mode 2: Traditional Cron Schedules ── */}
+      {activeMode === 'cron' && (
+        <div className="grid grid-cols-1 gap-3 font-mono text-xs">
+          {schedules.map((sch) => (
+            <div
+              key={sch.id}
+              className={`cyber-glass rounded-2xl p-4 sm:p-5 border transition-all ${
+                sch.isActive ? 'border-slate-800' : 'border-slate-800/40 opacity-75'
+              }`}
+            >
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <h4 className="text-sm font-bold text-white font-mono">{sch.name}</h4>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-zinc-300 border border-slate-700">
+                      {sch.cron}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                        sch.isActive
+                          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                          : 'bg-slate-800 text-slate-400'
+                      }`}
+                    >
+                      {sch.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400">{sch.description}</p>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => triggerScheduleNow(sch.id)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-mono text-xs font-semibold transition-all active:scale-95"
+                    title="Trigger immediately"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <span>Run Now</span>
+                  </button>
+                  <button
+                    onClick={() => toggleSchedule(sch.id)}
+                    className={`px-3 py-1.5 rounded-xl font-mono text-xs font-semibold border transition-all active:scale-95 ${
+                      sch.isActive
+                        ? 'bg-amber-500/10 text-amber-300 border-amber-500/30 hover:bg-amber-500/20'
+                        : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/20'
+                    }`}
+                  >
+                    {sch.isActive ? 'Pause' : 'Activate'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-800/80">
+                <span>Nächster Lauf: {sch.nextRun}</span>
+                <span>Aktionen: {sch.actions?.length || 2} Jobs</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* New Event Trigger Modal */}
+      <Modal
+        isOpen={isNewTriggerModalOpen}
+        onClose={() => setIsNewTriggerModalOpen(false)}
+        title="Neuen Smart Webhook-Trigger erstellen"
+      >
+        <form onSubmit={handleCreateTrigger} className="space-y-4 font-mono text-xs">
+          <div>
+            <label className="block text-slate-300 font-bold mb-1">Name des Triggers</label>
+            <input
+              type="text"
+              required
+              placeholder="z. B. Auto-Recovery bei Crash"
+              value={newTriggerName}
+              onChange={(e) => setNewTriggerName(e.target.value)}
+              className="w-full bg-[#0d1117] border border-[#30363d] focus:border-amber-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-slate-300 font-bold mb-1">Ereignis-Bedingung</label>
+            <select
+              value={newTriggerEvent}
+              onChange={(e) => setNewTriggerEvent(e.target.value)}
+              className="w-full bg-[#0d1117] border border-[#30363d] focus:border-amber-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none"
+            >
+              <option value="server_crash">Server crasht (Exit-Code != 0)</option>
+              <option value="ram_exceeded">RAM-Auslastung &gt; 90 % für 5 Minuten</option>
+              <option value="players_zero">Spielerzahl fällt auf 0 (Inaktivität)</option>
+              <option value="tps_drop">TPS fallen unter 12 für &gt; 15 Sekunden</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-slate-300 font-bold mb-1">Aktionsketten-Vorlage</label>
+            <select
+              value={newTriggerChainPreset}
+              onChange={(e) => setNewTriggerChainPreset(e.target.value)}
+              className="w-full bg-[#0d1117] border border-[#30363d] focus:border-amber-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none"
+            >
+              <option value="crash_restart">Discord Crash-Alert → 3s warten → Auto-Restart Container</option>
+              <option value="ram_heapdump">Admin Discord-Warnung → JVM Heap-Dump erstellen → Chat Broadcast</option>
+              <option value="backup_hibernate">save-all → 5s warten → Backup erstellen → Server in Ruhezustand stoppen</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-slate-300 font-bold mb-1">Discord / Slack Webhook URL (Optional)</label>
+            <input
+              type="url"
+              placeholder="https://discord.com/api/webhooks/..."
+              value={newTriggerWebhook}
+              onChange={(e) => setNewTriggerWebhook(e.target.value)}
+              className="w-full bg-[#0d1117] border border-[#30363d] focus:border-amber-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+            <button
+              type="button"
+              onClick={() => setIsNewTriggerModalOpen(false)}
+              className="px-4 py-2 rounded-xl text-slate-400 hover:text-white transition-colors"
+            >
+              Abbrechen
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold transition-all shadow-md active:scale-95"
+            >
+              Trigger speichern
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Cron Schedule Modal */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title="New Schedule Routine"
-        subtitle="Define a recurring cron expression for automated container tasks"
-        icon={<Clock className="w-4 h-4 text-amber-400" />}
-        badge="CRON SCHEDULE"
-        badgeColor="amber"
+        title="Create New Cron Schedule"
       >
         <form onSubmit={handleCreateSchedule} className="space-y-4">
           <div>
             <label className="block text-xs font-mono uppercase text-slate-300 mb-1.5">
-              Task Name
+              Schedule Name
             </label>
             <input
               type="text"
               required
-              placeholder="e.g. Weekly Server Maintenance Reboot"
+              placeholder="Daily Maintenance Restart"
               value={taskName}
               onChange={(e) => setTaskName(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white font-mono focus:outline-none focus:border-[var(--theme-accent,#e5a93c)]"
@@ -184,50 +529,19 @@ export const SchedulesTab: React.FC = () => {
               onChange={(e) => setCronExpression(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white font-mono focus:outline-none focus:border-[var(--theme-accent,#e5a93c)]"
             />
-            {/* Quick Presets */}
-            <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-              {[
-                { label: 'Every Hour', exp: '0 * * * *' },
-                { label: 'Daily @ 4 AM', exp: '0 4 * * *' },
-                { label: 'Weekly (Sunday)', exp: '0 5 * * 0' },
-                { label: 'Monthly', exp: '0 0 1 * *' },
-              ].map((preset) => (
-                <button
-                  type="button"
-                  key={preset.label}
-                  onClick={() => setCronExpression(preset.exp)}
-                  className="text-[10px] font-mono px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800"
-                >
-                  {preset.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-mono uppercase text-slate-300 mb-1.5">
-              Description (Optional)
-            </label>
-            <textarea
-              rows={2}
-              placeholder="Explain the scheduled action..."
-              value={taskDescription}
-              onChange={(e) => setTaskDescription(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white font-mono focus:outline-none focus:border-[var(--theme-accent,#e5a93c)]"
-            />
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
             <button
               type="button"
               onClick={() => setIsModalOpen(false)}
-              className="px-4 py-2 rounded-xl text-xs font-mono text-slate-400 hover:text-white hover:bg-slate-800"
+              className="px-4 py-2 rounded-xl text-xs font-mono text-slate-400 hover:text-white"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-mono font-bold text-xs shadow-md active:scale-95"
+              className="px-4 py-2 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-mono font-bold text-xs"
             >
               Create Schedule
             </button>

@@ -44,6 +44,45 @@ export interface Translations {
   tab_users: string;
   tab_audit: string;
   tab_settings: string;
+  tab_diagnostics: string;
+  tab_automation: string;
+
+  // File Manager Zip & Unpack
+  files_compress: string;
+  files_compress_title: string;
+  files_archive_name: string;
+  files_decompress: string;
+  files_decompress_title: string;
+  files_compress_success: string;
+  files_decompress_success: string;
+
+  // Sidebar
+  sidebar_collapse: string;
+  sidebar_expand: string;
+
+  // Diagnostics & Performance Suite
+  diag_heatmap_title: string;
+  diag_heatmap_desc: string;
+  diag_radar_title: string;
+  diag_radar_desc: string;
+  diag_lagdump_title: string;
+  diag_lagdump_desc: string;
+
+  // Automation & Event Chains
+  auto_title: string;
+  auto_desc: string;
+
+  // Live Migration
+  mig_title: string;
+  mig_desc: string;
+
+  // Reverse Proxy
+  proxy_title: string;
+  proxy_desc: string;
+
+  // Port Resolver
+  port_resolver_title: string;
+  port_resolver_desc: string;
 
   // Dashboard & Metrics
   dash_cluster_operational: string;
@@ -162,6 +201,45 @@ export const translations: Record<Language, Translations> = {
     tab_users: 'Sub-User',
     tab_audit: 'Audit-Trail',
     tab_settings: 'Einstellungen',
+    tab_diagnostics: 'Performance & Radar',
+    tab_automation: 'Automation & Chains',
+
+    // File Manager Zip & Unpack
+    files_compress: 'Zip / Komprimieren',
+    files_compress_title: 'Dateien komprimieren',
+    files_archive_name: 'Archivname',
+    files_decompress: 'Entpacken',
+    files_decompress_title: 'Archiv entpacken',
+    files_compress_success: 'Dateien erfolgreich archiviert',
+    files_decompress_success: 'Archiv erfolgreich entpackt',
+
+    // Sidebar
+    sidebar_collapse: 'Sidebar einklappen',
+    sidebar_expand: 'Sidebar ausklappen',
+
+    // Diagnostics & Performance Suite
+    diag_heatmap_title: 'MSPT- & TPS-Heatmap (Live)',
+    diag_heatmap_desc: 'Echtzeit Millisekunden pro Tick und Tick-Rate mit dynamischer Farbcodierung.',
+    diag_radar_title: 'Entity- & Tile-Radar',
+    diag_radar_desc: 'Früherkennung von Performance-Fressern mit präziser Welt- und Block-Koordinate.',
+    diag_lagdump_title: 'Automatischer Lag-Dump',
+    diag_lagdump_desc: 'Automatischer 30-Sekunden-Snapshot bei TPS-Abfall unter 12 für > 15s.',
+
+    // Automation & Event Chains
+    auto_title: 'Smart Webhook-Trigger & Event-Chains',
+    auto_desc: 'Ereignisbasierte No-Code Automation bei Crashes, RAM-Peaks und Inaktivität.',
+
+    // Live Migration
+    mig_title: 'Multi-Node Live-Migration',
+    mig_desc: 'Verschlüsselter Daemon-to-Daemon Stream mit minimalem Delta-Sync Switchover.',
+
+    // Reverse Proxy
+    proxy_title: 'Reverse-Proxy & Web-SSL Manager',
+    proxy_desc: 'Automatische Subdomain & Let’s-Encrypt Zertifikate für Web-Plugins wie BlueMap.',
+
+    // Port Resolver
+    port_resolver_title: 'Intelligenter Port-Konflikt-Resolver',
+    port_resolver_desc: 'Host-Port Prüfung vor Start und automatisches Remapping von Begleitports.',
 
     // Dashboard & Metriken
     dash_cluster_operational: 'Cluster Betriebsbereit',
@@ -279,6 +357,45 @@ export const translations: Record<Language, Translations> = {
     tab_users: 'Sub-Users',
     tab_audit: 'Audit Trail',
     tab_settings: 'Settings',
+    tab_diagnostics: 'Performance & Radar',
+    tab_automation: 'Automation & Chains',
+
+    // File Manager Zip & Unpack
+    files_compress: 'Zip / Compress',
+    files_compress_title: 'Compress Files',
+    files_archive_name: 'Archive Name',
+    files_decompress: 'Unarchive',
+    files_decompress_title: 'Decompress Archive',
+    files_compress_success: 'Files compressed successfully',
+    files_decompress_success: 'Archive extracted successfully',
+
+    // Sidebar
+    sidebar_collapse: 'Collapse sidebar',
+    sidebar_expand: 'Expand sidebar',
+
+    // Diagnostics & Performance Suite
+    diag_heatmap_title: 'MSPT & TPS Heatmap (Live)',
+    diag_heatmap_desc: 'Real-time milliseconds per tick and tick rate with dynamic color spectrum.',
+    diag_radar_title: 'Entity & Tile Radar',
+    diag_radar_desc: 'Instant detection of performance eaters with world and coordinate tracking.',
+    diag_lagdump_title: 'Automated Lag-Dump',
+    diag_lagdump_desc: 'Automatic 30-second snapshot when TPS drops below 12 for > 15s.',
+
+    // Automation & Event Chains
+    auto_title: 'Smart Webhook-Trigger & Event Chains',
+    auto_desc: 'Event-driven no-code automation for crashes, RAM spikes, and idle zero-player states.',
+
+    // Live Migration
+    mig_title: 'Multi-Node Live-Migration',
+    mig_desc: 'Encrypted daemon-to-daemon stream with minimal delta-sync switchover.',
+
+    // Reverse Proxy
+    proxy_title: 'Reverse-Proxy & Web-SSL Manager',
+    proxy_desc: 'Automated subdomain & Let’s Encrypt certificates for web plugins like BlueMap.',
+
+    // Port Resolver
+    port_resolver_title: 'Intelligent Port Conflict Resolver',
+    port_resolver_desc: 'Host pre-flight port checks and companion port auto-remapping fallback.',
 
     // Dashboard & Metrics
     dash_cluster_operational: 'Cluster Operational',

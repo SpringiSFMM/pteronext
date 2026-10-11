@@ -733,6 +733,35 @@ export const api = {
       });
     },
 
+    compress: async (
+      serverUuid: string,
+      files: string[],
+      root: string = '/',
+      name?: string
+    ): Promise<{ success: boolean; file: any; message: string }> => {
+      return request<{ success: boolean; file: any; message: string }>(
+        `/api/servers/${serverUuid}/files/compress`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ root, files, name }),
+        }
+      );
+    },
+
+    decompress: async (
+      serverUuid: string,
+      file: string,
+      root: string = '/'
+    ): Promise<{ success: boolean; message: string }> => {
+      return request<{ success: boolean; message: string }>(
+        `/api/servers/${serverUuid}/files/decompress`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ root, file }),
+        }
+      );
+    },
+
     installVersion: async (
       serverUuid: string,
       version: string,
@@ -1289,6 +1318,25 @@ export const api = {
         method: 'DELETE',
       });
     },
+    preflight: async (serverUuid: string): Promise<{
+      all_clear: boolean;
+      preflight_status: string;
+      results: Array<{ port: number; ip: string; is_primary: boolean; status: string; in_use_by?: string; suggested_port?: number }>;
+      summary: string;
+    }> => {
+      return request(`/api/servers/${serverUuid}/network/preflight`);
+    },
+    autoRemap: async (serverUuid: string, payload: { conflicting_port: number; service_type?: string }): Promise<{
+      success: boolean;
+      original_port: number;
+      remapped_port: number;
+      message: string;
+    }> => {
+      return request(`/api/servers/${serverUuid}/network/auto-remap`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
   },
 
   // Sidecars (Redis, Postgres, SQLite) & Web-DB-Viewer
@@ -1534,6 +1582,114 @@ export const api = {
       return request('/api/admin/integrations/cloudflare', {
         method: 'POST',
         body: JSON.stringify(payload),
+      });
+    },
+  },
+
+  // MSPT-/TPS-Heatmap, Entity- & Tile-Radar, Automatischer Lag-Dump
+  diagnostics: {
+    getTpsHeatmap: async (serverUuid: string): Promise<{
+      current_tps: number;
+      current_mspt: number;
+      current_health: string;
+      data: Array<{ timestamp: number; tps: number; mspt: number; health: string }>;
+    }> => {
+      return request(`/api/servers/${serverUuid}/diagnostics/tps-heatmap`);
+    },
+    getRadar: async (serverUuid: string): Promise<{
+      summary: any;
+      hotspots: Array<{
+        id: string;
+        world: string;
+        chunk_x: number;
+        chunk_z: number;
+        block_x: number;
+        block_z: number;
+        count: number;
+        type: string;
+        severity: string;
+        description: string;
+        suspect_type: string;
+      }>;
+    }> => {
+      return request(`/api/servers/${serverUuid}/diagnostics/radar`);
+    },
+    getLagDumps: async (serverUuid: string): Promise<{
+      daemon_active: boolean;
+      threshold_tps: number;
+      threshold_secs: number;
+      dumps: any[];
+    }> => {
+      return request(`/api/servers/${serverUuid}/diagnostics/lag-dumps`);
+    },
+    triggerLagDump: async (serverUuid: string): Promise<{ success: boolean; message: string; dump: any }> => {
+      return request(`/api/servers/${serverUuid}/diagnostics/lag-dumps/trigger`, {
+        method: 'POST',
+      });
+    },
+  },
+
+  // Smart Webhook-Trigger & Event-Chains (No-Code Automation)
+  automation: {
+    listTriggers: async (serverUuid: string): Promise<{ triggers: any[] }> => {
+      return request(`/api/servers/${serverUuid}/automation/triggers`);
+    },
+    createTrigger: async (serverUuid: string, payload: any): Promise<{ success: boolean; trigger: any; message: string }> => {
+      return request(`/api/servers/${serverUuid}/automation/triggers`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+    updateTrigger: async (serverUuid: string, id: string, payload: any): Promise<{ success: boolean; trigger: any; message: string }> => {
+      return request(`/api/servers/${serverUuid}/automation/triggers/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+    },
+    deleteTrigger: async (serverUuid: string, id: string): Promise<{ success: boolean; message: string }> => {
+      return request(`/api/servers/${serverUuid}/automation/triggers/${id}`, {
+        method: 'DELETE',
+      });
+    },
+    testTrigger: async (serverUuid: string, id: string): Promise<{ success: boolean; message: string; trigger: any }> => {
+      return request(`/api/servers/${serverUuid}/automation/triggers/${id}/test`, {
+        method: 'POST',
+      });
+    },
+  },
+
+  // Multi-Node Live-Migration (Streaming ohne Ausfallzeit)
+  migration: {
+    getStatus: async (serverUuid: string): Promise<{ migration: any }> => {
+      return request(`/api/servers/${serverUuid}/migration/status`);
+    },
+    start: async (serverUuid: string, targetNodeId: number): Promise<{ success: boolean; message: string; migration: any }> => {
+      return request(`/api/servers/${serverUuid}/migration/start`, {
+        method: 'POST',
+        body: JSON.stringify({ target_node_id: targetNodeId }),
+      });
+    },
+    cancel: async (serverUuid: string): Promise<{ success: boolean; message: string }> => {
+      return request(`/api/servers/${serverUuid}/migration/cancel`, {
+        method: 'POST',
+      });
+    },
+  },
+
+  // Integrierter Reverse-Proxy & Web-SSL Manager (Caddy/Traefik)
+  reverseProxy: {
+    list: async (serverUuid: string): Promise<{ proxies: any[]; presets: any[]; caddy_engine: any }> => {
+      return request(`/api/servers/${serverUuid}/reverse-proxy`);
+    },
+    create: async (serverUuid: string, payload: { domain: string; internal_port: number; plugin_name?: string }): Promise<{ success: boolean; proxy: any; message: string }> => {
+      return request(`/api/servers/${serverUuid}/reverse-proxy`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+    delete: async (serverUuid: string, id: string): Promise<{ success: boolean; message: string }> => {
+      return request(`/api/servers/${serverUuid}/reverse-proxy/${id}`, {
+        method: 'DELETE',
       });
     },
   },

@@ -276,6 +276,7 @@ export type ServerDetailTab =
   | 'game-config'
   | 'plugin-store'
   | 'webhooks'
+  | 'diagnostics'
   | 'settings';
 
 export type ColorTheme =

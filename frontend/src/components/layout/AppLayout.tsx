@@ -13,7 +13,7 @@ interface AppLayoutProps {
 }
 
 export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
-  const { isAccountSettingsOpen, setIsAccountSettingsOpen } = useApp();
+  const { isAccountSettingsOpen, setIsAccountSettingsOpen, isSidebarCollapsed } = useApp();
 
   return (
     <div className="min-h-screen bg-[#0d1117] text-[#e6edf3] relative selection:bg-slate-700 selection:text-white">
@@ -30,7 +30,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       <Sidebar />
 
       {/* Main Content Area with Sticky / Bottom Footer */}
-      <div className="lg:pl-64 flex flex-col min-h-screen">
+      <div className={`${isSidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64'} flex flex-col min-h-screen transition-[padding] duration-300 ease-in-out`}>
         {/* Mobile Header Bar */}
         <MobileHeader />
 

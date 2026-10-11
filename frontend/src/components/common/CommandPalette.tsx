@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
+import { useTranslation } from '../../i18n/useTranslation';
 import { COLOR_THEMES, ColorTheme } from '../../types';
 import {
   Search,
@@ -21,6 +22,7 @@ import {
   Settings,
   ArrowRight,
   Sparkles,
+  FileText,
 } from 'lucide-react';
 
 export const CommandPalette: React.FC = () => {
@@ -37,7 +39,10 @@ export const CommandPalette: React.FC = () => {
     openAccountSettings,
     setIsCreateServerOpen,
     addToast,
+    adminUsers,
+    setActiveServerTab,
   } = useApp();
+  const { language } = useTranslation();
 
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -61,6 +66,7 @@ export const CommandPalette: React.FC = () => {
       subtitle?: string;
       icon: React.ElementType;
       badge?: string;
+      keywords?: string[];
       action: () => void;
     }> = [];
 
@@ -68,10 +74,11 @@ export const CommandPalette: React.FC = () => {
     list.push({
       id: 'action-create-server',
       category: 'Actions',
-      title: 'Create New Server',
-      subtitle: 'Provision a new container on your Wings cluster',
+      title: language === 'de' ? 'Neuen Server erstellen' : 'Create New Server',
+      subtitle: language === 'de' ? 'Container auf Wings-Cluster bereitstellen' : 'Provision a new container on your Wings cluster',
       icon: Plus,
       badge: 'Action',
+      keywords: ['create', 'new', 'server', 'erstellen', 'provision'],
       action: () => {
         setIsCreateServerOpen(true);
         setIsCommandPaletteOpen(false);
@@ -81,10 +88,11 @@ export const CommandPalette: React.FC = () => {
     list.push({
       id: 'action-api-tokens',
       category: 'Actions',
-      title: 'API Client Credentials & Tokens',
-      subtitle: 'Manage root and application authorization tokens',
+      title: language === 'de' ? 'API Client-Credentials & Tokens' : 'API Client Credentials & Tokens',
+      subtitle: language === 'de' ? 'Root- und Anwendungs-Tokens verwalten' : 'Manage root and application authorization tokens',
       icon: Key,
       badge: 'Security',
+      keywords: ['api', 'token', 'keys', 'credentials', 'auth'],
       action: () => {
         openAccountSettings('api-keys');
         setIsCommandPaletteOpen(false);
@@ -94,13 +102,43 @@ export const CommandPalette: React.FC = () => {
     list.push({
       id: 'action-account-settings',
       category: 'Actions',
-      title: 'Account Settings & 2FA',
-      subtitle: 'Configure credentials, password, and two-factor auth',
+      title: language === 'de' ? 'Kontoeinstellungen & 2FA' : 'Account Settings & 2FA',
+      subtitle: language === 'de' ? 'Passwort, E-Mail und Zwei-Faktor-Authentifizierung' : 'Configure credentials, password, and two-factor auth',
       icon: Settings,
       badge: 'Profile',
+      keywords: ['account', 'settings', '2fa', 'security', 'profile', 'konto'],
       action: () => {
         openAccountSettings('profile');
         setIsCommandPaletteOpen(false);
+      },
+    });
+
+    // Direct Action: edit serv -> server.properties in File Manager
+    list.push({
+      id: 'action-edit-server-properties',
+      category: 'Config Direct-Action',
+      title: selectedServer
+        ? `Edit server.properties (${selectedServer.name})`
+        : 'Edit server.properties (File-Time-Machine)',
+      subtitle: language === 'de'
+        ? 'Öffnet direkt server.properties im Dateimanager & Time-Machine'
+        : 'Opens server.properties in File Manager & Time Machine',
+      icon: FileText,
+      badge: 'Direct',
+      keywords: ['edit serv', 'edit server.properties', 'server.properties', 'edit', 'properties', 'serv'],
+      action: () => {
+        if (selectedServer) {
+          setActiveServerTab('files');
+        } else if (servers.length > 0) {
+          selectServerAndNavigate(servers[0]);
+          setActiveServerTab('files');
+        }
+        setIsCommandPaletteOpen(false);
+        addToast({
+          title: 'server.properties',
+          description: language === 'de' ? 'Dateimanager für server.properties geöffnet.' : 'Navigated to server.properties in File Manager.',
+          type: 'info',
+        });
       },
     });
 
@@ -110,9 +148,10 @@ export const CommandPalette: React.FC = () => {
         id: 'action-server-restart',
         category: `Current Server: ${selectedServer.name}`,
         title: `Restart Server (${selectedServer.name})`,
-        subtitle: 'Sends graceful restart command via daemon',
+        subtitle: language === 'de' ? 'Sendet Neustart-Signal via Wings-Daemon' : 'Sends graceful restart command via daemon',
         icon: Power,
         badge: 'Power',
+        keywords: ['rei', 'restart', 'reboot', 'neustart', 'restart server'],
         action: () => {
           handlePowerAction(selectedServer.id, 'restart');
           setIsCommandPaletteOpen(false);
@@ -126,12 +165,52 @@ export const CommandPalette: React.FC = () => {
         subtitle: `Launch default client for ${selectedServer.sftpDetails.host}:${selectedServer.sftpDetails.port}`,
         icon: ExternalLink,
         badge: 'SFTP',
+        keywords: ['sftp', 'ftp', 'connect', 'files'],
         action: () => {
           window.location.href = `sftp://${selectedServer.sftpDetails.user}@${selectedServer.sftpDetails.host}:${selectedServer.sftpDetails.port}`;
           setIsCommandPaletteOpen(false);
         },
       });
+    } else {
+      // General restart server item
+      servers.forEach((srv) => {
+        list.push({
+          id: `action-restart-${srv.id}`,
+          category: 'Server Actions',
+          title: `Restart Server: ${srv.name}`,
+          subtitle: `Sends restart command to ${srv.name}`,
+          icon: Power,
+          badge: 'Power',
+          keywords: ['rei', 'restart', 'reboot', 'neustart', srv.name.toLowerCase()],
+          action: () => {
+            handlePowerAction(srv.id, 'restart');
+            setIsCommandPaletteOpen(false);
+          },
+        });
+      });
     }
+
+    // Direct Action: @User jumps (User profiles & permissions)
+    adminUsers.forEach((u) => {
+      list.push({
+        id: `user-jump-${u.id}`,
+        category: 'Users & Permissions',
+        title: `@${u.username}`,
+        subtitle: `${u.email} • ${u.rootAdmin ? 'Superadmin' : 'Standard User'} (Rechte / Profil)`,
+        icon: Users,
+        badge: u.rootAdmin ? 'Admin' : 'User',
+        keywords: [`@${u.username.toLowerCase()}`, u.username.toLowerCase(), `@${u.email.toLowerCase()}`, '@max', 'user'],
+        action: () => {
+          setActiveView('admin-users');
+          setIsCommandPaletteOpen(false);
+          addToast({
+            title: `@${u.username}`,
+            description: language === 'de' ? `Zu Benutzerprofil @${u.username} gesprungen.` : `Navigated to user profile @${u.username}.`,
+            type: 'info',
+          });
+        },
+      });
+    });
 
     // 2. Navigation
     list.push({
@@ -140,6 +219,7 @@ export const CommandPalette: React.FC = () => {
       title: 'Dashboard Overview',
       subtitle: 'Cluster resource summary and pinned notes',
       icon: Sliders,
+      keywords: ['dash', 'dashboard', 'home', 'overview'],
       action: () => {
         setActiveView('dashboard');
         setIsCommandPaletteOpen(false);
@@ -152,6 +232,7 @@ export const CommandPalette: React.FC = () => {
       title: 'Server Directory',
       subtitle: 'Browse and monitor all instances',
       icon: Server,
+      keywords: ['servers', 'instances', 'list'],
       action: () => {
         setActiveView('servers');
         setIsCommandPaletteOpen(false);
@@ -164,6 +245,7 @@ export const CommandPalette: React.FC = () => {
       title: 'Admin Dashboard',
       subtitle: 'Cluster infrastructure telemetry and management',
       icon: Sliders,
+      keywords: ['admin', 'telemetry', 'cluster'],
       action: () => {
         setActiveView('admin-dashboard');
         setIsCommandPaletteOpen(false);
@@ -176,6 +258,7 @@ export const CommandPalette: React.FC = () => {
       title: 'Admin: Cluster Server Management',
       subtitle: 'Manage all instances, limits, quotas, and suspension',
       icon: Server,
+      keywords: ['admin servers', 'limits', 'quotas'],
       action: () => {
         setActiveView('admin-servers');
         setIsCommandPaletteOpen(false);
@@ -188,6 +271,7 @@ export const CommandPalette: React.FC = () => {
       title: 'Wings Nodes Infrastructure',
       subtitle: 'Compute daemons and container endpoints',
       icon: HardDrive,
+      keywords: ['nodes', 'wings', 'daemons', 'infrastructure'],
       action: () => {
         setActiveView('admin-nodes');
         setIsCommandPaletteOpen(false);
@@ -200,6 +284,7 @@ export const CommandPalette: React.FC = () => {
       title: 'Database Management',
       subtitle: 'Manage MySQL / MariaDB hosts and tenant schemas',
       icon: Database,
+      keywords: ['databases', 'mysql', 'mariadb', 'hosts'],
       action: () => {
         setActiveView('admin-databases');
         setIsCommandPaletteOpen(false);
@@ -212,6 +297,7 @@ export const CommandPalette: React.FC = () => {
       title: 'Eggs & Nests Library',
       subtitle: 'Game templates and container installer deploy scripts',
       icon: Package,
+      keywords: ['eggs', 'nests', 'templates'],
       action: () => {
         setActiveView('admin-eggs');
         setIsCommandPaletteOpen(false);
@@ -224,21 +310,29 @@ export const CommandPalette: React.FC = () => {
       title: 'User Management',
       subtitle: 'Client accounts, sub-users, and role permissions',
       icon: Users,
+      keywords: ['users', 'permissions', 'accounts'],
       action: () => {
         setActiveView('admin-users');
         setIsCommandPaletteOpen(false);
       },
     });
 
-    // 3. Servers list
+    // 3. Servers list & Direct Action: goto <server>
     servers.forEach((srv) => {
       list.push({
         id: `server-${srv.id}`,
         category: 'Servers',
-        title: srv.name,
+        title: `goto ${srv.name}`,
         subtitle: `${srv.status.toUpperCase()} • ${srv.node} • ${srv.allocation}`,
         icon: Server,
         badge: `${srv.stats.memory} MB RAM`,
+        keywords: [
+          `goto ${srv.name.toLowerCase()}`,
+          'goto',
+          srv.name.toLowerCase(),
+          srv.id,
+          srv.node?.toLowerCase() || '',
+        ],
         action: () => {
           selectServerAndNavigate(srv);
           setIsCommandPaletteOpen(false);
@@ -255,6 +349,7 @@ export const CommandPalette: React.FC = () => {
         subtitle: theme.description,
         icon: Palette,
         badge: colorTheme === theme.id ? 'Active' : theme.badge,
+        keywords: ['theme', theme.name.toLowerCase(), 'color'],
         action: () => {
           setColorTheme(theme.id);
           addToast({
@@ -280,18 +375,80 @@ export const CommandPalette: React.FC = () => {
     setIsCreateServerOpen,
     setIsCommandPaletteOpen,
     addToast,
+    adminUsers,
+    setActiveServerTab,
+    language,
   ]);
 
-  // Filter based on search query
+  // Enhanced Fuzzy Search & Direct-Action Scorer
   const filteredItems = useMemo(() => {
     if (!query.trim()) return items;
-    const q = query.toLowerCase();
-    return items.filter(
-      (item) =>
-        item.title.toLowerCase().includes(q) ||
-        (item.subtitle && item.subtitle.toLowerCase().includes(q)) ||
-        item.category.toLowerCase().includes(q)
-    );
+    const q = query.trim().toLowerCase();
+
+    function scoreItem(item: (typeof items)[0]): number {
+      // Direct action 1: rei -> Restart Server
+      if (q === 'rei' || q.startsWith('rei')) {
+        if (item.keywords?.some((k) => k.startsWith('rei') || k === 'restart' || k === 'neustart')) {
+          return 300;
+        }
+      }
+
+      // Direct action 2: edit serv -> server.properties
+      if (q.startsWith('edit serv') || q === 'edit' || (q.startsWith('edit') && item.keywords?.some((k) => k.includes('server.properties')))) {
+        if (item.keywords?.some((k) => k.includes('server.properties') || k.includes('edit serv'))) {
+          return 300;
+        }
+      }
+
+      // Direct action 3: @User -> jump to user
+      if (q.startsWith('@')) {
+        const uTarget = q.slice(1);
+        if (item.title.toLowerCase().startsWith('@' + uTarget)) return 300;
+        if (item.keywords?.some((k) => k.startsWith('@' + uTarget))) return 250;
+      }
+
+      // Direct action 4: goto <server> -> switch server
+      if (q.startsWith('goto')) {
+        const sTarget = q.replace(/^goto\s*/, '').trim();
+        if (item.category === 'Servers') {
+          if (!sTarget || item.title.toLowerCase().includes(sTarget)) return 300;
+        }
+      }
+
+      // Exact match on keyword
+      if (item.keywords?.some((k) => k === q)) return 200;
+
+      // Prefix match on keyword
+      if (item.keywords?.some((k) => k.startsWith(q))) return 150;
+
+      // Title prefix or exact match
+      const t = item.title.toLowerCase();
+      if (t === q) return 180;
+      if (t.startsWith(q)) return 140;
+      if (t.includes(q)) return 100;
+
+      // Subtitle match
+      if (item.subtitle && item.subtitle.toLowerCase().includes(q)) return 60;
+
+      // Category match
+      if (item.category.toLowerCase().includes(q)) return 40;
+
+      // Subsequence fuzzy match (letters appear in order)
+      let qIdx = 0;
+      for (let i = 0; i < t.length && qIdx < q.length; i++) {
+        if (t[i] === q[qIdx]) qIdx++;
+      }
+      if (qIdx === q.length) return 25;
+
+      return 0;
+    }
+
+    const scored = items
+      .map((item) => ({ item, score: scoreItem(item) }))
+      .filter((entry) => entry.score > 0);
+
+    scored.sort((a, b) => b.score - a.score);
+    return scored.map((s) => s.item);
   }, [items, query]);
 
   // Keyboard navigation

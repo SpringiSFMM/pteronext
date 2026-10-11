@@ -1,6 +1,9 @@
 package services
 
 import (
+	"archive/tar"
+	"archive/zip"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -558,4 +561,276 @@ func (f *FileService) DownloadRemoteFile(serverUUID, root, filename, sourceURL s
 		Permissions: "-rw-r--r--",
 		Editable:    isEditableFile(filename),
 	}, nil
+}
+
+// CompressFiles archives multiple files or directories into a zip or tar.gz file.
+func (f *FileService) CompressFiles(serverUUID, root string, files []string, archiveName string) (*FileItem, error) {
+	baseDir, err := f.GetServerBaseDir(serverUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	rootPath, err := f.resolveSafePath(baseDir, root)
+	if err != nil {
+		return nil, err
+	}
+
+	if archiveName == "" {
+		archiveName = fmt.Sprintf("archive-%s.tar.gz", time.Now().Format("20060102-150405"))
+	}
+	archiveName = filepath.Base(archiveName)
+
+	targetArchiveFile, err := f.resolveSafePath(baseDir, filepath.Join(root, archiveName))
+	if err != nil {
+		return nil, err
+	}
+
+	outFile, err := os.Create(targetArchiveFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create archive destination file: %w", err)
+	}
+	defer outFile.Close()
+
+	isZip := strings.HasSuffix(strings.ToLower(archiveName), ".zip")
+
+	if isZip {
+		zipWriter := zip.NewWriter(outFile)
+		defer zipWriter.Close()
+
+		for _, relItem := range files {
+			itemSafePath, err := f.resolveSafePath(baseDir, filepath.Join(root, relItem))
+			if err != nil {
+				continue
+			}
+
+			info, statErr := os.Stat(itemSafePath)
+			if statErr != nil {
+				continue
+			}
+
+			if info.IsDir() {
+				filepath.Walk(itemSafePath, func(p string, fi os.FileInfo, walkErr error) error {
+					if walkErr != nil || fi.IsDir() {
+						return nil
+					}
+					relInArchive, _ := filepath.Rel(rootPath, p)
+					header, err := zip.FileInfoHeader(fi)
+					if err != nil {
+						return nil
+					}
+					header.Name = filepath.ToSlash(relInArchive)
+					header.Method = zip.Deflate
+
+					w, err := zipWriter.CreateHeader(header)
+					if err != nil {
+						return nil
+					}
+					rf, err := os.Open(p)
+					if err != nil {
+						return nil
+					}
+					defer rf.Close()
+					_, _ = io.Copy(w, rf)
+					return nil
+				})
+			} else {
+				header, err := zip.FileInfoHeader(info)
+				if err != nil {
+					continue
+				}
+				header.Name = filepath.ToSlash(relItem)
+				header.Method = zip.Deflate
+
+				w, err := zipWriter.CreateHeader(header)
+				if err != nil {
+					continue
+				}
+				rf, err := os.Open(itemSafePath)
+				if err != nil {
+					continue
+				}
+				_, _ = io.Copy(w, rf)
+				rf.Close()
+			}
+		}
+	} else {
+		// Tar.gz compression
+		gw := gzip.NewWriter(outFile)
+		defer gw.Close()
+		tw := tar.NewWriter(gw)
+		defer tw.Close()
+
+		for _, relItem := range files {
+			itemSafePath, err := f.resolveSafePath(baseDir, filepath.Join(root, relItem))
+			if err != nil {
+				continue
+			}
+
+			info, statErr := os.Stat(itemSafePath)
+			if statErr != nil {
+				continue
+			}
+
+			if info.IsDir() {
+				filepath.Walk(itemSafePath, func(p string, fi os.FileInfo, walkErr error) error {
+					if walkErr != nil {
+						return nil
+					}
+					relInArchive, _ := filepath.Rel(rootPath, p)
+					header, err := tar.FileInfoHeader(fi, fi.Name())
+					if err != nil {
+						return nil
+					}
+					header.Name = filepath.ToSlash(relInArchive)
+					if err := tw.WriteHeader(header); err != nil {
+						return nil
+					}
+					if fi.IsDir() {
+						return nil
+					}
+					rf, err := os.Open(p)
+					if err != nil {
+						return nil
+					}
+					defer rf.Close()
+					_, _ = io.Copy(tw, rf)
+					return nil
+				})
+			} else {
+				header, err := tar.FileInfoHeader(info, info.Name())
+				if err != nil {
+					continue
+				}
+				header.Name = filepath.ToSlash(relItem)
+				if err := tw.WriteHeader(header); err != nil {
+					continue
+				}
+				rf, err := os.Open(itemSafePath)
+				if err != nil {
+					continue
+				}
+				_, _ = io.Copy(tw, rf)
+				rf.Close()
+			}
+		}
+	}
+
+	// Close open handles before inspecting size
+	_ = outFile.Sync()
+	fi, _ := os.Stat(targetArchiveFile)
+	var finalSize int64
+	if fi != nil {
+		finalSize = fi.Size()
+	}
+
+	archiveRelPath := "/" + strings.TrimPrefix(filepath.Join(root, archiveName), "/")
+	return &FileItem{
+		Name:        archiveName,
+		Path:        archiveRelPath,
+		Type:        "file",
+		Size:        finalSize,
+		Modified:    "Just now",
+		Permissions: "-rw-r--r--",
+		Editable:    false,
+	}, nil
+}
+
+// DecompressFile uncompresses a .zip or .tar.gz archive into root.
+func (f *FileService) DecompressFile(serverUUID, root string, fileName string) error {
+	baseDir, err := f.GetServerBaseDir(serverUUID)
+	if err != nil {
+		return err
+	}
+
+	targetArchiveFile, err := f.resolveSafePath(baseDir, filepath.Join(root, fileName))
+	if err != nil {
+		return err
+	}
+
+	extractDest, err := f.resolveSafePath(baseDir, root)
+	if err != nil {
+		return err
+	}
+
+	lower := strings.ToLower(fileName)
+	if strings.HasSuffix(lower, ".zip") {
+		r, err := zip.OpenReader(targetArchiveFile)
+		if err != nil {
+			return fmt.Errorf("invalid zip archive: %w", err)
+		}
+		defer r.Close()
+
+		for _, zf := range r.File {
+			cleanPath := filepath.Clean(zf.Name)
+			if strings.HasPrefix(cleanPath, "..") || filepath.IsAbs(cleanPath) {
+				continue
+			}
+			destPath := filepath.Join(extractDest, cleanPath)
+			if zf.FileInfo().IsDir() {
+				_ = os.MkdirAll(destPath, 0755)
+				continue
+			}
+			_ = os.MkdirAll(filepath.Dir(destPath), 0755)
+			rc, err := zf.Open()
+			if err != nil {
+				continue
+			}
+			out, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, zf.Mode())
+			if err == nil {
+				_, _ = io.Copy(out, rc)
+				out.Close()
+			}
+			rc.Close()
+		}
+		return nil
+	}
+
+	// Tar.gz extraction
+	fIn, err := os.Open(targetArchiveFile)
+	if err != nil {
+		return fmt.Errorf("could not open archive: %w", err)
+	}
+	defer fIn.Close()
+
+	var tr *tar.Reader
+	if strings.HasSuffix(lower, ".gz") || strings.HasSuffix(lower, ".tgz") {
+		gz, err := gzip.NewReader(fIn)
+		if err != nil {
+			return fmt.Errorf("invalid gzip compression: %w", err)
+		}
+		defer gz.Close()
+		tr = tar.NewReader(gz)
+	} else {
+		tr = tar.NewReader(fIn)
+	}
+
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		cleanPath := filepath.Clean(header.Name)
+		if strings.HasPrefix(cleanPath, "..") || filepath.IsAbs(cleanPath) {
+			continue
+		}
+		destPath := filepath.Join(extractDest, cleanPath)
+
+		switch header.Typeflag {
+		case tar.TypeDir:
+			_ = os.MkdirAll(destPath, 0755)
+		case tar.TypeReg, tar.TypeRegA:
+			_ = os.MkdirAll(filepath.Dir(destPath), 0755)
+			out, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(header.Mode))
+			if err == nil {
+				_, _ = io.Copy(out, tr)
+				out.Close()
+			}
+		}
+	}
+
+	return nil
 }

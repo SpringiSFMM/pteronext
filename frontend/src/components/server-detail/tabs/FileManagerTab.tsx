@@ -1,6 +1,7 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useApp } from '../../../context/AppContext';
 import { useTranslation } from '../../../i18n/useTranslation';
+import { api } from '../../../api/client';
 import { FileItem } from '../../../types';
 import {
   Folder,
@@ -84,7 +85,7 @@ export const FileManagerTab: React.FC = () => {
     addToast,
   } = useApp();
 
-  const { language } = useTranslation();
+  const { language, t } = useTranslation();
   const isServerSuspended = Boolean(selectedServer?.isSuspended || selectedServer?.suspended);
 
   // Navigation state
@@ -130,6 +131,12 @@ export const FileManagerTab: React.FC = () => {
 
   // Binary info modal state
   const [binaryTarget, setBinaryTarget] = useState<FileItem | null>(null);
+
+  // Compress & Archive modal state
+  const [isCompressModalOpen, setIsCompressModalOpen] = useState(false);
+  const [compressArchiveName, setCompressArchiveName] = useState('');
+  const [isCompressing, setIsCompressing] = useState(false);
+  const [isDecompressing, setIsDecompressing] = useState(false);
 
   // Drag and drop state
   const [isDraggingOver, setIsDraggingOver] = useState(false);
@@ -358,6 +365,60 @@ export const FileManagerTab: React.FC = () => {
       description: `Downloading ${file.name}`,
       type: 'info',
     });
+  };
+
+  // Compress selected files into tar.gz or zip archive
+  const handleCompress = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedServer?.uuid || selectedPaths.size === 0) return;
+    try {
+      setIsCompressing(true);
+      const res = await api.files.compress(
+        selectedServer.uuid,
+        Array.from(selectedPaths),
+        currentPath,
+        compressArchiveName.trim()
+      );
+      addToast({
+        title: language === 'de' ? 'Archiv erstellt' : 'Archive Created',
+        description: res.message || (language === 'de' ? 'Dateien erfolgreich komprimiert' : 'Files compressed successfully'),
+        type: 'success',
+      });
+      setIsCompressModalOpen(false);
+      setSelectedPaths(new Set());
+      await loadDirectory(currentPath);
+    } catch (err: any) {
+      addToast({
+        title: language === 'de' ? 'Komprimierung fehlgeschlagen' : 'Compression Failed',
+        description: err.message || 'Error creating archive',
+        type: 'error',
+      });
+    } finally {
+      setIsCompressing(false);
+    }
+  };
+
+  // Decompress an archive file (.zip, .tar.gz, etc.)
+  const handleDecompress = async (file: FileItem) => {
+    if (!selectedServer?.uuid) return;
+    try {
+      setIsDecompressing(true);
+      const res = await api.files.decompress(selectedServer.uuid, file.name, currentPath);
+      addToast({
+        title: language === 'de' ? 'Archiv entpackt' : 'Archive Extracted',
+        description: res.message || (language === 'de' ? 'Archiv erfolgreich entpackt' : 'Archive extracted successfully'),
+        type: 'success',
+      });
+      await loadDirectory(currentPath);
+    } catch (err: any) {
+      addToast({
+        title: language === 'de' ? 'Entpacken fehlgeschlagen' : 'Extraction Failed',
+        description: err.message || 'Error extracting archive',
+        type: 'error',
+      });
+    } finally {
+      setIsDecompressing(false);
+    }
   };
 
   // Handle local file uploads
@@ -678,6 +739,21 @@ export const FileManagerTab: React.FC = () => {
             <span className="text-zinc-200 font-semibold">{selectedPaths.size} selected</span>
             <div className="h-3 w-px bg-slate-700" />
             <button
+              onClick={() => {
+                const now = new Date();
+                const pad = (n: number) => String(n).padStart(2, '0');
+                const ts = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
+                setCompressArchiveName(`archive-${ts}.tar.gz`);
+                setIsCompressModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 text-amber-300 hover:text-amber-200 font-medium transition-all bg-amber-500/10 hover:bg-amber-500/20 px-2.5 py-1 rounded-lg border border-amber-500/20 active:scale-95"
+              title="Dateien als Archiv (.tar.gz / .zip) packen"
+            >
+              <FileArchive className="w-3.5 h-3.5" />
+              <span>{language === 'de' ? 'Zip / Komprimieren' : 'Zip / Compress'}</span>
+            </button>
+            <div className="h-3 w-px bg-slate-700" />
+            <button
               onClick={() => setIsBatchDeleteModalOpen(true)}
               className="flex items-center gap-1 text-rose-400 hover:text-rose-300 font-medium transition-colors"
             >
@@ -863,6 +939,24 @@ export const FileManagerTab: React.FC = () => {
                               <Edit3 className="w-3.5 h-3.5" />
                             </button>
                           )}
+                          {/* Unarchive / Decompress Button */}
+                          {!isDir &&
+                            (file.name.endsWith('.zip') ||
+                              file.name.endsWith('.tar.gz') ||
+                              file.name.endsWith('.tgz') ||
+                              file.name.endsWith('.gz')) && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDecompress(file);
+                                }}
+                                disabled={isDecompressing || isServerSuspended}
+                                className="p-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-amber-200 transition-colors border border-amber-500/20"
+                                title={language === 'de' ? 'Archiv entpacken' : 'Extract Archive'}
+                              >
+                                <FileArchive className="w-3.5 h-3.5" />
+                              </button>
+                            )}
 
                           {/* Download Button */}
                           {!isDir && (
@@ -1270,6 +1364,98 @@ export const FileManagerTab: React.FC = () => {
           </div>
         </Modal>
       )}
+
+      {/* Compress Modal */}
+      <Modal
+        isOpen={isCompressModalOpen}
+        onClose={() => setIsCompressModalOpen(false)}
+        title={t('files_compress_title')}
+      >
+        <form onSubmit={handleCompress} className="space-y-4">
+          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs font-mono text-amber-300 flex items-start gap-2.5">
+            <FileArchive className="w-5 h-5 shrink-0 text-amber-400 mt-0.5" />
+            <div>
+              <p className="font-bold text-white mb-0.5">
+                {language === 'de' ? 'Dateien komprimieren' : 'Compress Files'}
+              </p>
+              <p className="text-slate-300">
+                {language === 'de'
+                  ? `${selectedPaths.size} ausgewählte Elemente werden in ein Archiv zusammengefasst.`
+                  : `${selectedPaths.size} selected items will be bundled into an archive.`}
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-mono font-medium text-slate-300 mb-1.5">
+              {t('files_archive_name')} (.tar.gz / .zip)
+            </label>
+            <input
+              type="text"
+              required
+              value={compressArchiveName}
+              onChange={(e) => setCompressArchiveName(e.target.value)}
+              className="w-full bg-[#0d1117] border border-[#30363d] focus:border-amber-500 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono outline-none"
+              placeholder="archive-name.tar.gz"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                const base = compressArchiveName.replace(/\.(tar\.gz|zip|tgz)$/, '');
+                setCompressArchiveName(`${base}.tar.gz`);
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-mono border transition-all active:scale-95 ${
+                compressArchiveName.endsWith('.tar.gz')
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 font-bold'
+                  : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+              }`}
+            >
+              .tar.gz (Gzip)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const base = compressArchiveName.replace(/\.(tar\.gz|zip|tgz)$/, '');
+                setCompressArchiveName(`${base}.zip`);
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-mono border transition-all active:scale-95 ${
+                compressArchiveName.endsWith('.zip')
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 font-bold'
+                  : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+              }`}
+            >
+              .zip (Zip Archive)
+            </button>
+          </div>
+
+          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#30363d]">
+            <button
+              type="button"
+              onClick={() => setIsCompressModalOpen(false)}
+              className="px-3.5 py-2 rounded-xl bg-[#21262d] hover:bg-[#30363d] text-slate-300 text-xs font-mono font-medium transition-colors"
+            >
+              {language === 'de' ? 'Abbrechen' : 'Cancel'}
+            </button>
+            <button
+              type="submit"
+              disabled={isCompressing || !compressArchiveName.trim()}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-white text-xs font-mono font-bold transition-all shadow-md active:scale-95 flex items-center gap-2 disabled:opacity-50"
+            >
+              {isCompressing ? (
+                <span>{language === 'de' ? 'Komprimiere...' : 'Compressing...'}</span>
+              ) : (
+                <>
+                  <FileArchive className="w-3.5 h-3.5" />
+                  <span>{t('files_compress')}</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

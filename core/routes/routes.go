@@ -87,7 +87,7 @@ func SetupRouter(
 	backupCtrl := controllers.NewBackupController(backupService)
 	webhookCtrl := controllers.NewWebhookController(db, webhookService)
 
-	// Advanced Controllers: Players, Network, Sidecars, Security, Incident, Crash, DNS
+	// Advanced Controllers: Players, Network, Sidecars, Security, Incident, Crash, DNS, Diagnostics, Automation, Migration, Reverse-Proxy
 	playerCtrl := controllers.NewPlayerController(db, wingsClient, wsHub, cfg.DBPath)
 	networkCtrl := controllers.NewNetworkController(db)
 	sidecarCtrl := controllers.NewSidecarController(db, cfg.DBPath)
@@ -95,6 +95,10 @@ func SetupRouter(
 	securityCtrl := controllers.NewSecurityController(scannerService, cfg.DBPath)
 	crashCtrl := controllers.NewCrashController(db, wingsClient)
 	dnsCtrl := controllers.NewDNSController(db)
+	diagnosticsCtrl := controllers.NewDiagnosticsController(db)
+	automationCtrl := controllers.NewAutomationController(db)
+	migrationCtrl := controllers.NewMigrationController(db)
+	reverseProxyCtrl := controllers.NewReverseProxyController(db)
 
 	// -------------------------------------------------------------
 	// Wings Remote API (/api/remote/*) - Protected by DaemonAuth
@@ -174,6 +178,8 @@ func SetupRouter(
 			serverAccess.PUT("/files/rename", fileCtrl.RenameFile)
 			serverAccess.POST("/files/install-version", fileCtrl.InstallVersion)
 			serverAccess.POST("/files/download-remote", fileCtrl.DownloadRemote)
+			serverAccess.POST("/files/compress", fileCtrl.CompressFiles)
+			serverAccess.POST("/files/decompress", fileCtrl.DecompressFile)
 
 			// File-Time-Machine (Mikro-Snapshots & Revisions)
 			serverAccess.GET("/files/revisions", fileCtrl.ListFileRevisions)
@@ -196,6 +202,13 @@ func SetupRouter(
 			serverAccess.DELETE("/webhooks/:id", webhookCtrl.DeleteWebhook)
 			serverAccess.POST("/webhooks/:id/test", webhookCtrl.TestWebhook)
 
+			// Smart Webhook-Trigger & Event-Chains (No-Code Automation)
+			serverAccess.GET("/automation/triggers", automationCtrl.ListTriggers)
+			serverAccess.POST("/automation/triggers", automationCtrl.CreateTrigger)
+			serverAccess.PUT("/automation/triggers/:id", automationCtrl.UpdateTrigger)
+			serverAccess.DELETE("/automation/triggers/:id", automationCtrl.DeleteTrigger)
+			serverAccess.POST("/automation/triggers/:id/test", automationCtrl.TestTrigger)
+
 			// Player- & Community-Dashboard
 			serverAccess.GET("/players", playerCtrl.GetPlayers)
 			serverAccess.POST("/players/kick", playerCtrl.KickPlayer)
@@ -214,6 +227,24 @@ func SetupRouter(
 			serverAccess.POST("/network/set-primary", networkCtrl.SetPrimary)
 			serverAccess.PATCH("/network/:id/notes", networkCtrl.UpdateNotes)
 			serverAccess.DELETE("/network/:id", networkCtrl.DeleteAllocation)
+			serverAccess.GET("/network/preflight", networkCtrl.PreflightCheck)
+			serverAccess.POST("/network/auto-remap", networkCtrl.AutoRemapPort)
+
+			// Integrierter Reverse-Proxy & Web-SSL Manager (Caddy/Traefik)
+			serverAccess.GET("/reverse-proxy", reverseProxyCtrl.ListProxies)
+			serverAccess.POST("/reverse-proxy", reverseProxyCtrl.CreateProxy)
+			serverAccess.DELETE("/reverse-proxy/:id", reverseProxyCtrl.DeleteProxy)
+
+			// MSPT-/TPS-Heatmap, Entity- & Tile-Radar, Automatischer Lag-Dump
+			serverAccess.GET("/diagnostics/tps-heatmap", diagnosticsCtrl.GetTpsHeatmap)
+			serverAccess.GET("/diagnostics/radar", diagnosticsCtrl.GetRadar)
+			serverAccess.GET("/diagnostics/lag-dumps", diagnosticsCtrl.GetLagDumps)
+			serverAccess.POST("/diagnostics/lag-dumps/trigger", diagnosticsCtrl.TriggerLagDump)
+
+			// Multi-Node Live-Migration (Streaming ohne Ausfallzeit)
+			serverAccess.GET("/migration/status", migrationCtrl.GetStatus)
+			serverAccess.POST("/migration/start", migrationCtrl.StartMigration)
+			serverAccess.POST("/migration/cancel", migrationCtrl.CancelMigration)
 
 			// Integrierte Container-Sidecars (Redis, Postgres, SQLite) & Web-DB-Viewer
 			serverAccess.GET("/sidecars", sidecarCtrl.ListSidecars)

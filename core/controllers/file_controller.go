@@ -431,3 +431,71 @@ func (fc *FileController) DownloadRemote(c *gin.Context) {
 		"file":    item,
 	})
 }
+
+// CompressFiles handles POST /api/servers/:uuid/files/compress
+func (fc *FileController) CompressFiles(c *gin.Context) {
+	if !fc.checkServerWritable(c) {
+		return
+	}
+
+	uuid := c.Param("uuid")
+
+	var req struct {
+		Root  string   `json:"root"`
+		Files []string `json:"files" binding:"required"`
+		Name  string   `json:"name"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Files array is required: " + err.Error()})
+		return
+	}
+
+	if req.Root == "" {
+		req.Root = "/"
+	}
+
+	item, err := fc.fileService.CompressFiles(uuid, req.Root, req.Files, req.Name)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"file":    item,
+		"message": "Archiv erfolgreich erstellt.",
+	})
+}
+
+// DecompressFile handles POST /api/servers/:uuid/files/decompress
+func (fc *FileController) DecompressFile(c *gin.Context) {
+	if !fc.checkServerWritable(c) {
+		return
+	}
+
+	uuid := c.Param("uuid")
+
+	var req struct {
+		Root string `json:"root"`
+		File string `json:"file" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Archive file is required: " + err.Error()})
+		return
+	}
+
+	if req.Root == "" {
+		req.Root = "/"
+	}
+
+	if err := fc.fileService.DecompressFile(uuid, req.Root, req.File); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Archiv erfolgreich entpackt.",
+	})
+}
+

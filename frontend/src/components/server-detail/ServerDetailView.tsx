@@ -16,6 +16,7 @@ import { GameConfigTab } from './tabs/GameConfigTab';
 import { PluginStoreTab } from './tabs/PluginStoreTab';
 import { BackupsTab } from './tabs/BackupsTab';
 import { WebhooksTab } from './tabs/WebhooksTab';
+import { DiagnosticsTab } from './tabs/DiagnosticsTab';
 
 export const ServerDetailView: React.FC = () => {
   const { activeServerTab, selectedServer } = useApp();
@@ -51,6 +52,7 @@ export const ServerDetailView: React.FC = () => {
         {activeServerTab === 'users' && <UsersTab key={`users-${serverKey}`} />}
         {activeServerTab === 'audit' && <ServerAuditTab key={`audit-${serverKey}`} />}
         {activeServerTab === 'webhooks' && <WebhooksTab key={`webhooks-${serverKey}`} />}
+        {activeServerTab === 'diagnostics' && <DiagnosticsTab key={`diagnostics-${serverKey}`} />}
         {activeServerTab === 'settings' && <SettingsTab key={`settings-${serverKey}`} />}
       </div>
     </div>

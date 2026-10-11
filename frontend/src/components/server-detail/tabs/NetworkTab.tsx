@@ -19,6 +19,9 @@ import {
   ExternalLink,
   ShieldCheck,
   Zap,
+  Lock,
+  AlertTriangle,
+  Layers,
 } from 'lucide-react';
 import { Modal } from '../../common/Modal';
 
@@ -60,6 +63,21 @@ export const NetworkTab: React.FC = () => {
   const [selectedPoolId, setSelectedPoolId] = useState<number | 0>(0);
   const [assigning, setAssigning] = useState(false);
 
+  // Feature 3: Reverse-Proxy & Web-SSL Manager State
+  const [reverseProxies, setReverseProxies] = useState<any[]>([]);
+  const [proxyPresets, setProxyPresets] = useState<any[]>([]);
+  const [caddyStatus, setCaddyStatus] = useState<any>({ version: '2.8.4', status: 'running' });
+  const [loadingProxies, setLoadingProxies] = useState(false);
+  const [creatingProxy, setCreatingProxy] = useState(false);
+  const [proxySubdomain, setProxySubdomain] = useState('');
+  const [proxyInternalPort, setProxyInternalPort] = useState<number>(8123);
+  const [proxyPluginName, setProxyPluginName] = useState('BlueMap');
+
+  // Feature 5: Pre-Flight Port Conflict Resolver State
+  const [preflightData, setPreflightData] = useState<any>(null);
+  const [loadingPreflight, setLoadingPreflight] = useState(false);
+  const [remappingPort, setRemappingPort] = useState<number | null>(null);
+
   const fetchNetworkData = async () => {
     if (!selectedServer?.uuid) return;
     try {
@@ -94,10 +112,118 @@ export const NetworkTab: React.FC = () => {
     }
   };
 
+  const fetchReverseProxies = async () => {
+    if (!selectedServer?.uuid) return;
+    try {
+      setLoadingProxies(true);
+      const res = await api.reverseProxy.list(selectedServer.uuid);
+      if (res) {
+        setReverseProxies(res.proxies || []);
+        setProxyPresets(res.presets || []);
+        if (res.caddy_engine) setCaddyStatus(res.caddy_engine);
+      }
+    } catch (e) {
+      console.warn('Could not load reverse proxies:', e);
+    } finally {
+      setLoadingProxies(false);
+    }
+  };
+
+  const fetchPreflight = async () => {
+    if (!selectedServer?.uuid) return;
+    try {
+      setLoadingPreflight(true);
+      const res = await api.network.preflight(selectedServer.uuid);
+      if (res) {
+        setPreflightData(res);
+      }
+    } catch (e) {
+      console.warn('Could not load preflight status:', e);
+    } finally {
+      setLoadingPreflight(false);
+    }
+  };
+
   useEffect(() => {
     fetchNetworkData();
     fetchDnsDomains();
+    fetchReverseProxies();
+    fetchPreflight();
   }, [selectedServer?.uuid]);
+
+  const handleCreateProxy = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedServer?.uuid || !proxySubdomain.trim()) return;
+    try {
+      setCreatingProxy(true);
+      const res = await api.reverseProxy.create(selectedServer.uuid, {
+        domain: proxySubdomain.trim(),
+        internal_port: Number(proxyInternalPort) || 8123,
+        plugin_name: proxyPluginName,
+      });
+      addToast({
+        title: language === 'de' ? 'Reverse-Proxy eingerichtet' : 'Reverse Proxy Configured',
+        description: res.message || (language === 'de' ? `Subdomain ${proxySubdomain} aktiv mit automatischem SSL!` : `Subdomain ${proxySubdomain} active with automated SSL!`),
+        type: 'success',
+      });
+      setProxySubdomain('');
+      fetchReverseProxies();
+    } catch (err: any) {
+      addToast({
+        title: language === 'de' ? 'Fehler beim Proxy-Setup' : 'Proxy Setup Failed',
+        description: err.message || 'Error configuring reverse proxy',
+        type: 'error',
+      });
+    } finally {
+      setCreatingProxy(false);
+    }
+  };
+
+  const handleDeleteProxy = async (proxyId: string, domain: string) => {
+    if (!selectedServer?.uuid) return;
+    if (!window.confirm(language === 'de' ? `Soll der Reverse-Proxy für ${domain} wirklich entfernt werden?` : `Remove reverse proxy for ${domain}?`)) return;
+    try {
+      await api.reverseProxy.delete(selectedServer.uuid, proxyId);
+      addToast({
+        title: language === 'de' ? 'Proxy entfernt' : 'Proxy Removed',
+        description: language === 'de' ? `${domain} wurde aus Caddy gelöscht.` : `${domain} was removed from Caddy.`,
+        type: 'info',
+      });
+      fetchReverseProxies();
+    } catch (err: any) {
+      addToast({
+        title: language === 'de' ? 'Löschen fehlgeschlagen' : 'Deletion Failed',
+        description: err.message || 'Error deleting reverse proxy',
+        type: 'error',
+      });
+    }
+  };
+
+  const handleAutoRemap = async (port: number) => {
+    if (!selectedServer?.uuid) return;
+    try {
+      setRemappingPort(port);
+      const res = await api.network.autoRemap(selectedServer.uuid, {
+        conflicting_port: port,
+        service_type: 'companion_port',
+      });
+      addToast({
+        title: language === 'de' ? 'Port erfolgreich remapped!' : 'Port Successfully Remapped!',
+        description: res.message || (language === 'de' ? `Port von ${port} auf ${res.remapped_port} verschoben. Server-Config angepasst.` : `Port shifted to ${res.remapped_port}.`),
+        type: 'success',
+      });
+      await fetchNetworkData();
+      await fetchPreflight();
+    } catch (err: any) {
+      addToast({
+        title: language === 'de' ? 'Auto-Remap fehlgeschlagen' : 'Auto-Remap Failed',
+        description: err.message || 'Failed to auto-remap port',
+        type: 'error',
+      });
+    } finally {
+      setRemappingPort(null);
+    }
+  };
 
   const handleCreateDns = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -565,6 +691,279 @@ export const NetworkTab: React.FC = () => {
                         onClick={() => handleDeleteDns(dom.id, dom.hostname)}
                         className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 transition-colors"
                         title="Delete DNS records"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 5. Intelligenter Port-Konflikt-Resolver & Pre-Flight Doctor Card */}
+      <div className="cyber-glass rounded-2xl p-5 border border-emerald-500/30 bg-gradient-to-br from-[#161b22] to-emerald-950/20 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-white font-mono">
+                  {language === 'de' ? 'Intelligenter Port-Konflikt-Resolver & Pre-Flight Doctor' : 'Intelligent Port Conflict Resolver & Pre-Flight Doctor'}
+                </h3>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono font-semibold">
+                  Pre-Flight Protection
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {language === 'de'
+                  ? 'Prüft vor dem Serverstart, ob alle Ports auf dem Host frei sind. Kollidiert ein dynamischer Begleit-Port, greift der Auto-Remap Fallback ohne BindException-Crash.'
+                  : 'Validates host-level port availability before start. Automatically rebinds companion ports to prevent BindException crashes.'}
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={fetchPreflight}
+            className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors self-start sm:self-auto"
+            title="Re-run Pre-Flight diagnostic"
+          >
+            <RefreshCw className={`w-4 h-4 ${loadingPreflight ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+
+        {preflightData && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 rounded-xl bg-[#0d1117] border border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className={`w-2.5 h-2.5 rounded-full ${preflightData.all_clear ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-rose-400 shadow-[0_0_8px_rgba(251,113,133,0.8)]'}`} />
+                <span className="text-xs font-mono font-bold text-white">
+                  {preflightData.all_clear
+                    ? (language === 'de' ? 'Pre-Flight Status: Alle Ports frei & startklar' : 'Pre-Flight Status: All ports clear & ready')
+                    : (language === 'de' ? 'Pre-Flight Warnung: Port-Konflikt erkannt!' : 'Pre-Flight Warning: Port conflict detected!')}
+                </span>
+              </div>
+              <span className="text-[11px] font-mono text-slate-400">
+                {preflightData.summary || ''}
+              </span>
+            </div>
+
+            {/* List of checked ports */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+              {(preflightData.results || []).map((res: any, idx: number) => {
+                const isConflict = res.status === 'conflict';
+                return (
+                  <div
+                    key={idx}
+                    className={`p-3 rounded-xl border flex items-center justify-between ${
+                      isConflict
+                        ? 'bg-rose-950/20 border-rose-500/40 text-rose-300'
+                        : 'bg-[#0d1117]/80 border-slate-800 text-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      {isConflict ? (
+                        <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                      ) : (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                      )}
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs font-bold text-white">
+                            Port :{res.port}
+                          </span>
+                          {res.is_primary && (
+                            <span className="text-[9px] px-1.5 py-0.2 rounded font-mono bg-emerald-500/20 text-emerald-400">
+                              PRIMARY
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] font-mono text-slate-400">
+                          {isConflict ? 'Belegt auf Host' : 'Host TCP/UDP Listener frei'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {isConflict && (
+                      <button
+                        onClick={() => handleAutoRemap(res.port)}
+                        disabled={remappingPort === res.port}
+                        className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-[11px] font-bold shadow-md transition-all active:scale-95 disabled:opacity-50"
+                      >
+                        {remappingPort === res.port ? 'Remapping...' : (language === 'de' ? 'Auto-Remap' : 'Auto Remap')}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 6. Integrierter Reverse-Proxy & Web-SSL Manager (Caddy / Let's Encrypt) Card */}
+      <div className="cyber-glass rounded-2xl p-5 border border-indigo-500/30 bg-gradient-to-br from-[#161b22] to-indigo-950/20 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
+              <Lock className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-white font-mono">
+                  {language === 'de' ? 'Integrierter Reverse-Proxy & Web-SSL Manager (Caddy)' : 'Integrated Reverse-Proxy & Web-SSL Manager (Caddy)'}
+                </h3>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-mono font-semibold">
+                  Caddy v{caddyStatus.version} • Let's Encrypt TLS
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {language === 'de'
+                  ? '1-Klick-Webanbindung für Game-Plugins (BlueMap, Dynmap, Squaremap, Plan Analytics). Caddy stellt im Hintergrund vollautomatisch HTTPS bereit.'
+                  : '1-click web ingress for game plugins (BlueMap, Dynmap, Squaremap, Plan). Caddy provisions Let\'s Encrypt TLS automatically.'}
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={fetchReverseProxies}
+            className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors self-start sm:self-auto"
+            title="Refresh Reverse Proxies"
+          >
+            <RefreshCw className={`w-4 h-4 ${loadingProxies ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+
+        {/* Create Web SSL Reverse Proxy Form */}
+        <form onSubmit={handleCreateProxy} className="p-4 rounded-xl bg-[#0d1117] border border-slate-800/90 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-[11px] font-mono uppercase text-slate-400 mb-1">
+                {language === 'de' ? 'Plugin Preset' : 'Plugin Preset'}
+              </label>
+              <select
+                value={proxyPluginName}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setProxyPluginName(val);
+                  const preset = proxyPresets.find((p) => p.name === val);
+                  if (preset) {
+                    setProxyInternalPort(preset.default_port);
+                  }
+                }}
+                className="w-full bg-[#161b22] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:border-indigo-500 outline-none"
+              >
+                {proxyPresets.map((p, i) => (
+                  <option key={i} value={p.name}>
+                    {p.name} (Port {p.default_port})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-mono uppercase text-slate-400 mb-1">
+                {language === 'de' ? 'Interner Port' : 'Internal Port'}
+              </label>
+              <input
+                type="number"
+                value={proxyInternalPort}
+                onChange={(e) => setProxyInternalPort(Number(e.target.value))}
+                className="w-full bg-[#161b22] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:border-indigo-500 outline-none"
+                placeholder="8123"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-mono uppercase text-slate-400 mb-1">
+                {language === 'de' ? 'Subdomain (z.B. map.meinedomain.de)' : 'Subdomain (e.g. map.mydomain.com)'}
+              </label>
+              <input
+                type="text"
+                value={proxySubdomain}
+                onChange={(e) => setProxySubdomain(e.target.value)}
+                placeholder="map.meinedomain.de"
+                className="w-full bg-[#161b22] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:border-indigo-500 outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-1">
+            <button
+              type="submit"
+              disabled={creatingProxy || !proxySubdomain.trim()}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-mono text-xs font-bold transition-all shadow-md active:scale-95 flex items-center gap-2 disabled:opacity-50"
+            >
+              {creatingProxy ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>{language === 'de' ? 'Richte HTTPS ein...' : 'Configuring HTTPS...'}</span>
+                </>
+              ) : (
+                <>
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>{language === 'de' ? '1-Klick HTTPS aktivieren' : 'Enable 1-Click HTTPS'}</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+
+        {/* Existing Reverse Proxies List */}
+        {reverseProxies.length > 0 && (
+          <div className="space-y-2 pt-2 border-t border-slate-800">
+            <h4 className="text-[11px] font-mono uppercase tracking-wider text-slate-400 font-semibold">
+              {language === 'de' ? 'Aktive SSL Reverse-Proxies' : 'Active SSL Reverse Proxies'} ({reverseProxies.length})
+            </h4>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {reverseProxies.map((prox) => (
+                <div
+                  key={prox.id}
+                  className="p-3.5 rounded-xl bg-[#0d1117] border border-slate-800 hover:border-indigo-500/40 transition-all flex flex-col justify-between gap-3 shadow-inner"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold font-mono text-white">
+                          https://{prox.domain}
+                        </span>
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          {prox.ssl_status?.toUpperCase() || 'ACTIVE'}
+                        </span>
+                      </div>
+                      <div className="text-[11px] font-mono text-slate-400 mt-1 flex flex-wrap gap-2">
+                        <span className="bg-slate-900 px-2 py-0.5 rounded border border-slate-800 text-indigo-300">
+                          {prox.plugin_name}
+                        </span>
+                        <span className="bg-slate-900 px-2 py-0.5 rounded border border-slate-800 text-slate-300">
+                          Intern: 127.0.0.1:{prox.internal_port}
+                        </span>
+                        <span className="bg-slate-900 px-2 py-0.5 rounded border border-slate-800 text-emerald-400">
+                          {prox.ssl_cert_type || "Let's Encrypt TLS"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <a
+                        href={`https://${prox.domain}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                        title="Open in new tab"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+
+                      <button
+                        onClick={() => handleDeleteProxy(prox.id, prox.domain)}
+                        className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 transition-colors"
+                        title="Remove proxy"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
