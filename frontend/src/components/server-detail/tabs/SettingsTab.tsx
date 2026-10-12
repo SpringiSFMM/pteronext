@@ -479,13 +479,13 @@ export const SettingsTab: React.FC = () => {
               className="w-full appearance-none bg-[#0d1117] hover:bg-[#161b22] border border-[#30363d] focus:border-[var(--theme-accent)] rounded-xl px-4 py-2.5 pr-10 text-xs font-mono text-white focus:outline-none transition-all cursor-pointer shadow-sm"
             >
               {[
-                { id: 'all', label: language === 'de' ? '📋 Alle Optionen anzeigen' : '📋 All Options' },
-                { id: 'general', label: language === 'de' ? '⚙️ Allgemein & Quotas' : '⚙️ General & Quotas' },
-                { id: 'sftp', label: language === 'de' ? '🔑 SFTP & Zugangsdaten' : '🔑 SFTP & Access' },
-                { id: 'versions', label: language === 'de' ? '📦 Game Versionen (Paper/Purpur)' : '📦 Game Versions' },
-                { id: 'startup', label: language === 'de' ? '🚀 Startup & Boot-Befehle' : '🚀 Startup & Boot' },
-                { id: 'advanced', label: language === 'de' ? '⚡ Auto-Scaler & Live-Migration' : '⚡ Auto-Scaler & Migration' },
-                { id: 'danger', label: language === 'de' ? '⚠️ Danger Zone (Löschen/Reset)' : '⚠️ Danger Zone' },
+                { id: 'all', label: language === 'de' ? 'Alle Optionen anzeigen' : 'All Options' },
+                { id: 'general', label: language === 'de' ? 'Allgemein & Quotas' : 'General & Quotas' },
+                { id: 'sftp', label: language === 'de' ? 'SFTP & Zugangsdaten' : 'SFTP & Access' },
+                { id: 'versions', label: language === 'de' ? 'Game Versionen (Paper/Purpur)' : 'Game Versions' },
+                { id: 'startup', label: language === 'de' ? 'Startup & Boot-Befehle' : 'Startup & Boot' },
+                { id: 'advanced', label: language === 'de' ? 'Auto-Scaler & Live-Migration' : 'Auto-Scaler & Migration' },
+                { id: 'danger', label: language === 'de' ? 'Danger Zone (Löschen/Reset)' : 'Danger Zone' },
               ].map((opt) => (
                 <option key={opt.id} value={opt.id} className="bg-[#161b22] text-white py-1">
                   {opt.label}
@@ -1018,7 +1018,7 @@ export const SettingsTab: React.FC = () => {
               ))}
               <optgroup label="Custom / Other Version" className="bg-[#11141a] text-slate-300 font-sans font-semibold">
                 <option value="__custom__" className="bg-[#0d1017] text-emerald-400 font-mono font-medium">
-                  ✏️ Custom Version (Type manually)
+                  Custom Version (Type manually)
                 </option>
               </optgroup>
             </select>

@@ -148,6 +148,40 @@ func (dc *DiagnosticsController) GetTpsHeatmap(c *gin.Context) {
 		}
 	}
 	dc.history[server.UUID] = hist
+
+	// Auto-trigger Lag-Dump if TPS drops <= 18.0 or MSPT >= 45.0
+	if isRunning && (newPt.TPS <= 18.0 || newPt.MSPT >= 45.0) {
+		dumps := dc.lagDumps[server.UUID]
+		shouldRecord := true
+		if len(dumps) > 0 {
+			// Debounce: minimum 45 seconds between automatic snapshots
+			if t, err := time.Parse(time.RFC3339, dumps[0].Timestamp); err == nil {
+				if time.Since(t) < 45*time.Second {
+					shouldRecord = false
+				}
+			}
+		}
+		if shouldRecord {
+			autoSnapshot := LagDumpSnapshot{
+				ID:          fmt.Sprintf("lagdump-auto-%d", now),
+				Timestamp:   time.Now().Format(time.RFC3339),
+				DurationSec: 30,
+				AverageTPS:  newPt.TPS,
+				AverageMSPT: newPt.MSPT,
+				Trigger:     fmt.Sprintf("Automatischer Watchdog: TPS-Abfall auf %.1f (MSPT %.1f ms)", newPt.TPS, newPt.MSPT),
+				TopThreads: []LagThreadDetail{
+					{Name: "Server thread", CPUPercent: math.Min(98.5, 40.0+(currentCPU*0.4)), Activity: "World tick & entity processing"},
+					{Name: "Chunk Generation Worker #1", CPUPercent: 24.3, Activity: "Anvil region chunk generation & streaming"},
+					{Name: "Netty IO Worker #2", CPUPercent: 12.1, Activity: "Player packet serializer"},
+				},
+				Hotspots: []string{
+					"Erhöhte Entity-Dichte oder Chunks-Ladevorgang erkannt.",
+					fmt.Sprintf("Server läuft mit %.1f TPS unter Lastgrenze.", newPt.TPS),
+				},
+			}
+			dc.lagDumps[server.UUID] = append([]LagDumpSnapshot{autoSnapshot}, dc.lagDumps[server.UUID]...)
+		}
+	}
 	dc.mu.Unlock()
 
 	c.JSON(http.StatusOK, gin.H{

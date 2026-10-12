@@ -214,13 +214,16 @@ export const ServerDetailHeader: React.FC = () => {
   const isOffline = selectedServer.status === 'offline' || selectedServer.status === 'stopped' || !selectedServer.status;
 
   const formatUptime = (seconds: number) => {
-    if (seconds === 0) return 'Offline';
+    if (!isRunning && (!seconds || seconds <= 0)) return language === 'de' ? 'Offline' : 'Offline';
+    if (!seconds || seconds <= 0) return isRunning ? (language === 'de' ? '< 1m' : '< 1m') : 'Offline';
     const days = Math.floor(seconds / (3600 * 24));
     const hours = Math.floor((seconds % (3600 * 24)) / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
     if (days > 0) return `${days}d ${hours}h`;
     if (hours > 0) return `${hours}h ${mins}m`;
-    return `${mins}m`;
+    if (mins > 0) return `${mins}m ${secs}s`;
+    return `${secs}s`;
   };
 
   return (

@@ -13,6 +13,7 @@ core/pteronext*
 core/panel-core
 core/coverage.out
 wings/wings-linux*
+bin/
 deploy-package/
 pteronext-deploy.tar.gz
 *.exe

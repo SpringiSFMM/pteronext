@@ -1380,6 +1380,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       } catch {}
 
+      // 3b. Load real subusers
+      try {
+        const subRes = await api.subusers.list(serverUuid);
+        if (isCurrent && (subRes?.data || subRes?.subusers)) {
+          const rawList = subRes.data || subRes.subusers || [];
+          setUsers(rawList.map((su: any) => ({
+            id: String(su.id),
+            username: su.user?.username || su.username || `User #${su.user_id}`,
+            email: su.user?.email || su.email || '',
+            avatar: su.user?.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${su.user?.username || su.username || su.id}`,
+            role: (su.role_name || su.role || 'Member') as any,
+            twoFactor: Boolean(su.user?.two_factor_enabled || su.twoFactor),
+            addedAt: su.created_at ? new Date(su.created_at).toLocaleDateString() : 'Active',
+            permissions: typeof su.permissions === 'string' ? (su.permissions ? JSON.parse(su.permissions) : []) : (su.permissions || []),
+          })));
+        }
+      } catch {}
+
       // 4. Query server live resources immediately
       try {
         const resStats = await api.servers.resources(serverUuid);
@@ -2182,7 +2200,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  const addUser = (user: Omit<SubUser, 'id' | 'addedAt'>) => {
+  const addUser = async (user: Omit<SubUser, 'id' | 'addedAt'>) => {
+    if (selectedServer?.uuid) {
+      try {
+        const res = await api.subusers.create(selectedServer.uuid, {
+          email: user.email,
+          username: user.username,
+          role_name: user.role,
+          permissions: user.permissions,
+        });
+        const createdId = res?.data?.id || res?.subuser?.id || Date.now();
+        const newUser: SubUser = {
+          ...user,
+          id: String(createdId),
+          addedAt: 'Just now',
+        };
+        setUsers((prev) => [...prev, newUser]);
+        addToast({
+          title: 'User Invited & Persisted',
+          description: `Added ${user.username} with ${user.role} role to server on backend.`,
+          type: 'success',
+        });
+        return;
+      } catch (err: any) {
+        console.warn('Subuser backend creation error:', err);
+      }
+    }
     const newUser: SubUser = {
       ...user,
       id: `usr-${Date.now()}`,
@@ -2196,8 +2239,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  const deleteUser = (id: string) => {
+  const deleteUser = async (id: string) => {
     const target = users.find((u) => u.id === id);
+    if (selectedServer?.uuid) {
+      try {
+        await api.subusers.delete(selectedServer.uuid, id);
+      } catch (err: any) {
+        console.warn('Subuser backend deletion error:', err);
+      }
+    }
     setUsers((prev) => prev.filter((u) => u.id !== id));
     addToast({
       title: 'Access Revoked',

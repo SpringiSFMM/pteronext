@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../../context/AppContext';
 import { api } from '../../../api/client';
+import { useTranslation } from '../../../i18n/useTranslation';
 import {
   Package,
   Search,
@@ -85,6 +86,7 @@ const DEFAULT_POPULAR_PLUGINS: ModrinthProject[] = [
 
 export const PluginStoreTab: React.FC = () => {
   const { selectedServer, createFile, loadDirectory, addToast } = useApp();
+  const { t, language } = useTranslation();
 
   const [query, setQuery] = useState('');
   const [plugins, setPlugins] = useState<ModrinthProject[]>(DEFAULT_POPULAR_PLUGINS);
@@ -93,10 +95,10 @@ export const PluginStoreTab: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<string>('spigot');
 
   const categories = [
-    { id: 'all', label: 'All Plugins' },
+    { id: 'all', label: language === 'de' ? 'Alle Plugins' : 'All Plugins' },
     { id: 'spigot', label: 'Paper / Spigot' },
-    { id: 'optimization', label: 'Performance' },
-    { id: 'utility', label: 'Utility' },
+    { id: 'optimization', label: language === 'de' ? 'Performance' : 'Performance' },
+    { id: 'utility', label: language === 'de' ? 'Tools & Utility' : 'Utility' },
   ];
 
   // Fetch from Modrinth Public API filtered to Paper/Spigot plugins
@@ -272,11 +274,12 @@ export const PluginStoreTab: React.FC = () => {
           </div>
           <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
             <Package className="w-5 h-5 text-emerald-400" />
-            <span>Plugin & Modpack Store</span>
+            <span>{language === 'de' ? 'Plugin & Modpack Store' : 'Plugin & Modpack Store'}</span>
           </h2>
           <p className="text-xs text-slate-400 max-w-xl">
-            Browse and 1-click install community plugins, performance optimizations, and mods
-            directly into your server’s file system via the Modrinth open registry.
+            {language === 'de'
+              ? 'Durchsuche und installiere Community-Plugins, Optimierungen und Tools mit 1 Klick direkt in das /plugins/ Verzeichnis über Modrinth.'
+              : 'Browse and 1-click install community plugins, performance optimizations, and mods directly into your server’s file system via the Modrinth open registry.'}
           </p>
         </div>
 
@@ -287,7 +290,7 @@ export const PluginStoreTab: React.FC = () => {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search LuckPerms, Geyser..."
+              placeholder={language === 'de' ? 'Suche LuckPerms, Geyser, Chunky...' : 'Search LuckPerms, Geyser...'}
               className="w-full bg-[#0d1017] border border-[#30363d] focus:border-zinc-500 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none transition-colors"
             />
           </div>
@@ -296,7 +299,7 @@ export const PluginStoreTab: React.FC = () => {
             disabled={isLoading}
             className="px-3.5 py-2 rounded-xl bg-zinc-100 hover:bg-white text-zinc-900 text-xs font-bold transition-all shadow-sm flex-shrink-0"
           >
-            {isLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : 'Search'}
+            {isLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : (language === 'de' ? 'Suchen' : 'Search')}
           </button>
         </form>
       </div>

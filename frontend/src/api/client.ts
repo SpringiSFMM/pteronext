@@ -623,6 +623,32 @@ export const api = {
     },
   },
 
+  // Subusers (Granular team access & delegation)
+  subusers: {
+    list: async (serverUuid: string): Promise<{ data: any[]; subusers: any[] }> => {
+      return request<{ data: any[]; subusers: any[] }>(`/api/servers/${serverUuid}/subusers`);
+    },
+    create: async (serverUuid: string, payload: {
+      email?: string;
+      username?: string;
+      role_name?: string;
+      role?: string;
+      permissions?: any;
+      path_rules?: any;
+      command_rules?: any;
+    }): Promise<{ data: any; subuser: any }> => {
+      return request(`/api/servers/${serverUuid}/subusers`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+    delete: async (serverUuid: string, subuserId: number | string): Promise<{ success: boolean }> => {
+      return request(`/api/servers/${serverUuid}/subusers/${subuserId}`, {
+        method: 'DELETE',
+      });
+    },
+  },
+
   // Files (Server Filesystem Management with node persistence)
   files: {
     list: async (serverUuid: string, directory: string = '/'): Promise<{ data: any[] }> => {

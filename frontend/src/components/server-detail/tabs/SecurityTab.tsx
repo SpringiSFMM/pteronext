@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../../context/AppContext';
 import { api } from '../../../api/client';
+import { useTranslation } from '../../../i18n/useTranslation';
 import {
   ShieldAlert,
   ShieldCheck,
@@ -44,6 +45,7 @@ interface ScanResult {
 
 export const SecurityTab: React.FC = () => {
   const { selectedServer, addToast } = useApp();
+  const { t, language } = useTranslation();
 
   const [jarFiles, setJarFiles] = useState<string[]>([]);
   const [selectedJar, setSelectedJar] = useState<string>('');
@@ -185,14 +187,16 @@ export const SecurityTab: React.FC = () => {
           <div className="flex items-center gap-2">
             <ShieldAlert className="w-5 h-5 text-rose-400" />
             <h2 className="text-base font-bold text-white tracking-wide font-sans">
-              Sicherheits-Scan & Malicious Code Detection
+              {language === 'de' ? 'Sicherheits-Scan & Malicious Code Detection' : 'Security Scan & Threat Detection'}
             </h2>
             <span className="text-xs px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 font-mono">
               Heuristic Engine v2.6
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            Erkennt Hintertüren, Force-OP Exploits, Token-Grabber und Base64-verschleierte Payloads in Server-Plugins.
+            {language === 'de'
+              ? 'Erkennt Hintertüren, Force-OP Exploits, Token-Grabber und Base64-verschleierte Payloads in Server-Plugins.'
+              : 'Detects backdoors, Force-OP exploits, token grabbers, and obfuscated Base64 payloads in plugins.'}
           </p>
         </div>
 

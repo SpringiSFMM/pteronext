@@ -19,6 +19,9 @@ import {
   CheckCircle2,
   XCircle,
   Sparkles,
+  Hammer,
+  Headphones,
+  LifeBuoy,
 } from 'lucide-react';
 import { Modal } from '../../common/Modal';
 import { DeleteConfirmModal } from '../../common/DeleteConfirmModal';
@@ -210,8 +213,9 @@ export const UsersTab: React.FC = () => {
             className="p-3.5 rounded-xl bg-[#0d1117] border border-slate-800/80 hover:border-indigo-500/50 cursor-pointer transition-all group"
           >
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-bold text-white group-hover:text-indigo-400 transition-colors">
-                🛡️ Moderator
+              <span className="text-xs font-bold text-white group-hover:text-indigo-400 transition-colors flex items-center gap-1.5">
+                <Shield className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Moderator</span>
               </span>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
                 Preset
@@ -230,8 +234,9 @@ export const UsersTab: React.FC = () => {
             className="p-3.5 rounded-xl bg-[#0d1117] border border-slate-800/80 hover:border-emerald-500/50 cursor-pointer transition-all group"
           >
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-bold text-white group-hover:text-emerald-400 transition-colors">
-                🧱 Builder / Architect
+              <span className="text-xs font-bold text-white group-hover:text-emerald-400 transition-colors flex items-center gap-1.5">
+                <Hammer className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Builder / Architect</span>
               </span>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                 Preset
@@ -250,8 +255,9 @@ export const UsersTab: React.FC = () => {
             className="p-3.5 rounded-xl bg-[#0d1117] border border-slate-800/80 hover:border-sky-500/50 cursor-pointer transition-all group"
           >
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-bold text-white group-hover:text-sky-400 transition-colors">
-                🎧 Support / Triage
+              <span className="text-xs font-bold text-white group-hover:text-sky-400 transition-colors flex items-center gap-1.5">
+                <Headphones className="w-3.5 h-3.5 text-sky-400" />
+                <span>Support / Triage</span>
               </span>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20">
                 Preset

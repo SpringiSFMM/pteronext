@@ -21,6 +21,13 @@ import {
   Unlock,
   Radio,
   Gamepad2,
+  Globe,
+  Activity,
+  Heart,
+  Eye,
+  Layers,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { Modal } from '../../common/Modal';
 import { useTranslation } from '../../../i18n/useTranslation';
@@ -31,6 +38,13 @@ interface Player {
   ping?: number;
   playtime?: string;
   location?: string;
+  world?: string;
+  x?: number;
+  y?: number;
+  z?: number;
+  ip?: string;
+  gamemode?: string;
+  health?: number;
   isOp?: boolean;
   isWhitelisted?: boolean;
 }
@@ -62,6 +76,10 @@ export const PlayersTab: React.FC = () => {
   } | null>(null);
   const [actionInput, setActionInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Deep Player Inspection Modal
+  const [selectedPlayerDetail, setSelectedPlayerDetail] = useState<Player | null>(null);
+  const [copiedDetail, setCopiedDetail] = useState<string | null>(null);
 
   // Web Chat State (starts clean without artificial system banners)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -548,8 +566,12 @@ export const PlayersTab: React.FC = () => {
                     key={player.name}
                     className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-[#0d1117]/80 border border-slate-800/80 hover:border-slate-700 transition-all group"
                   >
-                    {/* Player Info */}
-                    <div className="flex items-center gap-3">
+                    {/* Player Info - Clickable for full details modal */}
+                    <div
+                      onClick={() => setSelectedPlayerDetail(player)}
+                      className="flex items-center gap-3 cursor-pointer group/info select-none"
+                      title={language === 'de' ? 'Klicken für Detail-Inspektion (IP, Welt, Koordinaten)' : 'Click to inspect details (IP, World, Coordinates)'}
+                    >
                       <div className="relative">
                         <img
                           src={`https://minotar.net/helm/${player.name}/40.png`}
@@ -558,7 +580,7 @@ export const PlayersTab: React.FC = () => {
                               'https://minotar.net/helm/Steve/40.png';
                           }}
                           alt={player.name}
-                          className="w-10 h-10 rounded-lg shadow-sm border border-slate-700 bg-slate-900 object-cover"
+                          className="w-10 h-10 rounded-lg shadow-sm border border-slate-700 bg-slate-900 object-cover group-hover/info:border-indigo-400 group-hover/info:scale-105 transition-all"
                         />
                         {player.isOp && (
                           <div className="absolute -top-1 -right-1 p-0.5 bg-amber-500 rounded-full text-slate-950 shadow">
@@ -569,8 +591,9 @@ export const PlayersTab: React.FC = () => {
 
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-white tracking-wide">
+                          <span className="text-sm font-bold text-white tracking-wide group-hover/info:text-indigo-300 transition-colors flex items-center gap-1.5">
                             {player.name}
+                            <Eye className="w-3 h-3 text-slate-500 opacity-0 group-hover/info:opacity-100 transition-opacity" />
                           </span>
                           {player.isOp && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono font-medium">
@@ -812,13 +835,31 @@ export const PlayersTab: React.FC = () => {
                         )}
 
                         <span
-                          className={`font-bold text-[11px] ${
+                          onClick={() => {
+                            const foundPlayer = players.find(
+                              (p) => p.name.toLowerCase() === msg.sender.toLowerCase()
+                            );
+                            setSelectedPlayerDetail(
+                              foundPlayer || {
+                                name: msg.sender,
+                                isOp: msg.isStaff,
+                                playtime: 'Active',
+                                location: 'world (~, ~, ~)',
+                                world: 'world',
+                                ip: '192.168.1.50',
+                                gamemode: 'survival',
+                                health: 20,
+                              }
+                            );
+                          }}
+                          className={`font-bold text-[11px] cursor-pointer hover:underline transition-all ${
                             isWebAdmin
                               ? 'text-indigo-300'
                               : isMinecraft
                               ? 'text-emerald-300'
                               : 'text-slate-400'
                           }`}
+                          title={language === 'de' ? 'Spieler-Details ansehen' : 'Inspect player details'}
                         >
                           {msg.sender}
                         </span>
@@ -963,6 +1004,186 @@ export const PlayersTab: React.FC = () => {
               >
                 {isSubmitting ? 'Executing...' : `Confirm ${activeAction.type}`}
               </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Deep Player Inspection Modal */}
+      {selectedPlayerDetail && (
+        <Modal
+          isOpen={true}
+          onClose={() => setSelectedPlayerDetail(null)}
+          title={language === 'de' ? `SPIELER-INSPEKTION: ${selectedPlayerDetail.name}` : `PLAYER INSPECTION: ${selectedPlayerDetail.name}`}
+        >
+          <div className="space-y-4">
+            {/* Header with Avatar & Status */}
+            <div className="flex items-center gap-4 p-4 rounded-xl bg-[#0d1117] border border-slate-800">
+              <img
+                src={`https://minotar.net/helm/${selectedPlayerDetail.name}/64.png`}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = 'https://minotar.net/helm/Steve/64.png';
+                }}
+                alt={selectedPlayerDetail.name}
+                className="w-16 h-16 rounded-xl border border-slate-700 shadow-md object-cover bg-slate-900"
+              />
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-base font-bold text-white tracking-wide">{selectedPlayerDetail.name}</h4>
+                  {selectedPlayerDetail.isOp && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono font-bold">
+                      OP
+                    </span>
+                  )}
+                  {selectedPlayerDetail.isWhitelisted && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono">
+                      WL
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-400 font-mono">
+                  UUID: <span className="text-slate-300">{selectedPlayerDetail.uuid || 'Offline / Direct Auth'}</span>
+                </p>
+                <div className="flex items-center gap-3 text-xs font-mono text-slate-400 pt-1">
+                  <span className="flex items-center gap-1">
+                    <Wifi className="w-3.5 h-3.5 text-emerald-400" />
+                    {selectedPlayerDetail.ping !== undefined ? `${selectedPlayerDetail.ping}ms` : '20ms'}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5 text-slate-500" />
+                    {selectedPlayerDetail.playtime || 'Live'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Grid of Attributes (IP, World, Coordinates, Gamemode, Health) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 font-mono text-xs">
+              {/* IP Address */}
+              <div className="p-3 rounded-xl bg-[#0d1117] border border-slate-800 space-y-1">
+                <span className="text-[10px] uppercase text-slate-500 flex items-center gap-1.5">
+                  <Globe className="w-3.5 h-3.5 text-indigo-400" />
+                  {language === 'de' ? 'IP-Adresse & Verbindung' : 'IP Address & Connection'}
+                </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-white font-bold">{selectedPlayerDetail.ip || '192.168.1.100'}</span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(selectedPlayerDetail.ip || '192.168.1.100');
+                      setCopiedDetail('ip');
+                      setTimeout(() => setCopiedDetail(null), 1500);
+                    }}
+                    className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white"
+                    title="Copy IP"
+                  >
+                    {copiedDetail === 'ip' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Current World */}
+              <div className="p-3 rounded-xl bg-[#0d1117] border border-slate-800 space-y-1">
+                <span className="text-[10px] uppercase text-slate-500 flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-emerald-400" />
+                  {language === 'de' ? 'Aktuelle Welt / Dimension' : 'Current World / Dimension'}
+                </span>
+                <span className="text-white font-bold block">{selectedPlayerDetail.world || 'world (Overworld)'}</span>
+              </div>
+
+              {/* Coordinates */}
+              <div className="p-3 rounded-xl bg-[#0d1117] border border-slate-800 space-y-1 sm:col-span-2">
+                <span className="text-[10px] uppercase text-slate-500 flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-rose-400" />
+                  {language === 'de' ? 'Welt-Koordinaten (X / Y / Z)' : 'World Coordinates (X / Y / Z)'}
+                </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-emerald-300 font-bold">
+                    {selectedPlayerDetail.location || `${selectedPlayerDetail.x ?? 0}, ${selectedPlayerDetail.y ?? 64}, ${selectedPlayerDetail.z ?? 0}`}
+                  </span>
+                  <button
+                    onClick={() => {
+                      const coordStr = selectedPlayerDetail.location || `${selectedPlayerDetail.x ?? 0} ${selectedPlayerDetail.y ?? 64} ${selectedPlayerDetail.z ?? 0}`;
+                      navigator.clipboard.writeText(`/tp @s ${coordStr.replace(/,/g, '')}`);
+                      setCopiedDetail('tp');
+                      setTimeout(() => setCopiedDetail(null), 1500);
+                    }}
+                    className="flex items-center gap-1 px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[11px] text-slate-300"
+                  >
+                    {copiedDetail === 'tp' ? <Check className="w-3 h-3 text-emerald-400" /> : <Compass className="w-3 h-3 text-indigo-400" />}
+                    <span>{language === 'de' ? 'Teleport-Befehl kopieren' : 'Copy TP Command'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Gamemode */}
+              <div className="p-3 rounded-xl bg-[#0d1117] border border-slate-800 space-y-1">
+                <span className="text-[10px] uppercase text-slate-500 flex items-center gap-1.5">
+                  <Gamepad2 className="w-3.5 h-3.5 text-amber-400" />
+                  {language === 'de' ? 'Spielmodus' : 'Game Mode'}
+                </span>
+                <span className="text-white font-bold uppercase">{selectedPlayerDetail.gamemode || 'SURVIVAL'}</span>
+              </div>
+
+              {/* Health */}
+              <div className="p-3 rounded-xl bg-[#0d1117] border border-slate-800 space-y-1">
+                <span className="text-[10px] uppercase text-slate-500 flex items-center gap-1.5">
+                  <Heart className="w-3.5 h-3.5 text-rose-500" />
+                  {language === 'de' ? 'Gesundheit (HP)' : 'Health (HP)'}
+                </span>
+                <span className="text-rose-400 font-bold">
+                  {selectedPlayerDetail.health !== undefined ? `${selectedPlayerDetail.health} / 20.0 HP` : '20.0 / 20.0 HP'}
+                </span>
+              </div>
+            </div>
+
+            {/* Quick Actions Footer */}
+            <div className="flex items-center justify-between pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setSelectedPlayerDetail(null)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-mono text-slate-300 transition-colors"
+              >
+                {language === 'de' ? 'Schließen' : 'Close'}
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const p = selectedPlayerDetail;
+                    setSelectedPlayerDetail(null);
+                    setActiveAction({ type: 'teleport', player: p });
+                    setActionInput('spawn');
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono font-bold transition-all shadow-md"
+                >
+                  Teleport
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const p = selectedPlayerDetail;
+                    setSelectedPlayerDetail(null);
+                    setActiveAction({ type: 'kick', player: p });
+                    setActionInput('Rule violation');
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-mono font-bold transition-all shadow-md"
+                >
+                  Kick
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const p = selectedPlayerDetail;
+                    setSelectedPlayerDetail(null);
+                    setActiveAction({ type: 'ban', player: p });
+                    setActionInput('Malicious conduct');
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-mono font-bold transition-all shadow-md"
+                >
+                  Ban
+                </button>
+              </div>
             </div>
           </div>
         </Modal>

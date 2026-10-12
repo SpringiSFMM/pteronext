@@ -61,7 +61,11 @@ func (s *ServerController) ListServers(c *gin.Context) {
 	if !user.RootAdmin {
 		var subuserServerIDs []uint
 		s.db.Model(&models.Subuser{}).Where("user_id = ?", user.ID).Pluck("server_id", &subuserServerIDs)
-		query = query.Where("owner_id = ? OR id IN (?)", user.ID, subuserServerIDs)
+		if len(subuserServerIDs) > 0 {
+			query = query.Where("owner_id = ? OR id IN (?)", user.ID, subuserServerIDs)
+		} else {
+			query = query.Where("owner_id = ?", user.ID)
+		}
 	}
 
 	var servers []models.Server

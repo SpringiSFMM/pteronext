@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Database, Plus, Trash2, Copy, Check, Lock, HardDrive, Network } from 'lucide-react';
 import { Modal } from '../common/Modal';
+import { useTranslation } from '../../i18n/useTranslation';
 
 export const DatabasesView: React.FC = () => {
   const { databases, addDatabase, deleteDatabase, addToast } = useApp();
+  const { t, language } = useTranslation();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -16,7 +18,7 @@ export const DatabasesView: React.FC = () => {
     navigator.clipboard?.writeText(text);
     setCopiedId(id);
     addToast({
-      title: 'Copied to Clipboard',
+      title: language === 'de' ? 'In die Zwischenablage kopiert' : 'Copied to Clipboard',
       description: text,
       type: 'info',
     });
@@ -43,10 +45,12 @@ export const DatabasesView: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#30363d]/80">
         <div>
           <h1 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">
-            Databases
+            {language === 'de' ? 'Datenbanken' : 'Databases'}
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Managed database instances, connection strings, and hosts allocated to workloads.
+            {language === 'de'
+              ? 'Verwaltete MySQL/MariaDB-Instanzen, Zugangsdaten und Datenbank-Hosts für Server.'
+              : 'Managed database instances, connection strings, and hosts allocated to workloads.'}
           </p>
         </div>
 
@@ -55,106 +59,130 @@ export const DatabasesView: React.FC = () => {
           className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-zinc-100 hover:bg-white text-zinc-900 font-medium text-xs transition-colors shadow-sm self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
-          <span>New Database</span>
+          <span>{language === 'de' ? 'Neue Datenbank' : 'New Database'}</span>
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {databases.map((db) => (
-          <div
-            key={db.id}
-            className="p-5 rounded-xl bg-[#161b22] border border-[#30363d] hover:border-[#484f58] transition-colors flex flex-col justify-between"
+      {databases.length === 0 ? (
+        <div className="p-12 text-center rounded-2xl bg-[#161b22] border border-[#30363d] space-y-3">
+          <Database className="w-10 h-10 text-slate-500 mx-auto opacity-50" />
+          <h3 className="text-sm font-semibold text-white">
+            {language === 'de' ? 'Keine Datenbanken vorhanden' : 'No databases provisioned'}
+          </h3>
+          <p className="text-xs text-slate-400 max-w-sm mx-auto">
+            {language === 'de'
+              ? 'Erstelle deine erste MySQL- oder PostgreSQL-Datenbank für diesen Cluster.'
+              : 'Provision your first MySQL or PostgreSQL database instance for this workload.'}
+          </p>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="px-4 py-2 rounded-xl bg-zinc-100 hover:bg-white text-zinc-900 font-bold text-xs"
           >
-            <div>
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-lg bg-[#21262d] border border-[#30363d] text-slate-300">
-                    <Database className="w-4 h-4 text-emerald-400" />
+            {language === 'de' ? 'Datenbank erstellen' : 'Create Database'}
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {databases.map((db) => (
+            <div
+              key={db.id}
+              className="p-5 rounded-xl bg-[#161b22] border border-[#30363d] hover:border-[#484f58] transition-colors flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-lg bg-[#21262d] border border-[#30363d] text-slate-300">
+                      <Database className="w-4 h-4 text-emerald-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-white">{db.name}</h3>
+                      <p className="text-xs text-slate-400 font-mono mt-0.5">{db.database}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-semibold text-white">{db.name}</h3>
-                    <p className="text-xs text-slate-400 font-mono mt-0.5">{db.database}</p>
-                  </div>
-                </div>
 
-                <button
-                  onClick={() => deleteDatabase(db.id)}
-                  title="Drop Database"
-                  className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              <div className="space-y-2 mt-4 text-xs font-mono">
-                <div className="p-2 rounded bg-[#0d1117] border border-[#30363d] flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] text-slate-500 block uppercase">Endpoint</span>
-                    <span className="text-slate-300">{db.host}:{db.port}</span>
-                  </div>
                   <button
-                    onClick={() => handleCopy(`${db.host}:${db.port}`, `host-${db.id}`)}
-                    className="p-1 text-slate-500 hover:text-slate-300"
+                    onClick={() => deleteDatabase(db.id)}
+                    title={language === 'de' ? 'Datenbank löschen' : 'Drop Database'}
+                    className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
                   >
-                    {copiedId === `host-${db.id}` ? (
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    ) : (
-                      <Copy className="w-3.5 h-3.5" />
-                    )}
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
-                <div className="p-2 rounded bg-[#0d1117] border border-[#30363d] flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] text-slate-500 block uppercase">Username</span>
-                    <span className="text-slate-300">{db.username}</span>
-                  </div>
-                  <button
-                    onClick={() => handleCopy(db.username, `user-${db.id}`)}
-                    className="p-1 text-slate-500 hover:text-slate-300"
-                  >
-                    {copiedId === `user-${db.id}` ? (
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    ) : (
-                      <Copy className="w-3.5 h-3.5" />
-                    )}
-                  </button>
-                </div>
-
-                {db.password && (
+                <div className="space-y-2 mt-4 text-xs font-mono">
                   <div className="p-2 rounded bg-[#0d1117] border border-[#30363d] flex items-center justify-between">
                     <div>
-                      <span className="text-[10px] text-slate-500 block uppercase">Password</span>
-                      <span className="text-slate-400 font-mono">••••••••••••</span>
+                      <span className="text-[10px] text-slate-500 block uppercase">Endpoint</span>
+                      <span className="text-slate-300">{db.host}:{db.port}</span>
                     </div>
                     <button
-                      onClick={() => handleCopy(db.password!, `pass-${db.id}`)}
+                      onClick={() => handleCopy(`${db.host}:${db.port}`, `host-${db.id}`)}
                       className="p-1 text-slate-500 hover:text-slate-300"
                     >
-                      {copiedId === `pass-${db.id}` ? (
+                      {copiedId === `host-${db.id}` ? (
                         <Check className="w-3.5 h-3.5 text-emerald-400" />
                       ) : (
                         <Copy className="w-3.5 h-3.5" />
                       )}
                     </button>
                   </div>
-                )}
+
+                  <div className="p-2 rounded bg-[#0d1117] border border-[#30363d] flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] text-slate-500 block uppercase">Username</span>
+                      <span className="text-slate-300">{db.username}</span>
+                    </div>
+                    <button
+                      onClick={() => handleCopy(db.username, `user-${db.id}`)}
+                      className="p-1 text-slate-500 hover:text-slate-300"
+                    >
+                      {copiedId === `user-${db.id}` ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
+
+                  {db.password && (
+                    <div className="p-2 rounded bg-[#0d1117] border border-[#30363d] flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] text-slate-500 block uppercase">Password</span>
+                        <span className="text-slate-400 font-mono">••••••••••••</span>
+                      </div>
+                      <button
+                        onClick={() => handleCopy(db.password!, `pass-${db.id}`)}
+                        className="p-1 text-slate-500 hover:text-slate-300"
+                      >
+                        {copiedId === `pass-${db.id}` ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-[#30363d] flex items-center justify-between text-xs text-slate-400 font-mono">
+                <span>{db.connections} {language === 'de' ? 'aktive Verb.' : 'active conn'}</span>
+                <span>{db.sizeMB} MB disk</span>
               </div>
             </div>
-
-            <div className="mt-4 pt-3 border-t border-[#30363d] flex items-center justify-between text-xs text-slate-400 font-mono">
-              <span>{db.connections} active conn</span>
-              <span>{db.sizeMB} MB disk</span>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title="Provision Database Instance"
-        subtitle="Create a new MySQL or PostgreSQL database on cluster hosts"
+        title={language === 'de' ? 'Datenbank-Instanz bereitstellen' : 'Provision Database Instance'}
+        subtitle={
+          language === 'de'
+            ? 'Erstelle eine neue MySQL- oder PostgreSQL-Datenbank auf den Cluster-Hosts'
+            : 'Create a new MySQL or PostgreSQL database on cluster hosts'
+        }
         icon={<Database className="w-4 h-4 text-zinc-200" />}
         badge="SQL INSTANCE"
         badgeColor="default"

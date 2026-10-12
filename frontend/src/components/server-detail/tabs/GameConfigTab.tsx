@@ -16,9 +16,11 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { api } from '../../../api/client';
+import { useTranslation } from '../../../i18n/useTranslation';
 
 export const GameConfigTab: React.FC = () => {
   const { selectedServer, saveFileContent, addToast } = useApp();
+  const { t, language } = useTranslation();
 
   const [mode, setMode] = useState<'visual' | 'raw'>('visual');
 
@@ -140,8 +142,11 @@ enable-command-block=true
       const content = generateProperties();
       saveFileContent('server.properties', content);
       addToast({
-        title: 'Game Config Saved',
-        description: 'Synchronized visual settings with server.properties file.',
+        title: language === 'de' ? 'Spiel-Konfiguration gespeichert' : 'Game Config Saved',
+        description:
+          language === 'de'
+            ? 'Visuelle Einstellungen wurden mit server.properties synchronisiert.'
+            : 'Synchronized visual settings with server.properties file.',
         type: 'success',
       });
     } finally {
@@ -169,11 +174,12 @@ enable-command-block=true
           </div>
           <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
             <Sliders className="w-5 h-5 text-purple-400" />
-            <span>Game Server Settings</span>
+            <span>{language === 'de' ? 'Spielserver-Konfiguration' : 'Game Server Settings'}</span>
           </h2>
           <p className="text-xs text-slate-400 max-w-xl">
-            Configure game gameplay rules, player limits, and security flags with visual sliders
-            and toggles instead of editing raw config text.
+            {language === 'de'
+              ? 'Konfiguriere Gameplay-Regeln, Spielerlimits und Sicherheitsoptionen direkt mit visuellen Reglern statt Roh-Text.'
+              : 'Configure game gameplay rules, player limits, and security flags with visual sliders and toggles instead of editing raw config text.'}
           </p>
         </div>
 
@@ -188,7 +194,7 @@ enable-command-block=true
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              Visual
+              {language === 'de' ? 'Visuell' : 'Visual'}
             </button>
             <button
               type="button"
@@ -199,7 +205,7 @@ enable-command-block=true
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              Raw Preview
+              {language === 'de' ? 'Rohdatei' : 'Raw Preview'}
             </button>
           </div>
         </div>

@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -77,8 +78,27 @@ func (s *SubuserController) CreateSubuser(c *gin.Context) {
 	}
 
 	if err := query.First(&targetUser).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User account not found."})
-		return
+		// If user account doesn't exist yet, auto-provision user so invite persists seamlessly
+		lookupUsername := username
+		if lookupUsername == "" {
+			parts := strings.Split(email, "@")
+			lookupUsername = parts[0]
+		}
+		lookupEmail := email
+		if lookupEmail == "" {
+			lookupEmail = fmt.Sprintf("%s@example.local", lookupUsername)
+		}
+
+		targetUser = models.User{
+			Username:  lookupUsername,
+			Email:     lookupEmail,
+			Password:  "$2a$10$w850c9h.P15kOekF1Q09dO8q6rB0Y17tFwV0/PZ4G15aB2C3D4E5F", // default hash
+			RootAdmin: false,
+		}
+		if createErr := s.db.Create(&targetUser).Error; createErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed creating delegated user account: " + createErr.Error()})
+			return
+		}
 	}
 
 	if targetUser.ID == server.OwnerID {

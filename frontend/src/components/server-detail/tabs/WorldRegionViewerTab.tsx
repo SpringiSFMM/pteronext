@@ -76,19 +76,16 @@ export const WorldRegionViewerTab: React.FC = () => {
         const res = await api.players.list(selectedServer.uuid);
         if (res?.data && Array.isArray(res.data)) {
           const mapped = res.data.map((p: any, idx: number) => {
-            // Coordinate extraction: check location string or synthesize relative to spawn
-            let px = 0;
-            let pz = 0;
+            // Coordinate extraction: check direct X/Z or parse location
+            let px = typeof p.x === 'number' ? p.x : 0;
+            let pz = typeof p.z === 'number' ? p.z : 0;
             if (p.location && typeof p.location === 'string') {
-              const matches = p.location.match(/(-?\d+)[,\s]+(-?\d+)[,\s]+(-?\d+)/);
+              const matches = p.location.match(/(-?\d+(?:\.\d+)?)[,\s]+(-?\d+(?:\.\d+)?)[,\s]+(-?\d+(?:\.\d+)?)/);
               if (matches) {
-                px = parseInt(matches[1], 10);
-                pz = parseInt(matches[3], 10);
-              } else {
-                px = (idx + 1) * 32 - 16;
-                pz = (idx + 1) * 24 - 12;
+                px = parseFloat(matches[1]);
+                pz = parseFloat(matches[3]);
               }
-            } else {
+            } else if (px === 0 && pz === 0) {
               px = (idx + 1) * 32 - 16;
               pz = (idx + 1) * 24 - 12;
             }
@@ -106,7 +103,7 @@ export const WorldRegionViewerTab: React.FC = () => {
       }
     };
     fetchPlayers();
-    const interval = setInterval(fetchPlayers, 10000);
+    const interval = setInterval(fetchPlayers, 3000);
     return () => clearInterval(interval);
   }, [selectedServer?.uuid]);
 
@@ -326,6 +323,19 @@ export const WorldRegionViewerTab: React.FC = () => {
 
   const handleMouseUp = () => {
     setIsDragging(false);
+    // Smooth infinite chunk loading: If pan offset traversed past a full region (32 chunks * 16px * zoom), shift region
+    const chunkSize = 16 * zoom;
+    const regionPixelThreshold = 32 * chunkSize;
+    if (Math.abs(panOffset.x) > regionPixelThreshold) {
+      const shiftX = Math.round(panOffset.x / regionPixelThreshold);
+      setRegionX((prev) => prev - shiftX);
+      setPanOffset((prev) => ({ ...prev, x: prev.x - shiftX * regionPixelThreshold }));
+    }
+    if (Math.abs(panOffset.y) > regionPixelThreshold) {
+      const shiftZ = Math.round(panOffset.y / regionPixelThreshold);
+      setRegionZ((prev) => prev - shiftZ);
+      setPanOffset((prev) => ({ ...prev, y: prev.y - shiftZ * regionPixelThreshold }));
+    }
   };
 
   const handleMouseLeave = () => {

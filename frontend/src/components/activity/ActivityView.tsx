@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Activity, CheckCircle2, AlertCircle, Info, Search, Filter } from 'lucide-react';
+import { useTranslation } from '../../i18n/useTranslation';
 
 export const ActivityView: React.FC = () => {
   const { activities } = useApp();
+  const { t, language } = useTranslation();
   const [filterQuery, setFilterQuery] = useState('');
   const [severityFilter, setSeverityFilter] = useState<'all' | 'success' | 'warning' | 'danger' | 'info'>('all');
 
@@ -34,10 +36,12 @@ export const ActivityView: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#30363d]/80">
         <div>
           <h1 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">
-            Activity & Audit Logs
+            {language === 'de' ? 'Aktivitäts- & Audit-Protokoll' : 'Activity & Audit Logs'}
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Immutable cluster event trail, administrative signals, and lifecycle changes.
+            {language === 'de'
+              ? 'Unveränderlicher Audit-Trail für Cluster-Events, administrative Aktionen und Statuswechsel.'
+              : 'Immutable cluster event trail, administrative signals, and lifecycle changes.'}
           </p>
         </div>
       </div>
@@ -47,7 +51,11 @@ export const ActivityView: React.FC = () => {
           <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
           <input
             type="text"
-            placeholder="Search audit trail by actor, action, or target..."
+            placeholder={
+              language === 'de'
+                ? 'Audit-Trail nach Akteur, Aktion oder Server durchsuchen...'
+                : 'Search audit trail by actor, action, or target...'
+            }
             value={filterQuery}
             onChange={(e) => setFilterQuery(e.target.value)}
             className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-zinc-500"
