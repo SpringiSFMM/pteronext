@@ -98,7 +98,7 @@ export const DashboardView: React.FC = () => {
                 {t('dash_cluster_operational')}
               </span>
               <span className="text-[11px] font-mono text-slate-400 bg-[#0d1117]/80 px-2.5 py-1 rounded-full border border-slate-800">
-                PteroNext v2.8.4 Enterprise
+                PteroNext v2.8.5 Enterprise
               </span>
             </div>
             

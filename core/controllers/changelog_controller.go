@@ -38,15 +38,40 @@ func (ch *ChangelogController) GetChangelog(c *gin.Context) {
 
 	rawReleases := []ReleaseItem{
 		{
+			Version:       "v2.8.5",
+			Date:          "October 2026",
+			Title:         "World Map Live-Tracking, Lag-Dump Auto-Trigger & Spieler-Inspektion",
+			TitleEN:       "World Map Live Tracking, Lag Dump Auto Trigger & Player Inspection",
+			Description:   "Umfassendes Performance- und Usability-Update: Bringt 3s Live-Spieler-Standortverfolgung und dynamisches Chunk-Nachladen auf der 2D-Weltkarte, automatisches Lag-Dump-Profiling ab TPS <= 18, vollständige Subuser-Persistenz, detaillierte Spieler-Inspektion in Liste und Chat sowie vollständige bilinguale i18n-Anbindung.",
+			DescriptionEN: "Comprehensive performance and usability update: Features 3-second live player tracking and dynamic chunk loading on the 2D world map, automated lag dump profiling when TPS drops below 18, persistent subuser delegations, rich player inspection modal in player list and chat, and complete bilingual i18n coverage.",
+			Tag:           "LATEST STABLE",
+			TagEN:         "LATEST STABLE",
+			IsLatest:      true,
+			Highlights: []string{
+				"World Map Live-Tracking: Spielerpositionen werden alle 3 Sekunden aktualisiert; Chunks laden beim Verschieben nahtlos nach",
+				"Lag-Dump Auto-Trigger: Automatisierte Snapshot-Erstellung bei TPS <= 18.0 oder MSPT >= 45.0",
+				"Spieler-Inspektionsmodal: Klick auf Spieler in Liste oder Chat zeigt IP, Welt, XYZ-Koordinaten mit 1-Klick /tp und Aktionen",
+				"Subuser-Persistenz: Automatische Benutzer-Provisionierung und verlässliche Filterung in der Serverliste nach Logout",
+				"Uptime-Präzision & Icon-Harmonisierung: Exakte Sekundenanzeige bei Serverstart und moderne Lucide-Icons statt Emojis",
+			},
+			HighlightsEN: []string{
+				"World Map Live Tracking: Player positions update every 3 seconds; chunks load seamlessly when panning across region borders",
+				"Lag Dump Auto Trigger: Automated diagnostic snapshot triggered when TPS <= 18.0 or MSPT >= 45.0",
+				"Player Inspection Modal: Click on player in list or live chat to inspect IP, world, XYZ coordinates with 1-click /tp copy",
+				"Subuser Persistence: Automatic account provisioning during invites and reliable delegation listing across logins",
+				"Uptime Precision & Modern Icons: Exact second formatting on server boot and modern Lucide icons replacing emojis",
+			},
+		},
+		{
 			Version:       "v2.8.4",
 			Date:          "October 2026",
 			Title:         "Dynamisches Theme-Glow, Authentifizierungs-Härtung & System-Synchronisation",
 			TitleEN:       "Dynamic Theme Glow, Authentication Hardening & System Synchronization",
 			Description:   "Stabilitäts- und UI-Feinschliff-Update: Führt dynamische themenspezifische Akzente und Glow-Effekte für Server-Karten ein, bereinigt Authentifizierungs-Standardwerte für maximale Sicherheit und synchronisiert API-Versions-Endpunkte nahtlos.",
 			DescriptionEN: "Stability and UI enhancement update: Introduces dynamic theme-aware accent and glow effects on server cards, cleans authentication defaults for maximum security, and synchronizes system API version endpoints seamlessly.",
-			Tag:           "LATEST STABLE",
-			TagEN:         "LATEST STABLE",
-			IsLatest:      true,
+			Tag:           "STABLE",
+			TagEN:         "STABLE",
+			IsLatest:      false,
 			Highlights: []string{
 				"Dynamisches Theme-Glow: Reaktive Akzentlinien und Ambient-Glow auf Server-Karten angepasst an Panel-Themes",
 				"Authentifizierungs-Härtung: Bereinigung von Mock-Benutzerwerten und strikte Session-Validierung",
@@ -607,7 +632,7 @@ func (ch *ChangelogController) GetChangelog(c *gin.Context) {
 		releases[i] = item
 	}
 
-	currentVer := "v2.8.4"
+	currentVer := "v2.8.5"
 	if len(releases) > 0 && releases[0].Version != "" {
 		currentVer = releases[0].Version
 	}
