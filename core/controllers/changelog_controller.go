@@ -38,15 +38,54 @@ func (ch *ChangelogController) GetChangelog(c *gin.Context) {
 
 	rawReleases := []ReleaseItem{
 		{
+			Version:       "v2.8.2",
+			Date:          "October 2026",
+			Title:         "File-Time-Machine Snapshot-Fix & Automatische Revisionssicherung",
+			TitleEN:       "File-Time-Machine Snapshot Fix & Automatic Revision Protection",
+			Description:   "Wartungs- & Stabilitäts-Update für den Web-Code-Editor: Automatisches Erstellen von Datei-Snapshots bei jedem Speichervorgang in der Time-Machine, Behebung des URL-Query-Parameter Mismatches (?path= vs ?file=), Normalisierung von Dateipfaden mit führenden Slashes, dynamische Revision-Nummerierung und sichere 1-Klick-Wiederherstellung inklusive Pre-Restore Snapshot.",
+			DescriptionEN: "Maintenance & stability update for the web code editor: automatic file snapshots on save in File-Time-Machine, fix query parameter mismatch (?path= vs ?file=), uniform path normalization, dynamic revision numbering and size display, and safe 1-click restore with pre-restore safety snapshot.",
+			Tag:           "LATEST STABLE",
+			TagEN:         "LATEST STABLE",
+			IsLatest:      true,
+			Highlights: []string{
+				"File-Time-Machine Snapshots: Zuverlässiges Speichern jedes vorherigen Dateistands beim Klick auf 'Speichern' im Code-Editor",
+				"Pfad-Normalisierung: Einheitliche Zuordnung von absoluten und relativen Dateipfaden (/server.properties vs. server.properties)",
+				"API-Query Parameter Fix: Vollständige Unterstützung für '?path=' und '?file=' in allen Revisions-Endpunkten",
+				"Revisions-Zähler & Dateigröße: Saubere Anzeige von Rev #N und formatierter Dateigröße im Time-Machine-Vergleich",
+				"Pre-Restore Sicherung: Automatischer Sicherheits-Snapshot vor jeder Wiederherstellung, um keinen Zwischenstand zu verlieren",
+			},
+			HighlightsEN: []string{
+				"File-Time-Machine Snapshots: Reliable micro-snapshot capture on every file save in the code editor",
+				"Path Normalization: Uniform matching for absolute and relative paths (/server.properties vs. server.properties)",
+				"API Query Param Compatibility: Full support for both '?path=' and '?file=' query parameters",
+				"Revision Counter & Size: Accurate Rev #N numbering and formatted file size in the Time Machine diff view",
+				"Pre-Restore Safeguard: Automatic snapshot before restoring any revision to prevent accidental data loss",
+			},
+			Features: []string{
+				"Nahtlose Integration im Web-Code-Editor mit Live-Diff-Gegenüberstellung (Alt vs. Neu)",
+				"Automatisches Nachladen der Revisionsliste direkt nach dem Speichern bei geöffneter Time-Machine",
+			},
+			FeaturesEN: []string{
+				"Seamless integration in web code editor with side-by-side diff comparison (Old vs. New)",
+				"Automatic background refresh of revision list right after saving while Time-Machine is open",
+			},
+			Improvements: []string{
+				"Robuste Fallbacks für Revision-Nummern und Größen-Berechnung im UI",
+			},
+			ImprovementsEN: []string{
+				"Robust fallbacks for revision number display and size calculation in frontend UI",
+			},
+		},
+		{
 			Version:       "v2.8.1",
 			Date:          "October 2026",
 			Title:         "Bugfixes, 2D Map Pan/Zoom, Disk Space Balancer & Multi-Language i18n",
 			TitleEN:       "Bugfixes, 2D Map Pan/Zoom, Disk Space Balancer & Multi-Language i18n",
 			Description:   "Wartungs- & Funktions-Update: Korrektur der Entwickler-Signatur Springi_SFM, interaktive Maus-Steuerung (Pan/Zoom/Chunk-Inspektion) im 2D Region-Viewer, Server-Löschung aus dem UI-State, Multi-Node Disk Space Balancer (>90% Warnung & 14-Tage Log-Auto-Clean), Container-Watchdog und lückenlose Mehrsprachigkeit (DE/EN) für Admin- und Spieler-Bereiche.",
 			DescriptionEN: "Maintenance & feature update: corrected developer credit to Springi_SFM, interactive mouse pan/zoom/chunk inspector on 2D world map, fixed server deletion from client state, Multi-Node Disk Space Balancer (>90% alert & 14-day log auto-clean), container health watchdog, and comprehensive multi-language i18n.",
-			Tag:           "LATEST STABLE",
-			TagEN:         "LATEST STABLE",
-			IsLatest:      true,
+			Tag:           "STABLE",
+			TagEN:         "STABLE",
+			IsLatest:      false,
 			Highlights: []string{
 				"Footer & Branding: Exakte Entwickler-Signatur 'Entwickelt von Springi_SFM'",
 				"2D World & Chunks: Flüssiges Ziehen (Drag-to-Pan), Mausrad-Zoom und interaktiver Chunk-Datei-Inspektor",

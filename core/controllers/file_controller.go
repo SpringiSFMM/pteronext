@@ -3,7 +3,9 @@ package controllers
 import (
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -118,6 +120,9 @@ func (fc *FileController) WriteFileContent(c *gin.Context) {
 		}
 	}
 
+	// Normalize file path for consistency (e.g. /server.properties and server.properties)
+	normalizedFile := "/" + strings.TrimPrefix(filepath.Clean(req.File), "/")
+
 	// File-Time-Machine: Snapshot previous content before saving new changes
 	if fc.db != nil {
 		if previousContent, err := fc.fileService.GetFileContent(uuid, req.File); err == nil && len(previousContent) > 0 && previousContent != req.Content && len(previousContent) < 1000000 {
@@ -128,7 +133,7 @@ func (fc *FileController) WriteFileContent(c *gin.Context) {
 			}
 			fc.db.Create(&models.FileRevision{
 				ServerUUID: uuid,
-				FilePath:   req.File,
+				FilePath:   normalizedFile,
 				Content:    previousContent,
 				Size:       int64(len(previousContent)),
 				CreatedBy:  author,
@@ -150,7 +155,10 @@ func (fc *FileController) ListFileRevisions(c *gin.Context) {
 	uuid := c.Param("uuid")
 	file := c.Query("file")
 	if file == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Query param 'file' is required"})
+		file = c.Query("path")
+	}
+	if file == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Query param 'path' or 'file' is required"})
 		return
 	}
 
@@ -164,14 +172,26 @@ func (fc *FileController) ListFileRevisions(c *gin.Context) {
 		}
 	}
 
+	normalizedFile := "/" + strings.TrimPrefix(filepath.Clean(file), "/")
+	rawFile := strings.TrimPrefix(normalizedFile, "/")
+
 	var revisions []models.FileRevision
 	if fc.db != nil {
-		fc.db.Where("server_uuid = ? AND file_path = ?", uuid, file).Order("created_at desc").Limit(30).Find(&revisions)
+		fc.db.Where("server_uuid = ? AND (file_path = ? OR file_path = ?)", uuid, normalizedFile, rawFile).
+			Order("created_at desc").
+			Limit(30).
+			Find(&revisions)
+	}
+
+	total := len(revisions)
+	for i := range revisions {
+		revisions[i].RevisionNum = total - i
+		revisions[i].SizeBytes = revisions[i].Size
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"revisions": revisions,
-		"file":      file,
+		"file":      normalizedFile,
 		"count":     len(revisions),
 	})
 }
@@ -197,6 +217,9 @@ func (fc *FileController) GetFileRevision(c *gin.Context) {
 			}
 		}
 	}
+
+	rev.RevisionNum = int(rev.ID)
+	rev.SizeBytes = rev.Size
 
 	c.JSON(http.StatusOK, gin.H{"revision": rev})
 }
@@ -227,6 +250,24 @@ func (fc *FileController) RestoreFileRevision(c *gin.Context) {
 		}
 	}
 
+	// Also create a snapshot of current file content before restoring, so user never loses current edits!
+	if currentContent, err := fc.fileService.GetFileContent(uuid, rev.FilePath); err == nil && len(currentContent) > 0 && currentContent != rev.Content {
+		user, _ := middleware.GetRequestUser(c)
+		author := "system"
+		if user != nil {
+			author = user.Username
+		}
+		normalizedFile := "/" + strings.TrimPrefix(filepath.Clean(rev.FilePath), "/")
+		fc.db.Create(&models.FileRevision{
+			ServerUUID: uuid,
+			FilePath:   normalizedFile,
+			Content:    currentContent,
+			Size:       int64(len(currentContent)),
+			CreatedBy:  author + " (pre-restore)",
+			CreatedAt:  time.Now(),
+		})
+	}
+
 	// Write restored content to file
 	if err := fc.fileService.WriteFile(uuid, rev.FilePath, rev.Content); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed restoring file revision: " + err.Error()})
@@ -234,9 +275,11 @@ func (fc *FileController) RestoreFileRevision(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": fmt.Sprintf("Datei '%s' erfolgreich auf Revision vom %s zurückgesetzt!", rev.FilePath, rev.CreatedAt.Format("02.01. 15:04:05")),
-		"content": rev.Content,
+		"success":           true,
+		"message":           fmt.Sprintf("Datei '%s' erfolgreich auf Revision vom %s zurückgesetzt!", rev.FilePath, rev.CreatedAt.Format("02.01. 15:04:05")),
+		"content":           rev.Content,
+		"file_path":         rev.FilePath,
+		"restored_revision": rev.ID,
 	})
 }
 

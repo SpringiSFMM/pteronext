@@ -3,6 +3,17 @@ This file is a running track of new features and fixes to each version of the pa
 
 This project follows [Semantic Versioning](http://semver.org) guidelines.
 
+## v2.8.2
+### Fixed
+* **File-Time-Machine Snapshot Creation**: Fixed issue where saving an edited file in the web code editor did not reliably persist the previous content as a micro-snapshot.
+* **API Query Parameter Compatibility**: Added full backward and forward compatibility for `?path=` and `?file=` query parameters across `/api/servers/:uuid/files/revisions`.
+* **File Path Normalization**: Unified storage and retrieval for absolute and relative paths (`/server.properties` and `server.properties`) ensuring revisions are consistently found.
+* **Dynamic Revision Numbering & Size**: Computed human-readable revision numbers (`Rev #N`) and accurate byte sizes (`size_bytes` / `size`), resolving `Rev #undefined` and `NaN KB` in the Time Machine diff modal.
+
+### Added
+* **Pre-Restore Snapshot Safeguard**: Automatically creates a safety snapshot of the active editor content before restoring any prior revision, preventing accidental data loss during rollback.
+* **Live Revisions Refresh on Save**: The CodeEditorModal now automatically syncs and reloads revision history upon saving while the Time Machine modal is open.
+
 ## v2.8.1
 ### Fixed
 * **Developer Signature**: Corrected display text to "Entwickelt von Springi_SFM" in the global panel footer.

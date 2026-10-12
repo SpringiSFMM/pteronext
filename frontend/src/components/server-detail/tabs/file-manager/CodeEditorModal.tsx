@@ -58,15 +58,24 @@ export const CodeEditorModal: React.FC<CodeEditorModalProps> = ({
   const [loadingRevisions, setLoadingRevisions] = useState(false);
   const [restoringRevision, setRestoringRevision] = useState(false);
 
-  const openTimeMachine = async () => {
+  const loadRevisions = async (silent = false) => {
     if (!selectedServer?.uuid || !file.path) return;
-    setIsTimeMachineOpen(true);
-    setLoadingRevisions(true);
+    if (!silent) setLoadingRevisions(true);
     try {
       const res = await api.files.listRevisions(selectedServer.uuid, file.path);
-      if (res?.revisions && res.revisions.length > 0) {
+      if (res?.revisions && Array.isArray(res.revisions)) {
         setRevisions(res.revisions);
-        setSelectedRevision(res.revisions[0]);
+        if (res.revisions.length > 0) {
+          setSelectedRevision((prev: any) => {
+            if (prev) {
+              const matched = res.revisions.find((r: any) => r.id === prev.id);
+              return matched || res.revisions[0];
+            }
+            return res.revisions[0];
+          });
+        } else {
+          setSelectedRevision(null);
+        }
       } else {
         setRevisions([]);
         setSelectedRevision(null);
@@ -74,8 +83,13 @@ export const CodeEditorModal: React.FC<CodeEditorModalProps> = ({
     } catch (e) {
       console.warn('Failed loading revisions:', e);
     } finally {
-      setLoadingRevisions(false);
+      if (!silent) setLoadingRevisions(false);
     }
+  };
+
+  const openTimeMachine = async () => {
+    setIsTimeMachineOpen(true);
+    await loadRevisions(false);
   };
 
   const handleRestoreRevision = async (rev: any) => {
@@ -89,10 +103,12 @@ export const CodeEditorModal: React.FC<CodeEditorModalProps> = ({
       addToast({
         title: language === 'de' ? 'Version wiederhergestellt' : 'Revision Restored',
         description: language === 'de'
-          ? `Datei erfolgreich auf Revision #${rev.revision_num} zurückgesetzt.`
-          : `File successfully restored to revision #${rev.revision_num}.`,
+          ? `Datei erfolgreich auf Revision #${rev.revision_num || rev.id} zurückgesetzt.`
+          : `File successfully restored to revision #${rev.revision_num || rev.id}.`,
         type: 'success',
       });
+      // Refresh revisions list in background
+      loadRevisions(true);
     } catch (err: any) {
       addToast({
         title: language === 'de' ? 'Wiederherstellung fehlgeschlagen' : 'Restore Failed',
@@ -201,8 +217,10 @@ export const CodeEditorModal: React.FC<CodeEditorModalProps> = ({
       setIsSaving(false);
       setIsSaved(true);
       setTimeout(() => setIsSaved(false), 1800);
+      // If time machine is open, reload revisions automatically
+      loadRevisions(true);
     }, 350);
-  }, [content, file.path, isSaving, onSave]);
+  }, [content, file.path, isSaving, onSave, loadRevisions]);
 
   const handleCloseAttempt = useCallback(() => {
     if (hasChanges) {
@@ -718,6 +736,8 @@ export const CodeEditorModal: React.FC<CodeEditorModalProps> = ({
                     revisions.map((rev) => {
                       const isSelected = selectedRevision?.id === rev.id;
                       const dateStr = new Date(rev.created_at).toLocaleString();
+                      const revNum = rev.revision_num ?? rev.id;
+                      const sizeInBytes = rev.size_bytes ?? rev.size ?? (rev.content ? rev.content.length : 0);
                       return (
                         <button
                           key={rev.id}
@@ -731,10 +751,10 @@ export const CodeEditorModal: React.FC<CodeEditorModalProps> = ({
                           <div className="flex items-center justify-between">
                             <span className="font-bold text-indigo-300 flex items-center gap-1.5">
                               <GitCommit className="w-3.5 h-3.5" />
-                              <span>Rev #{rev.revision_num}</span>
+                              <span>Rev #{revNum}</span>
                             </span>
                             <span className="text-[10px] text-slate-500">
-                              {(rev.size_bytes / 1024).toFixed(1)} KB
+                              {(sizeInBytes / 1024).toFixed(1)} KB
                             </span>
                           </div>
                           <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
@@ -758,8 +778,8 @@ export const CodeEditorModal: React.FC<CodeEditorModalProps> = ({
                         <Split className="w-4 h-4 text-indigo-400" />
                         <span className="font-bold text-white">
                           {language === 'de'
-                            ? `Vergleich: Revision #${selectedRevision.revision_num} vs. Aktueller Stand`
-                            : `Comparison: Revision #${selectedRevision.revision_num} vs. Current`}
+                            ? `Vergleich: Revision #${selectedRevision.revision_num ?? selectedRevision.id} vs. Aktueller Stand`
+                            : `Comparison: Revision #${selectedRevision.revision_num ?? selectedRevision.id} vs. Current`}
                         </span>
                       </div>
 
@@ -778,8 +798,8 @@ export const CodeEditorModal: React.FC<CodeEditorModalProps> = ({
                             <RotateCcw className="w-3.5 h-3.5" />
                             <span>
                               {language === 'de'
-                                ? `Auf Rev #${selectedRevision.revision_num} zurücksetzen`
-                                : `Restore Revision #${selectedRevision.revision_num}`}
+                                ? `Auf Rev #${selectedRevision.revision_num ?? selectedRevision.id} zurücksetzen`
+                                : `Restore Revision #${selectedRevision.revision_num ?? selectedRevision.id}`}
                             </span>
                           </>
                         )}
@@ -791,7 +811,9 @@ export const CodeEditorModal: React.FC<CodeEditorModalProps> = ({
                       <div className="text-rose-400 font-semibold flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full bg-rose-500" />
                         <span>
-                          {language === 'de' ? `Snapshot #${selectedRevision.revision_num}` : `Snapshot #${selectedRevision.revision_num}`}
+                          {language === 'de'
+                            ? `Snapshot #${selectedRevision.revision_num ?? selectedRevision.id}`
+                            : `Snapshot #${selectedRevision.revision_num ?? selectedRevision.id}`}
                         </span>
                       </div>
                       <div className="text-emerald-400 font-semibold flex items-center gap-1.5 pl-3 border-l border-slate-800">
