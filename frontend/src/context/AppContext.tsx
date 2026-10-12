@@ -2740,13 +2740,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setServers((prev) => {
         const remaining = prev.filter((s) => s.id !== serverId && s.uuid !== serverId);
         if (selectedServer && (selectedServer.id === serverId || selectedServer.uuid === serverId)) {
-          if (remaining.length > 0) {
-            setSelectedServer(remaining[0]);
-          }
+          setSelectedServer(remaining.length > 0 ? remaining[0] : null);
         }
         return remaining;
       });
-      setActiveView('admin-servers');
+      setActiveView('servers');
 
       addToast({
         title: 'Server Deleted',

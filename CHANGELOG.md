@@ -3,6 +3,19 @@ This file is a running track of new features and fixes to each version of the pa
 
 This project follows [Semantic Versioning](http://semver.org) guidelines.
 
+## v2.8.1
+### Fixed
+* **Developer Signature**: Corrected display text to "Entwickelt von Springi_SFM" in the global panel footer.
+* **Server Delete State Reset**: Fixed bug where deleted servers remained in client context after deletion toast; deletion now executes `deleteServer()`, dispatches physical server cleanup, clears `selectedServer`, and navigates directly back to the server overview.
+* **Admin Users Modal Blackout**: Fixed backdrop and overlay style issue in `AdminUsersView` where opening the "New User" modal caused the background list and headers to become pitch black.
+* **Mock Bans Removed**: Cleaned out hardcoded mock bans in backend and frontend; active ban list now accurately reflects real server ban state.
+
+### Added
+* **2D World & Chunk Interactive Controls**: Added fluid mouse drag-to-pan, scroll wheel zoom, reset-view crosshair, and hover/click chunk inspector showing `.mca` region file name, block boundaries, biome classification, and average elevation.
+* **Modular Server Settings**: Re-architected `SettingsTab` into structured, clean sub-navigation sections (General, SFTP, Versions, Startup, Advanced Tools, Danger Zone).
+* **Multi-Node Disk Space Balancer & Health Watchdog**: Added telemetry endpoint `/api/system/health/storage` warning before host nodes exceed 90% disk capacity, log rotation & 14-day auto-clean (`/api/system/health/clean-logs`), and container health watchdog detecting unresponsive processes.
+* **Comprehensive Multi-Language (i18n)**: Fully translated Player Moderation, Ban Management, Admin User accounts, and System Diagnostics into German and English.
+
 ## v2.8.0
 ### Added
 * **Physical Server Purge**: Server deletion now synchronously triggers Wings daemon RPC, stops/removes the Docker container, recursively deletes `/servers/<uuid>` and runs a cascading purge across all relational database models.

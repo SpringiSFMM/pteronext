@@ -23,6 +23,7 @@ import {
   Gamepad2,
 } from 'lucide-react';
 import { Modal } from '../../common/Modal';
+import { useTranslation } from '../../../i18n/useTranslation';
 
 interface Player {
   uuid?: string;
@@ -47,6 +48,7 @@ interface ChatMessage {
 
 export const PlayersTab: React.FC = () => {
   const { selectedServer, currentUser, addToast } = useApp();
+  const { t, language } = useTranslation();
 
   const [players, setPlayers] = useState<Player[]>([]);
   const [bannedPlayers, setBannedPlayers] = useState<any[]>([]);
@@ -477,14 +479,14 @@ export const PlayersTab: React.FC = () => {
           <div className="flex items-center gap-2">
             <Users className="w-5 h-5 text-indigo-400" />
             <h2 className="text-base font-bold text-white tracking-wide font-sans">
-              Player & Community Dashboard
+              {t('players_title')}
             </h2>
             <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-mono">
               Live Gateway
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            Real-time player monitoring, instant moderation quick-actions, and dual-way chat relay.
+            {t('players_desc')}
           </p>
         </div>
 
@@ -500,7 +502,7 @@ export const PlayersTab: React.FC = () => {
           <button
             onClick={fetchPlayerData}
             className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors"
-            title="Refresh Player List"
+            title={t('common_refresh')}
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
@@ -515,7 +517,7 @@ export const PlayersTab: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Shield className="w-4 h-4 text-emerald-400" />
                 <h3 className="text-sm font-semibold text-white font-mono uppercase tracking-wider">
-                  Active Players ({filteredPlayers.length})
+                  {t('players_active')} ({filteredPlayers.length})
                 </h3>
               </div>
 
@@ -523,7 +525,7 @@ export const PlayersTab: React.FC = () => {
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                 <input
                   type="text"
-                  placeholder="Search player..."
+                  placeholder={t('players_search_placeholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-[#0d1117] border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
@@ -533,11 +535,11 @@ export const PlayersTab: React.FC = () => {
 
             {loading && players.length === 0 ? (
               <div className="py-12 text-center text-slate-500 text-xs font-mono animate-pulse">
-                Querying live game container for active connections...
+                {language === 'de' ? 'Echtzeit-Verbindungen werden abgefragt...' : 'Querying live game container for active connections...'}
               </div>
             ) : filteredPlayers.length === 0 ? (
               <div className="py-12 text-center text-slate-500 text-xs font-mono bg-[#0d1117]/40 rounded-xl border border-slate-800/50">
-                No active players online right now.
+                {t('players_no_online')}
               </div>
             ) : (
               <div className="space-y-2">
@@ -672,25 +674,25 @@ export const PlayersTab: React.FC = () => {
               <div className="flex items-center gap-2">
                 <ShieldAlert className="w-4 h-4 text-rose-400" />
                 <h3 className="text-sm font-semibold text-white font-mono uppercase tracking-wider">
-                  Banned Players & Network Blocks ({bannedPlayers.length})
+                  {t('players_banned_section')} ({bannedPlayers.length})
                 </h3>
               </div>
             </div>
 
             {bannedPlayers.length === 0 ? (
               <div className="py-8 text-center text-slate-500 text-xs font-mono bg-[#0d1117]/30 rounded-xl border border-slate-800/50">
-                No active bans recorded. The ban list is empty.
+                {t('players_no_bans')}
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs font-mono">
                   <thead>
                     <tr className="border-b border-slate-800 text-slate-500 uppercase tracking-wider text-[11px]">
-                      <th className="pb-2.5">Target</th>
-                      <th className="pb-2.5">Type</th>
-                      <th className="pb-2.5">Reason</th>
-                      <th className="pb-2.5">Created</th>
-                      <th className="pb-2.5 text-right">Action</th>
+                      <th className="pb-2.5">{t('players_col_target')}</th>
+                      <th className="pb-2.5">{t('players_col_type')}</th>
+                      <th className="pb-2.5">{t('players_col_reason')}</th>
+                      <th className="pb-2.5">{t('players_col_created')}</th>
+                      <th className="pb-2.5 text-right">{t('players_col_action')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60">
@@ -711,18 +713,18 @@ export const PlayersTab: React.FC = () => {
                             </span>
                           </td>
                           <td className="py-2.5 text-slate-400 truncate max-w-[200px]">
-                            {banItem.reason || 'Banned by operator'}
+                            {banItem.reason || (language === 'de' ? 'Durch Administrator gesperrt' : 'Banned by operator')}
                           </td>
                           <td className="py-2.5 text-slate-500">
-                            {banItem.created ? new Date(banItem.created).toLocaleDateString() : 'Permanent'}
+                            {banItem.created ? new Date(banItem.created).toLocaleDateString() : (language === 'de' ? 'Permanent' : 'Permanent')}
                           </td>
                           <td className="py-2.5 text-right">
                             <button
                               onClick={() => handleUnban(banItem.name || banItem.ip, isIp)}
-                              className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[11px] font-medium transition-colors inline-flex items-center gap-1"
+                              className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[11px] font-medium transition-colors inline-flex items-center gap-1 active:scale-95"
                             >
                               <Unlock className="w-3 h-3" />
-                              <span>Pardon</span>
+                              <span>{t('players_pardon')}</span>
                             </button>
                           </td>
                         </tr>

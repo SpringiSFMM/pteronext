@@ -919,6 +919,41 @@ export const api = {
     getServerResources: async (serverUuid: string): Promise<ServerResourcesResponse> => {
       return request<ServerResourcesResponse>(`/api/servers/${serverUuid}/resources`);
     },
+
+    getStorageHealth: async (): Promise<{
+      overall_status: string;
+      alert_message?: string;
+      nodes: Array<{
+        node_id: number;
+        node_name: string;
+        fqdn: string;
+        disk_limit_mb: number;
+        allocated_disk_mb: number;
+        usage_percent: number;
+        warning_triggered: boolean;
+      }>;
+    }> => {
+      return request('/api/system/health/storage');
+    },
+
+    cleanOldLogs: async (): Promise<{ success: boolean; cleaned_files: number; freed_mb: number; message: string }> => {
+      return request('/api/system/health/clean-logs', { method: 'POST' });
+    },
+
+    getWatchdogHealth: async (): Promise<{
+      watchdog_active: boolean;
+      checked_containers: number;
+      unresponsive_count: number;
+      servers: Array<{
+        uuid: string;
+        name: string;
+        status: string;
+        node_name: string;
+        unresponsive: boolean;
+      }>;
+    }> => {
+      return request('/api/system/health/watchdog');
+    },
   },
 
   // Users Management

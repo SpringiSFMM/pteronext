@@ -148,6 +148,51 @@ export interface Translations {
   language_de: string;
   language_en: string;
 
+  // Players & Moderation
+  players_title: string;
+  players_desc: string;
+  players_active: string;
+  players_banned_section: string;
+  players_search_placeholder: string;
+  players_no_online: string;
+  players_no_bans: string;
+  players_col_target: string;
+  players_col_type: string;
+  players_col_reason: string;
+  players_col_created: string;
+  players_col_action: string;
+  players_pardon: string;
+  players_send_as: string;
+  players_chat_placeholder: string;
+  players_action_kick: string;
+  players_action_ban: string;
+  players_action_teleport: string;
+
+  // Admin Users & IAM
+  users_title: string;
+  users_desc: string;
+  users_new_user: string;
+  users_create_title: string;
+  users_create_subtitle: string;
+  users_username: string;
+  users_email: string;
+  users_password: string;
+  users_root_admin: string;
+  users_root_admin_desc: string;
+  users_create_button: string;
+  users_creating: string;
+
+  // Admin Databases & Nests
+  admin_nests_title: string;
+  admin_nests_desc: string;
+  admin_nests_new: string;
+  admin_eggs_import: string;
+  admin_eggs_new: string;
+  admin_db_title: string;
+  admin_db_desc: string;
+  admin_db_new_host: string;
+  admin_db_sync: string;
+
   // Common UI
   common_cancel: string;
   common_save: string;
@@ -155,6 +200,8 @@ export interface Translations {
   common_copied: string;
   common_search: string;
   common_status: string;
+  common_refresh: string;
+  common_operational: string;
 }
 
 export const translations: Record<Language, Translations> = {
@@ -306,6 +353,51 @@ export const translations: Record<Language, Translations> = {
     language_de: 'Deutsch (DE)',
     language_en: 'Englisch (EN)',
 
+    // Players & Moderation
+    players_title: 'Spieler & Community Dashboard',
+    players_desc: 'Echtzeit-Spielerüberwachung, Moderations-Aktionen und bidirektionales Chat-Relay.',
+    players_active: 'Aktive Spieler',
+    players_banned_section: 'Gesperrte Spieler & Netzwerk-Bans',
+    players_search_placeholder: 'Spieler suchen...',
+    players_no_online: 'Aktuell sind keine Spieler auf diesem Server online.',
+    players_no_bans: 'Keine aktiven Sperren verzeichnet. Die Ban-Liste ist leer.',
+    players_col_target: 'Ziel / Spieler',
+    players_col_type: 'Typ',
+    players_col_reason: 'Grund',
+    players_col_created: 'Erstellt',
+    players_col_action: 'Aktion',
+    players_pardon: 'Entbannen',
+    players_send_as: 'Sende als:',
+    players_chat_placeholder: 'Öffentliche Nachricht an Server senden...',
+    players_action_kick: 'Kicken',
+    players_action_ban: 'Bannen',
+    players_action_teleport: 'Teleportieren',
+
+    // Admin Users & IAM
+    users_title: 'Benutzerkonten & Zugriff',
+    users_desc: 'In der Datenbank gespeicherte Konten – erstelle Operatoren, vergib Root-Rechte oder entziehe Zugriff.',
+    users_new_user: 'Neuer Benutzer',
+    users_create_title: 'Panel-Benutzer erstellen',
+    users_create_subtitle: 'Vergib operativen oder administrativen Zugriff auf die Plattform',
+    users_username: 'Benutzername',
+    users_email: 'E-Mail-Adresse',
+    users_password: 'Initiales Passwort',
+    users_root_admin: 'Root-Administrator-Rechte vergeben (volle Systemkontrolle)',
+    users_root_admin_desc: 'Gewährt uneingeschränkten Zugriff auf alle Server und Einstellungen',
+    users_create_button: 'Benutzer erstellen',
+    users_creating: 'Wird erstellt...',
+
+    // Admin Databases & Nests
+    admin_nests_title: 'Nests & Egg-Templates',
+    admin_nests_desc: 'Verwalte Spielvorlagen, Container-Installationsskripte und PTDL-Distributionen',
+    admin_nests_new: 'Neues Nest',
+    admin_eggs_import: 'Egg importieren',
+    admin_eggs_new: 'Neues Egg / Skript',
+    admin_db_title: 'Datenbank-Verwaltung',
+    admin_db_desc: 'Verwalte relationale Datenbank-Server, Cluster-Hosts und Instanzen',
+    admin_db_new_host: 'Neuer Host',
+    admin_db_sync: 'Synchronisieren',
+
     // Common UI
     common_cancel: 'Abbrechen',
     common_save: 'Speichern',
@@ -313,6 +405,8 @@ export const translations: Record<Language, Translations> = {
     common_copied: 'Kopiert!',
     common_search: 'Suchen...',
     common_status: 'Status',
+    common_refresh: 'Aktualisieren',
+    common_operational: 'Betriebsbereit',
   },
 
   en: {
@@ -463,6 +557,51 @@ export const translations: Record<Language, Translations> = {
     language_de: 'German (DE)',
     language_en: 'English (EN)',
 
+    // Players & Moderation
+    players_title: 'Player & Community Dashboard',
+    players_desc: 'Real-time player monitoring, moderation quick-actions, and dual-way chat relay.',
+    players_active: 'Active Players',
+    players_banned_section: 'Banned Players & Network Blocks',
+    players_search_placeholder: 'Search player...',
+    players_no_online: 'No active players online right now.',
+    players_no_bans: 'No active bans recorded. The ban list is empty.',
+    players_col_target: 'Target / Player',
+    players_col_type: 'Type',
+    players_col_reason: 'Reason',
+    players_col_created: 'Created',
+    players_col_action: 'Action',
+    players_pardon: 'Pardon',
+    players_send_as: 'Send as:',
+    players_chat_placeholder: 'Send public message to server...',
+    players_action_kick: 'Kick',
+    players_action_ban: 'Ban',
+    players_action_teleport: 'Teleport',
+
+    // Admin Users & IAM
+    users_title: 'User Accounts & Access',
+    users_desc: 'Accounts stored in the panel core database – create operators, grant root privileges, or manage access.',
+    users_new_user: 'New User',
+    users_create_title: 'Create Panel User',
+    users_create_subtitle: 'Grant operational or administrative access to the platform',
+    users_username: 'Username',
+    users_email: 'Email Address',
+    users_password: 'Initial Password',
+    users_root_admin: 'Grant Root Administrator privileges (full system control)',
+    users_root_admin_desc: 'Full administrative access across all cluster nodes and instances',
+    users_create_button: 'Create User',
+    users_creating: 'Creating...',
+
+    // Admin Databases & Nests
+    admin_nests_title: 'Nests & Egg Templates',
+    admin_nests_desc: 'Manage game templates, container deploy scripts, and PTDL distributions',
+    admin_nests_new: 'New Nest',
+    admin_eggs_import: 'Import Egg',
+    admin_eggs_new: 'New Egg / Script',
+    admin_db_title: 'Database Management',
+    admin_db_desc: 'Manage relational database servers, cluster hosts, and tenant database instances',
+    admin_db_new_host: 'New Host',
+    admin_db_sync: 'Sync Databases',
+
     // Common UI
     common_cancel: 'Cancel',
     common_save: 'Save Changes',
@@ -470,5 +609,7 @@ export const translations: Record<Language, Translations> = {
     common_copied: 'Copied!',
     common_search: 'Search...',
     common_status: 'Status',
+    common_refresh: 'Refresh',
+    common_operational: 'Operational',
   },
 };

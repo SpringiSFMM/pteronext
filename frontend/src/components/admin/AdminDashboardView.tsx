@@ -22,9 +22,11 @@ import {
   EyeOff,
   CheckCircle2,
   Lock,
-  Key,
   Bot,
   Palette,
+  AlertTriangle,
+  Sparkles,
+  Trash2,
 } from 'lucide-react';
 import { COLOR_THEMES } from '../../types';
 
@@ -66,6 +68,11 @@ export const AdminDashboardView: React.FC = () => {
   const [savingCf, setSavingCf] = useState(false);
   const [cfActive, setCfActive] = useState(false);
 
+  // Watchdog & Disk Balancer Health State
+  const [storageHealth, setStorageHealth] = useState<any>(null);
+  const [watchdogInfo, setWatchdogInfo] = useState<any>(null);
+  const [isCleaningLogs, setIsCleaningLogs] = useState(false);
+
   useEffect(() => {
     const loadDiscord = async () => {
       try {
@@ -98,9 +105,49 @@ export const AdminDashboardView: React.FC = () => {
       }
     };
 
+    const loadHealthWatchdog = async () => {
+      try {
+        const [storageRes, watchdogRes] = await Promise.allSettled([
+          api.stats.getStorageHealth(),
+          api.stats.getWatchdogHealth(),
+        ]);
+        if (storageRes.status === 'fulfilled') {
+          setStorageHealth(storageRes.value);
+        }
+        if (watchdogRes.status === 'fulfilled') {
+          setWatchdogInfo(watchdogRes.value);
+        }
+      } catch (e) {
+        console.warn('Could not load health watchdog:', e);
+      }
+    };
+
     loadDiscord();
     loadCf();
+    loadHealthWatchdog();
   }, []);
+
+  const handleCleanLogs = async () => {
+    try {
+      setIsCleaningLogs(true);
+      const res = await api.stats.cleanOldLogs();
+      addToast({
+        title: language === 'de' ? 'Log-Dateien bereinigt' : 'Logs Cleaned',
+        description: res.message || `${res.cleaned_files} alte Logs gelöscht (${res.freed_mb?.toFixed(1)} MB freigegeben).`,
+        type: 'success',
+      });
+      const health = await api.stats.getStorageHealth();
+      setStorageHealth(health);
+    } catch (err: any) {
+      addToast({
+        title: language === 'de' ? 'Bereinigung fehlgeschlagen' : 'Cleaning Failed',
+        description: err.message || 'Could not clean logs',
+        type: 'error',
+      });
+    } finally {
+      setIsCleaningLogs(false);
+    }
+  };
 
   const handleSaveCf = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -246,6 +293,61 @@ export const AdminDashboardView: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Storage 90% Alert Banner & Watchdog Status */}
+      {storageHealth?.overall_status === 'warning' && (
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs font-bold font-mono uppercase tracking-wide">
+                {language === 'de' ? 'Speicher-Warnung: Node Festplatten-Limit fast erreicht (>90%)' : 'Smart Storage Alert: Host Node nearing disk capacity (>90%)'}
+              </p>
+              <p className="text-xs text-amber-300/80 mt-0.5">
+                {storageHealth.alert_message || (language === 'de' ? 'Eine oder mehrere Nodes haben über 90% Speicherauslastung.' : 'One or more host nodes have exceeded 90% allocated disk storage.')}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleCleanLogs}
+            disabled={isCleaningLogs}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 text-xs font-mono font-bold transition-all whitespace-nowrap active:scale-95 disabled:opacity-50"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>{isCleaningLogs ? (language === 'de' ? 'Bereinige...' : 'Cleaning...') : (language === 'de' ? 'Alte Logs bereinigen (>14d)' : 'Auto-Clean Logs (>14d)')}</span>
+          </button>
+        </div>
+      )}
+
+      {/* Auto-Clean Logs Bar if healthy */}
+      {storageHealth && storageHealth.overall_status !== 'warning' && (
+        <div className="p-3.5 rounded-xl bg-[#11141a] border border-[#30363d] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono">
+          <div className="flex items-center gap-2.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-400" />
+            <span className="text-slate-300 font-semibold">
+              {language === 'de' ? 'Multi-Node Disk Space Balancer & Health Watchdog:' : 'Multi-Node Disk Space Balancer & Health Watchdog:'}
+            </span>
+            <span className="text-emerald-400">
+              {storageHealth.nodes?.length || adminNodes.length} Nodes {language === 'de' ? 'geprüft' : 'monitored'}
+            </span>
+            {watchdogInfo?.unresponsive_count > 0 && (
+              <span className="text-rose-400 font-bold">
+                · {watchdogInfo.unresponsive_count} {language === 'de' ? 'Container unresponsive' : 'container(s) unresponsive'}
+              </span>
+            )}
+          </div>
+          <button
+            onClick={handleCleanLogs}
+            disabled={isCleaningLogs}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-[11px] font-mono transition-colors active:scale-95 disabled:opacity-50 self-start sm:self-auto"
+          >
+            <Trash2 className="w-3 h-3 text-slate-400" />
+            <span>{isCleaningLogs ? '...' : (language === 'de' ? 'Log-Rotation & Auto-Clean' : 'Log-Rotation & Auto-Clean')}</span>
+          </button>
+        </div>
+      )}
 
       {/* Admin Quick Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

@@ -48,9 +48,12 @@ func SetupRouter(
 	})
 
 	// Public system telemetry, changelog, and setup onboarding endpoints
-	statsCtrl := controllers.NewStatsController(statsService, wingsClient)
+	statsCtrl := controllers.NewStatsController(statsService, wingsClient, db)
 	router.GET("/api/system/stats", statsCtrl.GetSystemStats)
 	router.GET("/api/system/diagnostics", statsCtrl.GetDiagnostics)
+	router.GET("/api/system/health/storage", statsCtrl.GetStorageHealth)
+	router.POST("/api/system/health/clean-logs", statsCtrl.CleanOldLogs)
+	router.GET("/api/system/health/watchdog", statsCtrl.WatchdogHealth)
 
 	changelogCtrl := controllers.NewChangelogController()
 	router.GET("/api/system/changelog", changelogCtrl.GetChangelog)

@@ -76,7 +76,7 @@ export const Modal: React.FC<ModalProps> = ({
     >
       {/* Light-dismiss Backdrop */}
       <div
-        className="fixed inset-0 bg-black/80 backdrop-blur-md transition-opacity duration-200 animate-in fade-in"
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-200 animate-in fade-in"
         onClick={onClose}
       />
 

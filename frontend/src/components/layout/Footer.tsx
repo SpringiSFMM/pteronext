@@ -12,9 +12,9 @@ export const Footer: React.FC = () => {
       <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono text-slate-400">
         {/* Left: Author credits */}
         <div className="flex items-center gap-2">
-          <span>{language === 'de' ? 'Entwickelt von' : 'Developed by'}</span>
+          <span>{language === 'de' ? 'Entwickelt von ' : 'Developed by '}</span>
           <span className="font-bold text-white tracking-wide bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">
-            Springi-SFM
+            Springi_SFM
           </span>
           <span className="text-slate-600">·</span>
           <span className="text-slate-500">PteroNext High-Performance Architecture</span>
@@ -29,7 +29,7 @@ export const Footer: React.FC = () => {
             title="System Changelog ansehen"
           >
             <Sparkles className="w-3 h-3 text-indigo-400" />
-            <span>v2.8.0 Release</span>
+            <span>v2.8.1 Release</span>
           </button>
 
           <button

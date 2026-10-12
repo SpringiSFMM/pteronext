@@ -158,6 +158,7 @@ export const SettingsTab: React.FC = () => {
     selectedServer,
     addToast,
     setActiveView,
+    deleteServer,
     updateServerStartup,
     installMinecraftVersion,
     updateServerAdminSettings,
@@ -185,6 +186,11 @@ export const SettingsTab: React.FC = () => {
   const [dangerModalAction, setDangerModalAction] = useState<'reinstall' | 'delete' | null>(null);
   const [includePreReleases, setIncludePreReleases] = useState(false);
   const [rawApiVersions, setRawApiVersions] = useState<Record<string, string[]> | null>(null);
+
+  // Modulare Sub-Sektionen Tabs
+  const [activeSubTab, setActiveSubTab] = useState<
+    'all' | 'general' | 'sftp' | 'versions' | 'startup' | 'advanced' | 'danger'
+  >('all');
 
   // Sleep Mode / Auto-Scaler State
   const [sleepModeEnabled, setSleepModeEnabled] = useState(false);
@@ -427,7 +433,7 @@ export const SettingsTab: React.FC = () => {
     setDangerModalAction('delete');
   };
 
-  const handleConfirmDangerAction = () => {
+  const handleConfirmDangerAction = async () => {
     if (dangerModalAction === 'reinstall') {
       addToast({
         title: language === 'de' ? 'Neuinstallation eingeleitet' : 'Reinstallation Initiated',
@@ -438,24 +444,44 @@ export const SettingsTab: React.FC = () => {
         type: 'warning',
       });
     } else if (dangerModalAction === 'delete') {
-      addToast({
-        title: language === 'de' ? 'Server gelöscht' : 'Server Deletion Dispatched',
-        description:
-          language === 'de'
-            ? 'Container und Daten werden bereinigt.'
-            : 'Container removed from cluster.',
-        type: 'error',
-      });
-      setActiveView('servers');
+      setDangerModalAction(null);
+      await deleteServer(selectedServer.uuid || selectedServer.id);
+      return;
     }
     setDangerModalAction(null);
   };
 
   return (
     <div className="space-y-6 max-w-5xl">
+      {/* Sub-Section Filter / Modular Navigator */}
+      <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-[#0d1017] border border-[#30363d] overflow-x-auto custom-scrollbar">
+        {[
+          { id: 'all', label: language === 'de' ? 'Alle Optionen' : 'All Options' },
+          { id: 'general', label: language === 'de' ? 'Allgemein & Quotas' : 'General & Quotas' },
+          { id: 'sftp', label: language === 'de' ? 'SFTP & Zugangsdaten' : 'SFTP & Access' },
+          { id: 'versions', label: language === 'de' ? 'Game Versionen' : 'Game Versions' },
+          { id: 'startup', label: language === 'de' ? 'Startup & Boot' : 'Startup & Boot' },
+          { id: 'advanced', label: language === 'de' ? 'Auto-Scaler & Migration' : 'Auto-Scaler & Migration' },
+          { id: 'danger', label: language === 'de' ? 'Danger Zone' : 'Danger Zone' },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveSubTab(tab.id as any)}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-mono font-medium transition-all whitespace-nowrap ${
+              activeSubTab === tab.id
+                ? 'bg-[#1c2128] text-white border border-[#484f58] shadow-sm font-bold'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* General Settings */}
-      <div className="bg-[#11141a] rounded-2xl p-6 border border-slate-800 shadow-xl space-y-5">
-        <div className="flex items-center justify-between border-b border-slate-800/80 pb-4">
+      {(activeSubTab === 'all' || activeSubTab === 'general') && (
+        <div className="bg-[#11141a] rounded-2xl p-6 border border-slate-800 shadow-xl space-y-5 animate-in fade-in">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-4">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
               <Settings className="w-4 h-4 text-zinc-300" />
@@ -587,9 +613,11 @@ export const SettingsTab: React.FC = () => {
           </div>
         </form>
       </div>
+      )}
 
       {/* SFTP Connection Details & 1-Click Launch */}
-      <div className="bg-[#11141a] rounded-2xl p-6 border border-slate-800 shadow-xl space-y-5">
+      {(activeSubTab === 'all' || activeSubTab === 'sftp') && (
+      <div className="bg-[#11141a] rounded-2xl p-6 border border-slate-800 shadow-xl space-y-5 animate-in fade-in">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
@@ -910,9 +938,11 @@ export const SettingsTab: React.FC = () => {
           </div>
         </div>
       </div>
+      )}
 
       {/* Minecraft Version & Server Jar Installer */}
-      <div className="bg-[#11141a] rounded-2xl p-6 border border-slate-800 shadow-xl space-y-5">
+      {(activeSubTab === 'all' || activeSubTab === 'versions') && (
+      <div className="bg-[#11141a] rounded-2xl p-6 border border-slate-800 shadow-xl space-y-5 animate-in fade-in">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800/80 pb-4 gap-3">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
@@ -1036,9 +1066,11 @@ export const SettingsTab: React.FC = () => {
           </button>
         </div>
       </div>
+      )}
 
       {/* Startup Parameters & Save Command */}
-      <div className="bg-[#11141a] rounded-2xl p-6 border border-slate-800 shadow-xl space-y-5">
+      {(activeSubTab === 'all' || activeSubTab === 'startup') && (
+      <div className="bg-[#11141a] rounded-2xl p-6 border border-slate-800 shadow-xl space-y-5 animate-in fade-in">
         <div className="flex items-center justify-between border-b border-slate-800/80 pb-4">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
@@ -1093,9 +1125,13 @@ export const SettingsTab: React.FC = () => {
           </div>
         </form>
       </div>
+      )}
 
+      {/* Advanced Tools: Server Resource Auto-Scaler & Multi-Node Live-Migration */}
+      {(activeSubTab === 'all' || activeSubTab === 'advanced') && (
+      <>
       {/* Server Resource Auto-Scaler / Sleep Mode */}
-      <div className="bg-[#11141a] rounded-2xl p-6 border border-slate-800 shadow-xl space-y-4">
+      <div className="bg-[#11141a] rounded-2xl p-6 border border-slate-800 shadow-xl space-y-4 animate-in fade-in">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
@@ -1329,9 +1365,12 @@ export const SettingsTab: React.FC = () => {
           </div>
         </div>
       </div>
+      </>
+      )}
 
       {/* Danger Zone */}
-      <div className="rounded-2xl p-6 border border-rose-500/20 bg-rose-500/[0.03] space-y-4">
+      {(activeSubTab === 'all' || activeSubTab === 'danger') && (
+      <div className="rounded-2xl p-6 border border-rose-500/20 bg-rose-500/[0.03] space-y-4 animate-in fade-in">
         <div className="flex items-center gap-2 text-rose-400 font-mono text-sm font-bold uppercase">
           <AlertTriangle className="w-4 h-4" />
           <span>Danger Zone // Destructive Actions</span>
@@ -1370,6 +1409,7 @@ export const SettingsTab: React.FC = () => {
           </button>
         </div>
       </div>
+      )}
 
       {/* Cyber-Glass Confirmation Modal for Reinstall/Delete */}
       <DeleteConfirmModal

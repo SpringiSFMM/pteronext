@@ -589,23 +589,8 @@ func (p *PlayerController) GetBans(c *gin.Context) {
 		bans = append(bans, ipList...)
 	}
 
-	if len(bans) == 0 {
-		bans = []BanInfo{
-			{
-				Name:    "Griefer99",
-				Source:  "Console",
-				Expires: "forever",
-				Reason:  "Automated grief detection",
-				Created: time.Now().Add(-24 * time.Hour).Format(time.RFC3339),
-			},
-			{
-				IP:      "192.0.2.14",
-				Source:  "Admin",
-				Expires: "forever",
-				Reason:  "Port scanning exploit attempt",
-				Created: time.Now().Add(-48 * time.Hour).Format(time.RFC3339),
-			},
-		}
+	if bans == nil {
+		bans = []BanInfo{}
 	}
 
 	c.JSON(http.StatusOK, gin.H{"data": bans})

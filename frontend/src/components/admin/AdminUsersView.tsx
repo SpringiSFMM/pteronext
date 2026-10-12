@@ -7,7 +7,7 @@ import { DeleteConfirmModal } from '../common/DeleteConfirmModal';
 
 export const AdminUsersView: React.FC = () => {
   const { adminUsers, adminLoading, createAdminUser, deleteAdminUser } = useApp();
-  const { language } = useTranslation();
+  const { t, language } = useTranslation();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deleteTargetUser, setDeleteTargetUser] = useState<any | null>(null);
@@ -52,10 +52,9 @@ export const AdminUsersView: React.FC = () => {
     <div className="space-y-6 view-enter">
       <div className="page-header">
         <div>
-          <h1 className="page-title">User Accounts & Access</h1>
+          <h1 className="page-title">{t('users_title')}</h1>
           <p className="page-subtitle">
-            Accounts stored in the panel core database – create operators, grant root privileges
-            or remove access.
+            {t('users_desc')}
           </p>
         </div>
 
@@ -64,7 +63,7 @@ export const AdminUsersView: React.FC = () => {
           className="btn btn-primary self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
-          <span>New User</span>
+          <span>{t('users_new_user')}</span>
         </button>
       </div>
 
@@ -178,8 +177,8 @@ export const AdminUsersView: React.FC = () => {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title="Create Panel User"
-        subtitle="Grant operational or administrative access to the platform"
+        title={t('users_create_title')}
+        subtitle={t('users_create_subtitle')}
         icon={<UserPlus className="w-4 h-4 text-emerald-400" />}
         badge="IAM ACCOUNT"
         badgeColor="emerald"
@@ -188,7 +187,7 @@ export const AdminUsersView: React.FC = () => {
         <form onSubmit={handleCreate} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="field-label">Username</label>
+              <label className="field-label">{t('users_username')}</label>
               <input
                 type="text"
                 required
@@ -199,7 +198,7 @@ export const AdminUsersView: React.FC = () => {
               />
             </div>
             <div>
-              <label className="field-label">Email Address</label>
+              <label className="field-label">{t('users_email')}</label>
               <input
                 type="email"
                 required
@@ -212,12 +211,12 @@ export const AdminUsersView: React.FC = () => {
           </div>
 
           <div>
-            <label className="field-label">Initial Password</label>
+            <label className="field-label">{t('users_password')}</label>
             <input
               type="text"
               required
               minLength={8}
-              placeholder="Minimum 8 characters"
+              placeholder={language === 'de' ? 'Mindestens 8 Zeichen' : 'Minimum 8 characters'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="input font-mono"
@@ -232,16 +231,16 @@ export const AdminUsersView: React.FC = () => {
               className="rounded bg-[#0d1117] border border-[#30363d] text-emerald-500"
             />
             <span className="text-xs text-slate-300">
-              Grant Root Administrator privileges (full system control)
+              {t('users_root_admin')}
             </span>
           </label>
 
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#30363d]">
             <button type="button" className="btn btn-ghost" onClick={() => setIsModalOpen(false)}>
-              Cancel
+              {t('common_cancel')}
             </button>
             <button type="submit" className="btn btn-primary" disabled={isCreating}>
-              {isCreating ? 'Creating…' : 'Create User'}
+              {isCreating ? t('users_creating') : t('users_create_button')}
             </button>
           </div>
         </form>
