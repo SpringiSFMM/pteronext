@@ -181,10 +181,19 @@ export const PluginStoreTab: React.FC = () => {
         const encodedLoaders = encodeURIComponent(
           JSON.stringify(['paper', 'spigot', 'purpur', 'bukkit'])
         );
+        const encodedVersions = encodeURIComponent(
+          JSON.stringify(['1.21.4', '1.21.3', '1.21.1', '1.21', '1.20.4'])
+        );
         let verRes = await fetch(
-          `https://api.modrinth.com/v2/project/${plugin.project_id}/version?loaders=${encodedLoaders}`,
+          `https://api.modrinth.com/v2/project/${plugin.project_id}/version?loaders=${encodedLoaders}&game_versions=${encodedVersions}`,
           { headers: { 'User-Agent': 'PteroNext-Panel/1.0' } }
         );
+        if (!verRes.ok) {
+          verRes = await fetch(
+            `https://api.modrinth.com/v2/project/${plugin.project_id}/version?loaders=${encodedLoaders}`,
+            { headers: { 'User-Agent': 'PteroNext-Panel/1.0' } }
+          );
+        }
         if (!verRes.ok) {
           verRes = await fetch(
             `https://api.modrinth.com/v2/project/${plugin.project_id}/version`,

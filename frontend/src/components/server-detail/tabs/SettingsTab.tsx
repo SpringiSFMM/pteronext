@@ -25,6 +25,8 @@ import {
   Trash2,
   Clock,
   Plus,
+  ChevronDown,
+  Sliders,
 } from 'lucide-react';
 import { api } from '../../../api/client';
 import { DeleteConfirmModal } from '../../common/DeleteConfirmModal';
@@ -453,29 +455,46 @@ export const SettingsTab: React.FC = () => {
 
   return (
     <div className="space-y-6 max-w-5xl">
-      {/* Sub-Section Filter / Modular Navigator */}
-      <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-[#0d1017] border border-[#30363d] overflow-x-auto custom-scrollbar">
-        {[
-          { id: 'all', label: language === 'de' ? 'Alle Optionen' : 'All Options' },
-          { id: 'general', label: language === 'de' ? 'Allgemein & Quotas' : 'General & Quotas' },
-          { id: 'sftp', label: language === 'de' ? 'SFTP & Zugangsdaten' : 'SFTP & Access' },
-          { id: 'versions', label: language === 'de' ? 'Game Versionen' : 'Game Versions' },
-          { id: 'startup', label: language === 'de' ? 'Startup & Boot' : 'Startup & Boot' },
-          { id: 'advanced', label: language === 'de' ? 'Auto-Scaler & Migration' : 'Auto-Scaler & Migration' },
-          { id: 'danger', label: language === 'de' ? 'Danger Zone' : 'Danger Zone' },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveSubTab(tab.id as any)}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-mono font-medium transition-all whitespace-nowrap ${
-              activeSubTab === tab.id
-                ? 'bg-[#1c2128] text-white border border-[#484f58] shadow-sm font-bold'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* Elegant Settings Sub-Section Dropdown Selector */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-[#11141a] border border-[#30363d] shadow-lg">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
+            <Sliders className="w-4 h-4 text-[var(--theme-accent,#e5a93c)]" />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-white font-sans">
+              {language === 'de' ? 'Server-Einstellungen & Module' : 'Server Settings & Modules'}
+            </h2>
+            <p className="text-xs text-slate-400 font-mono">
+              {language === 'de' ? 'Wähle einen Bereich zur schnellen Konfiguration' : 'Select a category for targeted configuration'}
+            </p>
+          </div>
+        </div>
+
+        <div className="relative w-full sm:w-64">
+          <div className="relative">
+            <select
+              value={activeSubTab}
+              onChange={(e) => setActiveSubTab(e.target.value as any)}
+              className="w-full appearance-none bg-[#0d1117] hover:bg-[#161b22] border border-[#30363d] focus:border-[var(--theme-accent)] rounded-xl px-4 py-2.5 pr-10 text-xs font-mono text-white focus:outline-none transition-all cursor-pointer shadow-sm"
+            >
+              {[
+                { id: 'all', label: language === 'de' ? '📋 Alle Optionen anzeigen' : '📋 All Options' },
+                { id: 'general', label: language === 'de' ? '⚙️ Allgemein & Quotas' : '⚙️ General & Quotas' },
+                { id: 'sftp', label: language === 'de' ? '🔑 SFTP & Zugangsdaten' : '🔑 SFTP & Access' },
+                { id: 'versions', label: language === 'de' ? '📦 Game Versionen (Paper/Purpur)' : '📦 Game Versions' },
+                { id: 'startup', label: language === 'de' ? '🚀 Startup & Boot-Befehle' : '🚀 Startup & Boot' },
+                { id: 'advanced', label: language === 'de' ? '⚡ Auto-Scaler & Live-Migration' : '⚡ Auto-Scaler & Migration' },
+                { id: 'danger', label: language === 'de' ? '⚠️ Danger Zone (Löschen/Reset)' : '⚠️ Danger Zone' },
+              ].map((opt) => (
+                <option key={opt.id} value={opt.id} className="bg-[#161b22] text-white py-1">
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+        </div>
       </div>
 
       {/* General Settings */}

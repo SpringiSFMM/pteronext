@@ -170,6 +170,12 @@ func SetupRouter(
 			serverAccess.POST("/databases", dbCtrl.CreateDatabase)
 			serverAccess.DELETE("/databases/:id", dbCtrl.DeleteDatabase)
 
+			// Subusers (Granular Staff & Team Access)
+			subuserCtrl := controllers.NewSubuserController(db)
+			serverAccess.GET("/subusers", subuserCtrl.ListSubusers)
+			serverAccess.POST("/subusers", subuserCtrl.CreateSubuser)
+			serverAccess.DELETE("/subusers/:id", subuserCtrl.DeleteSubuser)
+
 			// Files (Filesystem persistence on node)
 			fileCtrl := controllers.NewFileController(fileService, db)
 			serverAccess.GET("/files/list", fileCtrl.ListFiles)

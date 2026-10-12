@@ -45,7 +45,7 @@ const GLOBAL_SECTIONS = [
       { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, hint: '⌘1' },
       { id: 'servers', label: 'Servers', icon: ServerIcon, hint: '' },
       { id: 'activity', label: 'Activity / Audit', icon: Activity, hint: '' },
-      { id: 'changelog', label: 'Changelog & Updates', icon: Sparkles, hint: 'v2.6' },
+      { id: 'changelog', label: 'Changelog & Updates', icon: Sparkles, hint: 'v2.8.4' },
     ],
   },
   {
@@ -363,7 +363,7 @@ export const Sidebar: React.FC = () => {
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500 font-mono leading-none mt-0.5">
-                  Control Panel v2.6
+                  Control Panel v2.8.4
                 </p>
               </div>
             </div>
@@ -531,7 +531,12 @@ export const Sidebar: React.FC = () => {
         ) : (
           /* Global navigation – grouped & smooth collapsible accordions */
           <div className="space-y-3">
-            {GLOBAL_SECTIONS.map((section) => {
+            {GLOBAL_SECTIONS.filter((section) => {
+              if (section.id === 'admin') {
+                return currentUser.role === 'root_admin' || !!currentUser.rootAdmin;
+              }
+              return true;
+            }).map((section) => {
               const isCollapsed = collapsedCategories[section.id] ?? false;
 
               if (isSidebarCollapsed) {

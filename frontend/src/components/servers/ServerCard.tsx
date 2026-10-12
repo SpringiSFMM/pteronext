@@ -48,23 +48,21 @@ export const ServerCard: React.FC<ServerCardProps> = ({ server }) => {
   return (
     <div
       onClick={() => selectServerAndNavigate(server, 'console')}
-      className={`group relative rounded-2xl p-5 transition-all duration-200 flex flex-col justify-between cursor-pointer glass-panel glass-card-interactive shadow-lg ${
+      className={`group relative rounded-2xl p-5 transition-all duration-200 flex flex-col justify-between cursor-pointer glass-panel glass-card-interactive shadow-lg hover:border-[var(--theme-accent)] hover:shadow-[0_0_24px_var(--theme-accent-glow)] ${
         isRunning
-          ? 'hover:border-emerald-500/40 hover:shadow-emerald-500/10'
+          ? 'border-emerald-500/30'
           : isStarting
-          ? 'hover:border-amber-500/40 hover:shadow-amber-500/10'
-          : 'hover:border-slate-700'
+          ? 'border-amber-500/30'
+          : 'border-[#30363d]'
       }`}
     >
-      {/* Top Ambient State Glow Line */}
+      {/* Top Ambient State & Theme Glow Line */}
       <div
-        className={`absolute top-0 left-0 right-0 h-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${
-          isRunning
-            ? 'bg-gradient-to-r from-transparent via-emerald-500/60 to-transparent'
-            : isStarting
-            ? 'bg-gradient-to-r from-transparent via-amber-500/60 to-transparent'
-            : 'bg-gradient-to-r from-transparent via-slate-600/60 to-transparent'
-        }`}
+        className="absolute top-0 left-0 right-0 h-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+        style={{
+          background: 'linear-gradient(90deg, transparent, var(--theme-accent), transparent)',
+          boxShadow: '0 0 12px var(--theme-accent-glow)',
+        }}
       />
 
       {/* Top Header: Title, Egg, Status Badge */}

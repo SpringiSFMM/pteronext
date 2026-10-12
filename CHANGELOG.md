@@ -2,6 +2,15 @@
 This file is a running track of new features and fixes to each version of the panel released starting with `v0.4.0`.
 
 This project follows [Semantic Versioning](http://semver.org) guidelines.
+## v2.8.4
+### Added
+* **Dynamic Theme Glow & Accents**: Added theme-aware ambient accent glow lines and border highlights to server cards that react to the active panel theme.
+* **Release Synchronizer**: Aligned global control panel, sidebar, footer, and navbar version counters to v2.8.4.
+
+### Fixed
+* **Authentication Hardening**: Sanitized default mock credentials in client context, ensuring strict session verification without fallback account leaks.
+* **Changelog API Version Contract**: Updated `ChangelogController` to include `current_version` in response payload, ensuring full contract compatibility with `ChangelogModal`.
+* **System Updater Tag Tracking**: Synchronized internal target release version in `SystemUpdateController` to v2.8.4.
 
 ## v2.8.3
 ### Fixed

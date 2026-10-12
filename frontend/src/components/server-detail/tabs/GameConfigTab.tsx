@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../../context/AppContext';
 import {
   Sliders,
@@ -47,6 +47,68 @@ export const GameConfigTab: React.FC = () => {
   const [forceGamemode, setForceGamemode] = useState(false);
 
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingConfig, setIsLoadingConfig] = useState(false);
+
+  // Load and parse real server.properties on mount or server switch
+  useEffect(() => {
+    if (!selectedServer?.uuid) return;
+    let isMounted = true;
+    setIsLoadingConfig(true);
+
+    const loadProperties = async () => {
+      try {
+        const res = await api.files.getContent(selectedServer.uuid, 'server.properties');
+        const text = typeof res === 'string' ? res : (res as any)?.content;
+        if (!text || !isMounted) return;
+
+        const lines = text.split(/\r?\n/);
+        const props: Record<string, string> = {};
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('!')) continue;
+          const eqIdx = trimmed.indexOf('=');
+          if (eqIdx !== -1) {
+            props[trimmed.slice(0, eqIdx).trim()] = trimmed.slice(eqIdx + 1).trim();
+          }
+        }
+
+        if (props['motd'] !== undefined) setMotd(props['motd']);
+        if (props['max-players'] !== undefined) {
+          const val = parseInt(props['max-players'], 10);
+          if (!isNaN(val)) setMaxPlayers(val);
+        }
+        if (props['difficulty'] !== undefined) setDifficulty(props['difficulty']);
+        if (props['gamemode'] !== undefined) setGamemode(props['gamemode']);
+        if (props['pvp'] !== undefined) setPvp(props['pvp'].toLowerCase() === 'true');
+        if (props['online-mode'] !== undefined) setOnlineMode(props['online-mode'].toLowerCase() === 'true');
+        if (props['white-list'] !== undefined) setWhiteList(props['white-list'].toLowerCase() === 'true');
+        if (props['allow-flight'] !== undefined) setAllowFlight(props['allow-flight'].toLowerCase() === 'true');
+        if (props['view-distance'] !== undefined) {
+          const val = parseInt(props['view-distance'], 10);
+          if (!isNaN(val)) setViewDistance(val);
+        }
+        if (props['simulation-distance'] !== undefined) {
+          const val = parseInt(props['simulation-distance'], 10);
+          if (!isNaN(val)) setSimulationDistance(val);
+        }
+        if (props['spawn-protection'] !== undefined) {
+          const val = parseInt(props['spawn-protection'], 10);
+          if (!isNaN(val)) setSpawnProtection(val);
+        }
+        if (props['hardcore'] !== undefined) setHardcore(props['hardcore'].toLowerCase() === 'true');
+        if (props['force-gamemode'] !== undefined) setForceGamemode(props['force-gamemode'].toLowerCase() === 'true');
+      } catch (err) {
+        console.warn('Failed to load server.properties, keeping defaults:', err);
+      } finally {
+        if (isMounted) setIsLoadingConfig(false);
+      }
+    };
+
+    loadProperties();
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedServer?.uuid]);
 
   // Generate server.properties text
   const generateProperties = () => {

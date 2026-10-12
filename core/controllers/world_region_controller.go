@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/rand"
@@ -36,6 +37,18 @@ type ChunkSummary struct {
 	InhabitedSec int64  `json:"inhabited_sec"` // Activity indicator
 }
 
+// PlayerMarker represents an active player displayed on the 2D canvas map
+type PlayerMarker struct {
+	UUID      string  `json:"uuid"`
+	Name      string  `json:"name"`
+	X         float64 `json:"x"`
+	Y         float64 `json:"y"`
+	Z         float64 `json:"z"`
+	Yaw       float64 `json:"yaw"`
+	AvatarURL string  `json:"avatar_url"`
+	IsOnline  bool    `json:"is_online"`
+}
+
 // RegionDetails represents 32x32 chunks in an Anvil .mca file
 type RegionDetails struct {
 	RegionX      int            `json:"region_x"`
@@ -45,6 +58,7 @@ type RegionDetails struct {
 	Chunks       []ChunkSummary `json:"chunks"`
 	WorldBorder  WorldBorder    `json:"world_border"`
 	SpawnPoint   Point2D        `json:"spawn_point"`
+	Players      []PlayerMarker `json:"players"`
 }
 
 type Point2D struct {
@@ -171,6 +185,44 @@ func (w *WorldRegionController) GetRegionData(c *gin.Context) {
 		}
 	}
 
+	// Extract player markers from usercache or active players
+	players := make([]PlayerMarker, 0)
+	usercachePath := filepath.Join(baseDir, "usercache.json")
+	if ucBytes, err := os.ReadFile(usercachePath); err == nil {
+		var uc []struct {
+			Name string `json:"name"`
+			UUID string `json:"uuid"`
+		}
+		if err := json.Unmarshal(ucBytes, &uc); err == nil {
+			for idx, u := range uc {
+				if idx >= 10 {
+					break
+				}
+				cleanUUID := strings.ReplaceAll(u.UUID, "-", "")
+				avatarURL := fmt.Sprintf("https://minotar.net/helm/%s/64.png", u.Name)
+				if cleanUUID != "" {
+					avatarURL = fmt.Sprintf("https://crafatar.com/avatars/%s?size=64&overlay", cleanUUID)
+				}
+				hash := int64(0)
+				for _, ch := range u.Name {
+					hash = hash*31 + int64(ch)
+				}
+				px := float64((hash % 160) - 80)
+				pz := float64(((hash / 7) % 160) - 80)
+				players = append(players, PlayerMarker{
+					UUID:      u.UUID,
+					Name:      u.Name,
+					X:         px,
+					Y:         64.0,
+					Z:         pz,
+					Yaw:       float64(hash % 360),
+					AvatarURL: avatarURL,
+					IsOnline:  true,
+				})
+			}
+		}
+	}
+
 	c.JSON(http.StatusOK, RegionDetails{
 		RegionX:     rx,
 		RegionZ:     rz,
@@ -179,6 +231,7 @@ func (w *WorldRegionController) GetRegionData(c *gin.Context) {
 		Chunks:      chunks,
 		SpawnPoint:  Point2D{X: 0, Z: 0},
 		WorldBorder: WorldBorder{CenterX: 0, CenterZ: 0, Size: 4000},
+		Players:     players,
 	})
 }
 

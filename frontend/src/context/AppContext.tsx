@@ -46,6 +46,7 @@ export interface CurrentUser {
   id?: number;
   username: string;
   role: 'root_admin' | 'admin' | 'user';
+  rootAdmin?: boolean;
   email: string;
   avatar: string;
 }
@@ -812,10 +813,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [currentUser, setCurrentUser] = useState<CurrentUser>({
-    username: 'admin',
-    role: 'root_admin',
-    email: 'admin@pteronext.internal',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+    username: '',
+    role: 'user',
+    email: '',
+    avatar: '',
   });
 
   const [clusterMetrics, setClusterMetrics] = useState<ClusterMetrics>({
@@ -1131,8 +1132,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (res.user) {
             const u = res.user as any;
             setCurrentUser({
+              id: u.id,
               username: u.username,
               role: u.root_admin ? 'root_admin' : 'user',
+              rootAdmin: !!u.root_admin,
               email: u.email,
               avatar: u.avatar_url || u.avatar || initialsAvatar(u.username),
             });
@@ -1203,8 +1206,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (isMounted && meRes?.user) {
           const u = meRes.user as any;
           setCurrentUser({
+            id: u.id,
             username: u.username,
             role: u.root_admin ? 'root_admin' : 'user',
+            rootAdmin: !!u.root_admin,
             email: u.email,
             avatar: u.avatar_url || u.avatar || initialsAvatar(u.username),
           });
@@ -1337,6 +1342,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     const serverUuid = selectedServer.uuid;
     let isCurrent = true;
+
+    // Reset console logs when switching servers to prevent cross-server log leakage
+    setTerminalLogs([]);
 
     async function loadServerContext() {
       // 1. Load real files from backend node filesystem
@@ -1886,9 +1894,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     setFiles((prev) => {
-      const updated = prev.filter(
-        (f) => f.path !== path && (!isDir || !f.path.startsWith(path + '/'))
-      );
+      const cleanPath = path.replace(/\/+$/, '');
+      const updated = prev.filter((f) => {
+        const itemClean = f.path.replace(/\/+$/, '');
+        if (itemClean === cleanPath) return false;
+        if (isDir && itemClean.startsWith(cleanPath + '/')) return false;
+        return true;
+      });
       if (selectedServer?.uuid) {
         saveFilesForServer(selectedServer.uuid, updated);
       }
@@ -2562,6 +2574,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const createdUuid = res?.server?.uuid;
       await refreshServers();
       if (createdUuid) {
+        setTerminalLogs([]);
         localStorage.setItem('pteronext_selected_server', createdUuid);
         localStorage.setItem('pteronext_active_view', 'server-detail');
         setActiveViewState('server-detail');
@@ -2691,17 +2704,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteServer = async (serverId: string): Promise<boolean> => {
     try {
       const target = servers.find((s) => s.id === serverId || s.uuid === serverId);
-      if (target?.uuid) {
+      const targetUuid = target?.uuid || serverId;
+      if (targetUuid) {
         try {
-          await api.servers.delete(target.uuid);
+          await api.servers.delete(targetUuid);
         } catch (apiErr) {
           console.warn('Backend server delete failed:', apiErr);
         }
+        try {
+          localStorage.removeItem(`pteronext_files_${targetUuid}`);
+          if (localStorage.getItem('pteronext_selected_server') === targetUuid) {
+            localStorage.removeItem('pteronext_selected_server');
+          }
+        } catch {}
       }
 
+      setTerminalLogs([]);
       setServers((prev) => {
-        const remaining = prev.filter((s) => s.id !== serverId && s.uuid !== serverId);
-        if (selectedServer && (selectedServer.id === serverId || selectedServer.uuid === serverId)) {
+        const remaining = prev.filter((s) => s.id !== serverId && s.uuid !== serverId && s.uuid !== targetUuid);
+        if (selectedServer && (selectedServer.id === serverId || selectedServer.uuid === serverId || selectedServer.uuid === targetUuid)) {
           setSelectedServer(remaining.length > 0 ? remaining[0] : null);
         }
         return remaining;

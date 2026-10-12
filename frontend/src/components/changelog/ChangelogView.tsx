@@ -12,6 +12,8 @@ import {
   Search,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   GitBranch,
   ArrowUpRight,
   Download,
@@ -61,6 +63,10 @@ export const ChangelogView: React.FC = () => {
     'v2.7.0': false,
     'v2.6.0': false,
   });
+
+  // Multi-Page Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 4;
 
   // GitHub Update State
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
@@ -438,6 +444,11 @@ export const ChangelogView: React.FC = () => {
     return titleMatch || versionMatch || featuresMatch || securityMatch || improvementMatch;
   });
 
+  const totalPages = Math.max(1, Math.ceil(filteredReleases.length / pageSize));
+  const validCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (validCurrentPage - 1) * pageSize;
+  const paginatedReleases = filteredReleases.slice(startIndex, startIndex + pageSize);
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Header Banner */}
@@ -517,28 +528,10 @@ export const ChangelogView: React.FC = () => {
           <button
             onClick={() => checkForUpdates(true)}
             disabled={checkingUpdate}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#161b22] hover:bg-[#21262d] border border-slate-700 text-xs font-mono text-slate-300 hover:text-white transition-colors"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#161b22] hover:bg-[#21262d] border border-slate-700 hover:border-slate-500 text-xs font-mono text-slate-200 hover:text-white transition-all shadow-sm"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${checkingUpdate ? 'animate-spin' : ''}`} />
-            <span>{language === 'de' ? 'Prüfen' : 'Check'}</span>
-          </button>
-
-          <button
-            onClick={handle1ClickInstall}
-            disabled={installingUpdate}
-            className="btn btn-primary px-3.5 py-2 text-xs font-bold font-mono transition-all shadow-md active:scale-95 flex items-center gap-1.5"
-          >
-            {installingUpdate ? (
-              <>
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                <span>{language === 'de' ? 'Installiere...' : 'Installing...'}</span>
-              </>
-            ) : (
-              <>
-                <Download className="w-3.5 h-3.5" />
-                <span>{language === 'de' ? '1-Klick Update' : '1-Click Update'}</span>
-              </>
-            )}
+            <RefreshCw className={`w-3.5 h-3.5 ${checkingUpdate ? 'animate-spin text-indigo-400' : ''}`} />
+            <span>{language === 'de' ? 'Auf Updates prüfen' : 'Check for Updates'}</span>
           </button>
         </div>
       </div>
@@ -578,7 +571,7 @@ export const ChangelogView: React.FC = () => {
 
       {/* Release Timeline (Collapsible Accordions) */}
       <div className="space-y-4">
-        {filteredReleases.map((release) => {
+        {paginatedReleases.map((release) => {
           const isExpanded = expandedReleases[release.version] ?? (release.version === 'v2.7.3');
           const featureItems =
             release.features && release.features.length > 0
@@ -739,6 +732,51 @@ export const ChangelogView: React.FC = () => {
           );
         })}
       </div>
+
+      {/* Multi-Page Pagination Bar */}
+      {totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 rounded-2xl bg-[#11141a] border border-[#30363d] shadow-lg">
+          <div className="text-xs font-mono text-slate-400">
+            {language === 'de'
+              ? `Zeige Seite ${validCurrentPage} von ${totalPages} (${filteredReleases.length} Versionen gesamt)`
+              : `Showing page ${validCurrentPage} of ${totalPages} (${filteredReleases.length} releases total)`}
+          </div>
+
+          <div className="flex items-center gap-1.5 font-mono text-xs">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={validCurrentPage <= 1}
+              className="p-2 rounded-xl bg-[#0d1117] hover:bg-[#161b22] border border-[#30363d] text-slate-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              title="Vorherige Seite"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+              <button
+                key={pageNum}
+                onClick={() => setCurrentPage(pageNum)}
+                className={`w-8 h-8 rounded-xl font-bold transition-all ${
+                  validCurrentPage === pageNum
+                    ? 'bg-[var(--theme-accent,#e5a93c)] text-slate-950 shadow-md font-extrabold'
+                    : 'bg-[#0d1117] hover:bg-[#161b22] border border-[#30363d] text-slate-300 hover:text-white'
+                }`}
+              >
+                {pageNum}
+              </button>
+            ))}
+
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={validCurrentPage >= totalPages}
+              className="p-2 rounded-xl bg-[#0d1117] hover:bg-[#161b22] border border-[#30363d] text-slate-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              title="Nächste Seite"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

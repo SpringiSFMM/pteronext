@@ -38,15 +38,46 @@ func (ch *ChangelogController) GetChangelog(c *gin.Context) {
 
 	rawReleases := []ReleaseItem{
 		{
+			Version:       "v2.8.4",
+			Date:          "October 2026",
+			Title:         "Dynamisches Theme-Glow, Authentifizierungs-Härtung & System-Synchronisation",
+			TitleEN:       "Dynamic Theme Glow, Authentication Hardening & System Synchronization",
+			Description:   "Stabilitäts- und UI-Feinschliff-Update: Führt dynamische themenspezifische Akzente und Glow-Effekte für Server-Karten ein, bereinigt Authentifizierungs-Standardwerte für maximale Sicherheit und synchronisiert API-Versions-Endpunkte nahtlos.",
+			DescriptionEN: "Stability and UI enhancement update: Introduces dynamic theme-aware accent and glow effects on server cards, cleans authentication defaults for maximum security, and synchronizes system API version endpoints seamlessly.",
+			Tag:           "LATEST STABLE",
+			TagEN:         "LATEST STABLE",
+			IsLatest:      true,
+			Highlights: []string{
+				"Dynamisches Theme-Glow: Reaktive Akzentlinien und Ambient-Glow auf Server-Karten angepasst an Panel-Themes",
+				"Authentifizierungs-Härtung: Bereinigung von Mock-Benutzerwerten und strikte Session-Validierung",
+				"Changelog- & Update-Sync: Nahtlose Bereitstellung der Systemversions-Informationen an Frontend-Komponenten",
+				"Optimierte Build-Pipeline: Schnelle statische Verifikation und Single-Binary-Bereitstellung",
+			},
+			HighlightsEN: []string{
+				"Dynamic Theme Glow: Reactive accent lines and ambient glow on server cards adhering to active panel theme",
+				"Authentication Hardening: Sanitized mock user credentials and strict session validation",
+				"Changelog & Update Sync: Seamless propagation of system version metadata to frontend components",
+				"Optimized Build Pipeline: High-speed static verification and single-binary packaging",
+			},
+			Features: []string{
+				"Dynamische Theme-Border und Accent-Farben auf Server-Karten",
+				"Bereinigte AppContext-Initialisierung ohne statische Mock-Accounts",
+			},
+			FeaturesEN: []string{
+				"Dynamic theme border and accent glow effects on server cards",
+				"Sanitized AppContext initialization removing static mock accounts",
+			},
+		},
+		{
 			Version:       "v2.8.3",
 			Date:          "October 2026",
 			Title:         "Dauerhafte Datei-Löschung & Reseed-Schutz bei Seiten-Reload",
 			TitleEN:       "Permanent File Deletion & Reload Persistence Safeguard",
 			Description:   "Kritisches Stabilitäts-Update für das Dateisystem: Verhindert zuverlässig, dass gelöschte Dateien nach einem Seiten- oder Hard-Reload im Panel wieder auftauchen. Beinhaltet die Entfernung automatischer Reseed-Vorgänge im Backend via Initialisierungs-Marker, Bereinigung von Frontend-Mock-Fallbacks, asynchrone Lösch-Bestätigung und sofortige Verzeichnis-Aktualisierung.",
 			DescriptionEN: "Critical filesystem stability update: permanently prevents deleted files or folders from reappearing after page or hard reloads. Introduces one-time setup initialization markers in the backend, eliminates legacy frontend mock file fallbacks, and guarantees synchronous node storage deletion with instant directory refreshing.",
-			Tag:           "LATEST STABLE",
-			TagEN:         "LATEST STABLE",
-			IsLatest:      true,
+			Tag:           "STABLE",
+			TagEN:         "STABLE",
+			IsLatest:      false,
 			Highlights: []string{
 				"Dauerhaftes Löschen: Gelöschte Dateien und Ordner bleiben auch nach Reload und Hard Reload permanent gelöscht",
 				"Backend Reseed-Schutz: Kein automatisches Neuerstellen von Standarddateien mehr dank .pteronext_initialized Marker",
@@ -576,5 +607,13 @@ func (ch *ChangelogController) GetChangelog(c *gin.Context) {
 		releases[i] = item
 	}
 
-	c.JSON(http.StatusOK, gin.H{"releases": releases})
+	currentVer := "v2.8.4"
+	if len(releases) > 0 && releases[0].Version != "" {
+		currentVer = releases[0].Version
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"current_version": currentVer,
+		"releases":        releases,
+	})
 }

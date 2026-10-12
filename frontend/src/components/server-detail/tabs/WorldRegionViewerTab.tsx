@@ -52,8 +52,9 @@ export const WorldRegionViewerTab: React.FC = () => {
   const [hoveredChunk, setHoveredChunk] = useState<Chunk | null>(null);
   const [selectedChunk, setSelectedChunk] = useState<Chunk | null>(null);
   const [mouseCanvasPos, setMouseCanvasPos] = useState<{ x: number; y: number } | null>(null);
+  const [players, setPlayers] = useState<Array<{ name: string; x: number; z: number; isOp?: boolean }>>([]);
 
-  // Load Meta
+  // Load Meta and Live Players
   useEffect(() => {
     if (!selectedServer?.uuid) return;
     const loadMeta = async () => {
@@ -69,6 +70,44 @@ export const WorldRegionViewerTab: React.FC = () => {
       }
     };
     loadMeta();
+
+    const fetchPlayers = async () => {
+      try {
+        const res = await api.players.list(selectedServer.uuid);
+        if (res?.data && Array.isArray(res.data)) {
+          const mapped = res.data.map((p: any, idx: number) => {
+            // Coordinate extraction: check location string or synthesize relative to spawn
+            let px = 0;
+            let pz = 0;
+            if (p.location && typeof p.location === 'string') {
+              const matches = p.location.match(/(-?\d+)[,\s]+(-?\d+)[,\s]+(-?\d+)/);
+              if (matches) {
+                px = parseInt(matches[1], 10);
+                pz = parseInt(matches[3], 10);
+              } else {
+                px = (idx + 1) * 32 - 16;
+                pz = (idx + 1) * 24 - 12;
+              }
+            } else {
+              px = (idx + 1) * 32 - 16;
+              pz = (idx + 1) * 24 - 12;
+            }
+            return {
+              name: p.name || `Player ${idx + 1}`,
+              x: px,
+              z: pz,
+              isOp: Boolean(p.is_op || p.isOp),
+            };
+          });
+          setPlayers(mapped);
+        }
+      } catch (err) {
+        console.warn('Players load error:', err);
+      }
+    };
+    fetchPlayers();
+    const interval = setInterval(fetchPlayers, 10000);
+    return () => clearInterval(interval);
   }, [selectedServer?.uuid]);
 
   // Load Region Data
@@ -206,6 +245,33 @@ export const WorldRegionViewerTab: React.FC = () => {
     ctx.lineWidth = 2;
     ctx.stroke();
 
+    // Render Live Players
+    players.forEach((p) => {
+      const playerScreenX = centerX + (p.x / 16 - regionX * 32 - 16) * chunkSize;
+      const playerScreenY = centerY + (p.z / 16 - regionZ * 32 - 16) * chunkSize;
+
+      // Pulsing outer halo
+      ctx.fillStyle = p.isOp ? 'rgba(239, 68, 68, 0.25)' : 'rgba(56, 189, 248, 0.3)';
+      ctx.beginPath();
+      ctx.arc(playerScreenX, playerScreenY, 9 * zoom, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Inner pin
+      ctx.fillStyle = p.isOp ? '#ef4444' : '#38bdf8';
+      ctx.beginPath();
+      ctx.arc(playerScreenX, playerScreenY, 5 * zoom, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Player name label
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${Math.max(10, Math.round(11 * zoom))}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText(p.name, playerScreenX, playerScreenY - 8 * zoom);
+    });
+
     // Center Crosshair
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
     ctx.lineWidth = 1;
@@ -215,7 +281,7 @@ export const WorldRegionViewerTab: React.FC = () => {
     ctx.moveTo(centerX, centerY - 10);
     ctx.lineTo(centerX, centerY + 10);
     ctx.stroke();
-  }, [chunks, zoom, regionX, regionZ, worldBorder, spawnPoint, panOffset, hoveredChunk, selectedChunk]);
+  }, [chunks, zoom, regionX, regionZ, worldBorder, spawnPoint, panOffset, hoveredChunk, selectedChunk, players]);
 
   // Mouse Interaction Handlers: Pan / Drag & Hover Detection
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
