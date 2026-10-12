@@ -3,6 +3,14 @@ This file is a running track of new features and fixes to each version of the pa
 
 This project follows [Semantic Versioning](http://semver.org) guidelines.
 
+## v2.8.3
+### Fixed
+* **Permanent File Deletion Persistence**: Resolved issue where deleting files or folders resulted in them reappearing upon page reload or hard reload.
+* **Backend Auto-Reseeding Safeguard**: Replaced indiscriminate re-seeding on directory access with a one-time setup marker (`.pteronext_initialized`), preventing default files from being resurrected when deleted.
+* **Frontend Mock Fallback Removal**: Removed hardcoded mock file fallbacks (`getInitialFilesForServer`) in React client context so empty directories and user deletions remain permanently empty.
+* **Synchronous Deletion & Directory Refresh**: Enhanced `deleteFile` and `handleConfirmDelete` to asynchronously await backend removal on node volumes, synchronize local storage, and instantly refresh the active directory canvas.
+* **Deletion Path Resolution**: Unified path cleaning and slash-handling for single and batch deletions to ensure accurate targets are removed on disk with explicit error propagation.
+
 ## v2.8.2
 ### Fixed
 * **File-Time-Machine Snapshot Creation**: Fixed issue where saving an edited file in the web code editor did not reliably persist the previous content as a micro-snapshot.

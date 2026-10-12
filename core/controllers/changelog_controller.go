@@ -38,15 +38,46 @@ func (ch *ChangelogController) GetChangelog(c *gin.Context) {
 
 	rawReleases := []ReleaseItem{
 		{
+			Version:       "v2.8.3",
+			Date:          "October 2026",
+			Title:         "Dauerhafte Datei-Löschung & Reseed-Schutz bei Seiten-Reload",
+			TitleEN:       "Permanent File Deletion & Reload Persistence Safeguard",
+			Description:   "Kritisches Stabilitäts-Update für das Dateisystem: Verhindert zuverlässig, dass gelöschte Dateien nach einem Seiten- oder Hard-Reload im Panel wieder auftauchen. Beinhaltet die Entfernung automatischer Reseed-Vorgänge im Backend via Initialisierungs-Marker, Bereinigung von Frontend-Mock-Fallbacks, asynchrone Lösch-Bestätigung und sofortige Verzeichnis-Aktualisierung.",
+			DescriptionEN: "Critical filesystem stability update: permanently prevents deleted files or folders from reappearing after page or hard reloads. Introduces one-time setup initialization markers in the backend, eliminates legacy frontend mock file fallbacks, and guarantees synchronous node storage deletion with instant directory refreshing.",
+			Tag:           "LATEST STABLE",
+			TagEN:         "LATEST STABLE",
+			IsLatest:      true,
+			Highlights: []string{
+				"Dauerhaftes Löschen: Gelöschte Dateien und Ordner bleiben auch nach Reload und Hard Reload permanent gelöscht",
+				"Backend Reseed-Schutz: Kein automatisches Neuerstellen von Standarddateien mehr dank .pteronext_initialized Marker",
+				"Mock-Fallback Bereinigung: Leere Ordner und gelöschte Serververzeichnisse werden nicht mehr durch Mockdaten überschrieben",
+				"Asynchrones Deletion-Handling: Warten auf Bestätigung des Node-Dateisystems und sofortige automatische Verzeichnis-Aktualisierung",
+			},
+			HighlightsEN: []string{
+				"Permanent Deletion: Deleted files and folders remain permanently removed across page and hard reloads",
+				"Backend Reseed Safeguard: Prevents unwanted re-creation of default files via .pteronext_initialized marker",
+				"Mock Fallback Removal: Truly empty directories are preserved without fallback data injection",
+				"Asynchronous Deletion Sync: Reliable node volume confirmation and instant directory refresh",
+			},
+			Features: []string{
+				"Verbesserte Pfad-Bereinigung für Einzel- und Stapellöschungen im Dateimanager",
+				"Direkte Synchronisation zwischen physischem Node-Storage, Backend-Service und Frontend-Cache",
+			},
+			FeaturesEN: []string{
+				"Enhanced path normalization for single and batch file deletions in file manager",
+				"Direct synchronization between physical node storage, backend daemon, and client cache",
+			},
+		},
+		{
 			Version:       "v2.8.2",
 			Date:          "October 2026",
 			Title:         "File-Time-Machine Snapshot-Fix & Automatische Revisionssicherung",
 			TitleEN:       "File-Time-Machine Snapshot Fix & Automatic Revision Protection",
 			Description:   "Wartungs- & Stabilitäts-Update für den Web-Code-Editor: Automatisches Erstellen von Datei-Snapshots bei jedem Speichervorgang in der Time-Machine, Behebung des URL-Query-Parameter Mismatches (?path= vs ?file=), Normalisierung von Dateipfaden mit führenden Slashes, dynamische Revision-Nummerierung und sichere 1-Klick-Wiederherstellung inklusive Pre-Restore Snapshot.",
 			DescriptionEN: "Maintenance & stability update for the web code editor: automatic file snapshots on save in File-Time-Machine, fix query parameter mismatch (?path= vs ?file=), uniform path normalization, dynamic revision numbering and size display, and safe 1-click restore with pre-restore safety snapshot.",
-			Tag:           "LATEST STABLE",
-			TagEN:         "LATEST STABLE",
-			IsLatest:      true,
+			Tag:           "STABLE",
+			TagEN:         "STABLE",
+			IsLatest:      false,
 			Highlights: []string{
 				"File-Time-Machine Snapshots: Zuverlässiges Speichern jedes vorherigen Dateistands beim Klick auf 'Speichern' im Code-Editor",
 				"Pfad-Normalisierung: Einheitliche Zuordnung von absoluten und relativen Dateipfaden (/server.properties vs. server.properties)",

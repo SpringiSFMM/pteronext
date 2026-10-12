@@ -88,8 +88,8 @@ func (f *FileService) GetServerBaseDir(serverUUID string) (string, error) {
 		}
 	}
 
-	// Seed default server files if newly created / empty
-	f.ensureDefaultFiles(baseDir)
+	// Seed default server files ONLY once upon initial server creation/first setup
+	f.ensureDefaultFilesOnce(baseDir)
 
 	return baseDir, nil
 }
@@ -134,9 +134,20 @@ func copyPath(src, dst string) error {
 	return err
 }
 
-func (f *FileService) ensureDefaultFiles(baseDir string) {
+func (f *FileService) ensureDefaultFilesOnce(baseDir string) {
+	markerFile := filepath.Join(baseDir, ".pteronext_initialized")
+	if _, err := os.Stat(markerFile); err == nil {
+		// Server has already been initialized, NEVER recreate deleted files!
+		return
+	}
+
 	entries, err := os.ReadDir(baseDir)
-	if err != nil || len(entries) > 0 {
+	if err != nil {
+		return
+	}
+	// If directory already has files from an existing install, simply mark it initialized
+	if len(entries) > 0 {
+		_ = os.WriteFile(markerFile, []byte(time.Now().Format(time.RFC3339)), 0644)
 		return
 	}
 
@@ -307,14 +318,21 @@ func (f *FileService) DeleteFiles(serverUUID, root string, files []string) error
 		return err
 	}
 
+	cleanRoot := filepath.Clean("/" + root)
+	var lastErr error
 	for _, name := range files {
-		target, err := f.resolveSafePath(baseDir, filepath.Join(root, name))
+		cleanName := strings.TrimPrefix(filepath.Clean("/"+name), "/")
+		relPath := filepath.Join(cleanRoot, cleanName)
+		target, err := f.resolveSafePath(baseDir, relPath)
 		if err != nil {
+			lastErr = err
 			continue
 		}
-		_ = os.RemoveAll(target)
+		if removeErr := os.RemoveAll(target); removeErr != nil {
+			lastErr = removeErr
+		}
 	}
-	return nil
+	return lastErr
 }
 
 // CreateDirectory creates a new subfolder.

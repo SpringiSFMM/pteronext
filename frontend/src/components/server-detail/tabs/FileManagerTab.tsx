@@ -330,21 +330,25 @@ export const FileManagerTab: React.FC = () => {
   };
 
   // Single file delete confirmation
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
-    deleteFile(deleteTarget.path);
-    selectedPaths.delete(deleteTarget.path);
-    setSelectedPaths(new Set(selectedPaths));
+    const pathToDelete = deleteTarget.path;
     setDeleteTarget(null);
+    selectedPaths.delete(pathToDelete);
+    setSelectedPaths(new Set(selectedPaths));
+    await deleteFile(pathToDelete);
+    await loadDirectory(currentPath);
   };
 
   // Batch delete confirmation
-  const handleConfirmBatchDelete = () => {
-    selectedPaths.forEach((path) => {
-      deleteFile(path);
-    });
+  const handleConfirmBatchDelete = async () => {
+    const pathsToDelete = Array.from(selectedPaths);
     setSelectedPaths(new Set());
     setIsBatchDeleteModalOpen(false);
+    for (const path of pathsToDelete) {
+      await deleteFile(path);
+    }
+    await loadDirectory(currentPath);
   };
 
   // Trigger file download

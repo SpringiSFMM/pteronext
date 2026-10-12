@@ -36,8 +36,8 @@ export const ModernNavbar: React.FC = () => {
     latest_version: string;
     update_available: boolean;
   }>({
-    current_version: 'v2.8.2',
-    latest_version: 'v2.8.2',
+    current_version: 'v2.8.3',
+    latest_version: 'v2.8.3',
     update_available: false,
   });
   const [checkingUpdate, setCheckingUpdate] = useState(false);

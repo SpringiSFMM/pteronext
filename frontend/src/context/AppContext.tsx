@@ -448,7 +448,7 @@ interface AppContextType {
   saveFileContent: (path: string, newContent: string) => void;
   createFile: (file: FileItem) => void;
   createFolder: (path: string, name: string) => void;
-  deleteFile: (path: string) => void;
+  deleteFile: (path: string) => Promise<boolean>;
   renameFile: (oldPath: string, newPath: string, newName: string) => void;
   uploadFiles: (newFiles: FileItem[]) => void;
   uploadRawFiles: (root: string, rawFiles: File[], onProgress?: (percent: number, loaded: number, total: number) => void) => Promise<boolean>;
@@ -480,68 +480,11 @@ function getInitialFilesForServer(serverUuid: string): FileItem[] {
     const raw = localStorage.getItem(`pteronext_files_${serverUuid}`);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) return parsed;
     }
   } catch {}
 
-  return [
-    {
-      name: 'server.properties',
-      path: '/server.properties',
-      type: 'file',
-      size: 684,
-      modified: 'Just now',
-      permissions: '-rw-r--r--',
-      editable: true,
-      content: `# Minecraft server properties\nmotd=A PteroNext Minecraft Server\nserver-port=25565\nmax-players=20\nonline-mode=true\npvp=true\ndifficulty=normal\ngamemode=survival\nview-distance=10\nsimulation-distance=8\n`,
-    },
-    {
-      name: 'eula.txt',
-      path: '/eula.txt',
-      type: 'file',
-      size: 180,
-      modified: 'Just now',
-      permissions: '-rw-r--r--',
-      editable: true,
-      content: `# By changing the setting below to TRUE you are indicating your agreement to our EULA (https://aka.ms/MinecraftEULA).\neula=true\n`,
-    },
-    {
-      name: 'ops.json',
-      path: '/ops.json',
-      type: 'file',
-      size: 2,
-      modified: 'Just now',
-      permissions: '-rw-r--r--',
-      editable: true,
-      content: '[]',
-    },
-    {
-      name: 'whitelist.json',
-      path: '/whitelist.json',
-      type: 'file',
-      size: 2,
-      modified: 'Just now',
-      permissions: '-rw-r--r--',
-      editable: true,
-      content: '[]',
-    },
-    {
-      name: 'plugins',
-      path: '/plugins',
-      type: 'directory',
-      size: 4096,
-      modified: 'Just now',
-      permissions: 'drwxr-xr-x',
-    },
-    {
-      name: 'logs',
-      path: '/logs',
-      type: 'directory',
-      size: 4096,
-      modified: 'Just now',
-      permissions: 'drwxr-xr-x',
-    },
-  ];
+  return [];
 }
 
 function saveFilesForServer(serverUuid: string, newFiles: FileItem[]) {
@@ -1399,7 +1342,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // 1. Load real files from backend node filesystem
       try {
         const fileRes = await api.files.list(serverUuid);
-        if (isCurrent && fileRes?.data && Array.isArray(fileRes.data)) {
+        if (isCurrent && fileRes && Array.isArray(fileRes.data)) {
           setFiles(fileRes.data);
           saveFilesForServer(serverUuid, fileRes.data);
         } else if (isCurrent) {
@@ -1915,31 +1858,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  const deleteFile = (path: string) => {
+  const deleteFile = async (path: string): Promise<boolean> => {
+    let success = false;
+    const target = files.find((f) => f.path === path);
+    const isDir = target?.type === 'directory';
+
     if (selectedServer?.uuid) {
-      const lastSlash = path.lastIndexOf('/');
-      const root = lastSlash > 0 ? path.substring(0, lastSlash) : '/';
-      const fileName = lastSlash >= 0 ? path.substring(lastSlash + 1) : path;
-      api.files.delete(selectedServer.uuid, [fileName], root).catch((e) => {
+      const normalized = path.replace(/\/+$/, '');
+      const lastSlash = normalized.lastIndexOf('/');
+      const root = lastSlash > 0 ? normalized.substring(0, lastSlash) : '/';
+      const fileName = lastSlash >= 0 ? normalized.substring(lastSlash + 1) : normalized;
+
+      try {
+        await api.files.delete(selectedServer.uuid, [fileName], root);
+        success = true;
+      } catch (e: any) {
         console.warn('Backend delete file failed:', e);
-      });
+        addToast({
+          title: 'Delete Failed',
+          description: e?.message || `Failed to delete ${fileName} from disk.`,
+          type: 'error',
+        });
+        return false;
+      }
+    } else {
+      success = true;
     }
+
     setFiles((prev) => {
-      const target = prev.find((f) => f.path === path);
-      const isDir = target?.type === 'directory';
       const updated = prev.filter(
         (f) => f.path !== path && (!isDir || !f.path.startsWith(path + '/'))
       );
       if (selectedServer?.uuid) {
         saveFilesForServer(selectedServer.uuid, updated);
       }
-      addToast({
-        title: isDir ? 'Folder Deleted' : 'File Deleted',
-        description: `Removed "${target?.name || path}" permanently.`,
-        type: 'warning',
-      });
       return updated;
     });
+
+    addToast({
+      title: isDir ? 'Folder Deleted' : 'File Deleted',
+      description: `Removed "${target?.name || path}" permanently.`,
+      type: 'warning',
+    });
+
+    return success;
   };
 
   const renameFile = (oldPath: string, newPath: string, newName: string) => {
