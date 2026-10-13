@@ -882,20 +882,38 @@ func (ch *ChangelogController) GetChangelog(c *gin.Context) {
 		},
 	}
 
-	// Merge GitHub releases/tags that are newer or not in curated releases
+	// Merge GitHub releases/tags that are newer than top version (exclude legacy v1.x upstream tags)
 	ghReleases := ch.fetchGitHubSync()
 	curatedMap := make(map[string]bool)
 	for _, r := range rawReleases {
 		curatedMap[r.Version] = true
 	}
-	var newGitHubReleases []ReleaseItem
+	topVersion := "v2.8.8"
+	if len(rawReleases) > 0 {
+		topVersion = rawReleases[0].Version
+	}
+
+	var newerGitHubReleases []ReleaseItem
+	var olderGitHubReleases []ReleaseItem
 	for _, g := range ghReleases {
-		if !curatedMap[g.Version] {
-			newGitHubReleases = append(newGitHubReleases, g)
+		if curatedMap[g.Version] {
+			continue
+		}
+		// Ignore legacy v1.x upstream tags from older Pterodactyl base
+		if !strings.HasPrefix(g.Version, "v2.") && !strings.HasPrefix(g.Version, "v3.") {
+			continue
+		}
+		if isVersionGreater(g.Version, topVersion) {
+			newerGitHubReleases = append(newerGitHubReleases, g)
+		} else {
+			olderGitHubReleases = append(olderGitHubReleases, g)
 		}
 	}
-	if len(newGitHubReleases) > 0 {
-		rawReleases = append(newGitHubReleases, rawReleases...)
+	if len(newerGitHubReleases) > 0 {
+		rawReleases = append(newerGitHubReleases, rawReleases...)
+	}
+	if len(olderGitHubReleases) > 0 {
+		rawReleases = append(rawReleases, olderGitHubReleases...)
 	}
 
 	// Localize if requested
