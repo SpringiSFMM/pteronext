@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -89,11 +91,19 @@ func (s *SubuserController) CreateSubuser(c *gin.Context) {
 			lookupEmail = fmt.Sprintf("%s@example.local", lookupUsername)
 		}
 
+		// Generate a secure random password for auto-provisioned invited user
+		randPwBytes := make([]byte, 32)
+		_, _ = rand.Read(randPwBytes)
+		randomPassword := hex.EncodeToString(randPwBytes)
+
 		targetUser = models.User{
 			Username:  lookupUsername,
 			Email:     lookupEmail,
-			Password:  "$2a$10$w850c9h.P15kOekF1Q09dO8q6rB0Y17tFwV0/PZ4G15aB2C3D4E5F", // default hash
 			RootAdmin: false,
+		}
+		if setErr := targetUser.SetPassword(randomPassword); setErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed generating user password: " + setErr.Error()})
+			return
 		}
 		if createErr := s.db.Create(&targetUser).Error; createErr != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed creating delegated user account: " + createErr.Error()})

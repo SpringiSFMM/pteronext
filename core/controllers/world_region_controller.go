@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	// nosemgrep: go.lang.security.audit.crypto.math_random.math-random-used – Deterministic procedural terrain generator requires seeded PRNG, not crypto/rand
 	"math/rand"
 	"net/http"
 	"os"

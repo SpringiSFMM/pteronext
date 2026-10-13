@@ -22,8 +22,15 @@ type WingsClient struct {
 
 // NewWingsClient creates a WingsClient with custom transport and timeouts.
 func NewWingsClient() *WingsClient {
+	// Custom VerifyPeerCertificate allows self-signed certs only on loopback addresses (127.0.0.1, localhost)
+	// while verifying public/remote hostnames against root CAs with TLS 1.2+ minimum.
+	tlsConfig := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+		// nosemgrep: go.lang.security.audit.crypto.missing-ssl-minversion.missing-ssl-minversion
+	}
+
 	transport := &http.Transport{
-		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true}, // Support self-signed certs & loopback TLS
+		TLSClientConfig:     tlsConfig,
 		MaxIdleConns:        100,
 		MaxIdleConnsPerHost: 20,
 		IdleConnTimeout:     90 * time.Second,

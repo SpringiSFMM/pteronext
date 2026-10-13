@@ -1,9 +1,10 @@
 package controllers
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -77,7 +78,9 @@ func (s *SidecarController) CreateSidecar(c *gin.Context) {
 		randPort = 0
 	}
 
-	pass := fmt.Sprintf("sc_%x", rand.Uint64())
+	randBytes := make([]byte, 16)
+	_, _ = rand.Read(randBytes)
+	pass := fmt.Sprintf("sc_%s", hex.EncodeToString(randBytes))
 	username := "pterouser"
 	dbname := strings.ToLower(strings.ReplaceAll(req.Name, " ", "_"))
 
@@ -261,11 +264,13 @@ func (s *SidecarController) QueryWebDB(c *gin.Context) {
 		limit = 50
 	}
 
-	cleanTable := strings.ReplaceAll(req.Table, ";", "")
-	cleanTable = strings.ReplaceAll(cleanTable, "`", "")
-	cleanTable = strings.ReplaceAll(cleanTable, " ", "")
+	cleanRel := filepath.Clean(req.File)
+	if strings.HasPrefix(cleanRel, "..") || strings.HasPrefix(cleanRel, "/") || strings.HasPrefix(cleanRel, "\\") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid database file path."})
+		return
+	}
 
-	fullPath := filepath.Join(serverDir, req.File)
+	fullPath := filepath.Join(serverDir, cleanRel)
 	db, err := sql.Open("sqlite", fullPath)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed opening database file."})
@@ -273,7 +278,31 @@ func (s *SidecarController) QueryWebDB(c *gin.Context) {
 	}
 	defer db.Close()
 
-	query := fmt.Sprintf("SELECT * FROM `%s` LIMIT %d;", cleanTable, limit)
+	// Query sqlite_master to allowlist genuine table names
+	tRows, err := db.Query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed reading tables from database."})
+		return
+	}
+	defer tRows.Close()
+
+	validTables := make(map[string]bool)
+	for tRows.Next() {
+		var name string
+		if err := tRows.Scan(&name); err == nil {
+			validTables[name] = true
+		}
+	}
+
+	if !validTables[req.Table] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid table or table does not exist in database."})
+		return
+	}
+
+	// Double-quote identifier safely as standard SQL identifier after verification against sqlite_master
+	escapedTable := strings.ReplaceAll(req.Table, "\"", "\"\"")
+	// nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query – Table identifier validated against sqlite_master allowlist and double-quoted, limit is bounded integer
+	query := fmt.Sprintf("SELECT * FROM \"%s\" LIMIT %d;", escapedTable, limit)
 	rows, err := db.Query(query)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Query error: %v", err)})
@@ -306,7 +335,7 @@ func (s *SidecarController) QueryWebDB(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"table":   cleanTable,
+		"table":   req.Table,
 		"columns": cols,
 		"rows":    records,
 		"count":   len(records),

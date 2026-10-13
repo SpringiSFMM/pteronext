@@ -770,6 +770,11 @@ func (f *FileService) DecompressFile(serverUUID, root string, fileName string) e
 		return err
 	}
 
+	// Bounds against Zip/Decompression bombs
+	const maxFileSize = 2 * 1024 * 1024 * 1024       // 2 GB per single file
+	const maxTotalSize = 10 * 1024 * 1024 * 1024     // 10 GB total uncompressed
+	const maxFiles = 50000                           // Max files in archive
+
 	lower := strings.ToLower(fileName)
 	if strings.HasSuffix(lower, ".zip") {
 		r, err := zip.OpenReader(targetArchiveFile)
@@ -778,12 +783,25 @@ func (f *FileService) DecompressFile(serverUUID, root string, fileName string) e
 		}
 		defer r.Close()
 
+		var totalUncompressed int64
+		var fileCount int
+
 		for _, zf := range r.File {
+			fileCount++
+			if fileCount > maxFiles {
+				return fmt.Errorf("archive contains too many files (max %d)", maxFiles)
+			}
+
 			cleanPath := filepath.Clean(zf.Name)
-			if strings.HasPrefix(cleanPath, "..") || filepath.IsAbs(cleanPath) {
+			if strings.HasPrefix(cleanPath, "..") || filepath.IsAbs(cleanPath) || strings.Contains(cleanPath, "/../") {
 				continue
 			}
 			destPath := filepath.Join(extractDest, cleanPath)
+			// Ensure destPath remains inside extractDest
+			if !strings.HasPrefix(destPath, filepath.Clean(extractDest)+string(filepath.Separator)) && destPath != extractDest {
+				continue
+			}
+
 			if zf.FileInfo().IsDir() {
 				_ = os.MkdirAll(destPath, 0755)
 				continue
@@ -795,8 +813,19 @@ func (f *FileService) DecompressFile(serverUUID, root string, fileName string) e
 			}
 			out, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, zf.Mode())
 			if err == nil {
-				_, _ = io.Copy(out, rc)
+				// nosemgrep: go.lang.security.decompression_bomb.potential-dos-via-decompression-bomb – Enforced bounds via io.CopyN and aggregate size tracker
+				written, _ := io.CopyN(out, rc, maxFileSize+1)
 				out.Close()
+				if written > maxFileSize {
+					rc.Close()
+					_ = os.Remove(destPath)
+					return fmt.Errorf("decompression exceeded maximum file limit of %d bytes", maxFileSize)
+				}
+				totalUncompressed += written
+				if totalUncompressed > maxTotalSize {
+					rc.Close()
+					return fmt.Errorf("decompression exceeded maximum total size limit of %d bytes", maxTotalSize)
+				}
 			}
 			rc.Close()
 		}
@@ -822,6 +851,9 @@ func (f *FileService) DecompressFile(serverUUID, root string, fileName string) e
 		tr = tar.NewReader(fIn)
 	}
 
+	var totalUncompressed int64
+	var fileCount int
+
 	for {
 		header, err := tr.Next()
 		if err == io.EOF {
@@ -831,11 +863,20 @@ func (f *FileService) DecompressFile(serverUUID, root string, fileName string) e
 			return err
 		}
 
+		fileCount++
+		if fileCount > maxFiles {
+			return fmt.Errorf("archive contains too many files (max %d)", maxFiles)
+		}
+
 		cleanPath := filepath.Clean(header.Name)
-		if strings.HasPrefix(cleanPath, "..") || filepath.IsAbs(cleanPath) {
+		if strings.HasPrefix(cleanPath, "..") || filepath.IsAbs(cleanPath) || strings.Contains(cleanPath, "/../") {
 			continue
 		}
 		destPath := filepath.Join(extractDest, cleanPath)
+		// Ensure destPath remains inside extractDest
+		if !strings.HasPrefix(destPath, filepath.Clean(extractDest)+string(filepath.Separator)) && destPath != extractDest {
+			continue
+		}
 
 		switch header.Typeflag {
 		case tar.TypeDir:
@@ -844,8 +885,17 @@ func (f *FileService) DecompressFile(serverUUID, root string, fileName string) e
 			_ = os.MkdirAll(filepath.Dir(destPath), 0755)
 			out, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(header.Mode))
 			if err == nil {
-				_, _ = io.Copy(out, tr)
+				// nosemgrep: go.lang.security.decompression_bomb.potential-dos-via-decompression-bomb – Enforced bounds via io.CopyN and aggregate size tracker
+				written, _ := io.CopyN(out, tr, maxFileSize+1)
 				out.Close()
+				if written > maxFileSize {
+					_ = os.Remove(destPath)
+					return fmt.Errorf("decompression exceeded maximum file limit of %d bytes", maxFileSize)
+				}
+				totalUncompressed += written
+				if totalUncompressed > maxTotalSize {
+					return fmt.Errorf("decompression exceeded maximum total size limit of %d bytes", maxTotalSize)
+				}
 			}
 		}
 	}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import DOMPurify from 'dompurify';
 import { useApp } from '../../../context/AppContext';
 import { useTranslation } from '../../../i18n/useTranslation';
 import { api } from '../../../api/client';
@@ -286,11 +287,17 @@ export const ConsoleTab: React.FC = () => {
 
   const renderLogLine = (line: string, index: number) => {
     const formatted = parseAnsiToHtml(line);
+    // Sanitize with DOMPurify allowing only safe styling spans
+    const cleanHtml = DOMPurify.sanitize(formatted, {
+      ALLOWED_TAGS: ['span'],
+      ALLOWED_ATTR: ['class', 'style'],
+    });
     return (
       <div
         key={index}
         className="leading-5 py-0.5 whitespace-pre-wrap break-all text-slate-300 font-mono select-text"
-        dangerouslySetInnerHTML={{ __html: formatted }}
+        // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml – Input is pre-escaped and sanitized using DOMPurify
+        dangerouslySetInnerHTML={{ __html: cleanHtml }}
       />
     );
   };

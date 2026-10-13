@@ -9,6 +9,11 @@
 
 ---
 
+> 📖 **Vollständige Dokumentation & Handbuch:**  
+> Eine detaillierte deutsche Dokumentation zu Architektur, allen Features, Installation, API/CLI-Referenz und Sicherheits-Best-Practices findest du in der [**DOCUMENTATION.md**](DOCUMENTATION.md).
+
+---
+
 ## 🌟 Executive Overview
 
 **PteroNext** is a premier, high-performance cloud-native game server management platform developed by **Springi-SFM**. Designed from the ground up to replace resource-heavy, multi-layered legacy architectures, PteroNext bundles an ultra-fast compiled **Go backend** and a modern **React 18 / Vite / TypeScript single-page application** into a **single self-contained static binary** with native **Docker & Wings** daemon synchronization.
