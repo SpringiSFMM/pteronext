@@ -21,7 +21,7 @@ type SystemUpdateController struct {
 
 func NewSystemUpdateController() *SystemUpdateController {
 	return &SystemUpdateController{
-		currentVersion: "v2.8.7",
+		currentVersion: "v2.8.8",
 		githubRepo:     "SpringiSFMM/pteronext",
 	}
 }

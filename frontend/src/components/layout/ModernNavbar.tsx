@@ -36,8 +36,8 @@ export const ModernNavbar: React.FC = () => {
     latest_version: string;
     update_available: boolean;
   }>({
-    current_version: 'v2.8.6',
-    latest_version: 'v2.8.6',
+    current_version: 'v2.8.8',
+    latest_version: 'v2.8.8',
     update_available: false,
   });
   const [checkingUpdate, setCheckingUpdate] = useState(false);
@@ -49,8 +49,8 @@ export const ModernNavbar: React.FC = () => {
         const res = await api.updates.check();
         if (mounted && res) {
           setVersionInfo({
-            current_version: res.current_version || 'v2.7.4',
-            latest_version: res.latest_version || res.current_version || 'v2.7.4',
+            current_version: res.current_version || 'v2.8.8',
+            latest_version: res.latest_version || res.current_version || 'v2.8.8',
             update_available: Boolean(res.update_available),
           });
         }

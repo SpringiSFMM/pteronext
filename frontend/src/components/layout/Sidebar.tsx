@@ -45,7 +45,7 @@ const GLOBAL_SECTIONS = [
       { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, hint: '⌘1' },
       { id: 'servers', label: 'Servers', icon: ServerIcon, hint: '' },
       { id: 'activity', label: 'Activity / Audit', icon: Activity, hint: '' },
-      { id: 'changelog', label: 'Changelog & Updates', icon: Sparkles, hint: 'v2.8.6' },
+      { id: 'changelog', label: 'Changelog & Updates', icon: Sparkles, hint: 'v2.8.8' },
     ],
   },
   {
@@ -362,7 +362,7 @@ export const Sidebar: React.FC = () => {
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500 font-mono leading-none mt-0.5">
-                  Control Panel v2.8.6
+                  Control Panel v2.8.8
                 </p>
               </div>
             </div>
