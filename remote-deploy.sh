@@ -19,8 +19,9 @@ PACKAGE="${SCRIPT_DIR}/pteronext-deploy.tar.gz"
 echo "====================================================================="
 echo "  PTERONEXT & WINGS - 1-CLICK REMOTE DEPLOYMENT"
 echo "  Ziel:    ${TARGET}"
-echo "  Domains: panel.springisfm.de & wings.springisfm.de"
+echo "  Domains: panel.pteronext.com & wings.pteronext.com"
 echo "====================================================================="
+
 echo ""
 
 if [ ! -f "${PACKAGE}" ]; then

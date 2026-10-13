@@ -34,10 +34,11 @@ if [[ $EUID -ne 0 ]]; then
    exit 1
 fi
 
-PANEL_DOMAIN="${PANEL_DOMAIN:-panel.springisfm.de}"
-WINGS_DOMAIN="${WINGS_DOMAIN:-wings.springisfm.de}"
+PANEL_DOMAIN="${PANEL_DOMAIN:-panel.pteronext.com}"
+WINGS_DOMAIN="${WINGS_DOMAIN:-wings.pteronext.com}"
 SERVER_IP="${SERVER_IP:-217.20.120.126}"
-ADMIN_EMAIL="${1:-admin@springisfm.de}"
+ADMIN_EMAIL="${1:-admin@pteronext.com}"
+
 
 echo -e "${CYAN}Konfiguration:${NC}"
 echo -e "  • Server IP:     ${BOLD}${SERVER_IP}${NC}"
@@ -229,14 +230,35 @@ server {
         proxy_send_timeout 300s;
         proxy_read_timeout 300s;
     }
+
+    # Internal / Admin Relay Proxy for Domain Management Micro-Service
+    location /dns-admin/ {
+        proxy_pass http://127.0.0.1:8085/;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+
+    location /admin/api/ {
+        proxy_pass http://127.0.0.1:8085/admin/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
 }
 EOF
 
+
+rm -f /etc/nginx/sites-enabled/default /etc/nginx/sites-enabled/panel.springisfm.de.conf || true
 ln -sf "/etc/nginx/sites-available/${PANEL_DOMAIN}.conf" "/etc/nginx/sites-enabled/${PANEL_DOMAIN}.conf"
-rm -f /etc/nginx/sites-enabled/default || true
 
 nginx -t
 systemctl restart nginx
+
 
 # ------------------------------------------------------------------------------
 # 5. PteroNext Panel Core Installation
@@ -316,6 +338,46 @@ EOF
 systemctl daemon-reexec 2>/dev/null || true
 systemctl daemon-reload 2>/dev/null || true
 systemctl enable --now pteronext.service 2>/dev/null || systemctl restart pteronext.service 2>/dev/null || true
+
+# 5b. PteroNext DNS & Domain Relay Micro-Service
+echo -e "${CYAN}[5b/8] Installiere PteroNext DNS & Domain Relay...${NC}"
+RELAY_SRC_BIN="${SCRIPT_DIR}/pteronext-dns-relay"
+RELAY_DIR="/opt/pteronext-dns-relay"
+mkdir -p "${RELAY_DIR}" "${RELAY_DIR}/web"
+
+if [[ -f "${RELAY_SRC_BIN}" ]]; then
+    cp -f "${RELAY_SRC_BIN}" "${RELAY_DIR}/pteronext-dns-relay.new"
+    mv -f "${RELAY_DIR}/pteronext-dns-relay.new" "${RELAY_DIR}/pteronext-dns-relay"
+    chmod +x "${RELAY_DIR}/pteronext-dns-relay"
+fi
+if [[ -f "${SCRIPT_DIR}/web/admin.html" ]]; then
+    cp -f "${SCRIPT_DIR}/web/admin.html" "${RELAY_DIR}/web/admin.html"
+fi
+
+cat > "/etc/systemd/system/pteronext-dns-relay.service" <<EOF
+[Unit]
+Description=PteroNext DNS & Domain Relay Micro-Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=${RELAY_DIR}
+Environment="PORT=8085"
+Environment="DB_PATH=${DATA_DIR}/dns_relay.db"
+Environment="BASE_DOMAIN=pteronext.com"
+ExecStart=${RELAY_DIR}/pteronext-dns-relay
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload 2>/dev/null || true
+systemctl enable --now pteronext-dns-relay.service 2>/dev/null || systemctl restart pteronext-dns-relay.service 2>/dev/null || true
+
 
 # ------------------------------------------------------------------------------
 # 6. PteroNext Wings Daemon Installation

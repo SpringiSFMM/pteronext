@@ -122,7 +122,8 @@ func (dc *DNSController) ListServerDomains(c *gin.Context) {
 }
 
 type CreateDomainRequest struct {
-	Subdomain string `json:"subdomain" binding:"required"`
+	Subdomain string `json:"subdomain"`
+	Hostname  string `json:"hostname"`
 }
 
 // CreateServerDomain handles POST /api/servers/:uuid/dns
@@ -136,12 +137,22 @@ func (dc *DNSController) CreateServerDomain(c *gin.Context) {
 
 	var req CreateDomainRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Ungültiges Format"})
+		return
+	}
+
+	chosenSub := req.Subdomain
+	if chosenSub == "" {
+		chosenSub = req.Hostname
+	}
+	if strings.TrimSpace(chosenSub) == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Subdomain is required"})
 		return
 	}
 
-	cleanSub := strings.ToLower(strings.TrimSpace(req.Subdomain))
+	cleanSub := strings.ToLower(strings.TrimSpace(chosenSub))
 	cleanSub = strings.ReplaceAll(cleanSub, " ", "")
+
 
 	subdomainRegex := regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
 	if !subdomainRegex.MatchString(cleanSub) {
@@ -156,9 +167,9 @@ func (dc *DNSController) CreateServerDomain(c *gin.Context) {
 		return
 	}
 
-	// 1. Fetch Cloudflare settings
+	// 1. Fetch Cloudflare and Relay settings
 	var settings []models.SystemSetting
-	dc.db.Where("key LIKE 'cloudflare_%'").Find(&settings)
+	dc.db.Where("key LIKE 'cloudflare_%' OR key LIKE 'relay_%'").Find(&settings)
 	config := make(map[string]string)
 	for _, s := range settings {
 		config[s.Key] = s.Value
@@ -166,10 +177,14 @@ func (dc *DNSController) CreateServerDomain(c *gin.Context) {
 
 	baseDomain := config["cloudflare_base_domain"]
 	if baseDomain == "" {
-		baseDomain = "springisfm.de"
+		baseDomain = "pteronext.com"
 	}
 	apiToken := config["cloudflare_api_token"]
 	zoneID := config["cloudflare_zone_id"]
+	relayURL := config["relay_url"]
+	if relayURL == "" {
+		relayURL = "http://127.0.0.1:8085" // Default local relay micro-service
+	}
 
 	fullDomain := fmt.Sprintf("%s.%s", cleanSub, baseDomain)
 	targetIP := "217.20.120.126"
@@ -186,8 +201,56 @@ func (dc *DNSController) CreateServerDomain(c *gin.Context) {
 	recordIDA := fmt.Sprintf("cf_a_%d", time.Now().UnixNano())
 	recordIDSRV := fmt.Sprintf("cf_srv_%d", time.Now().UnixNano())
 
-	// 2. If Cloudflare API Token & Zone ID are set, call real Cloudflare REST API
-	if apiToken != "" && zoneID != "" {
+	// 2a. Attempt Relay Micro-Service First (Separated project architecture)
+	relaySuccess := false
+	relayClient := &http.Client{Timeout: 6 * time.Second}
+	relayPayload, _ := json.Marshal(map[string]interface{}{
+		"subdomain":   cleanSub,
+		"target_ip":   targetIP,
+		"port":        serverPort,
+		"server_uuid": server.UUID,
+		"panel_url":   "https://panel.pteronext.com",
+		"server_name": server.Name,
+	})
+
+	relayReq, err := http.NewRequest("POST", relayURL+"/v1/domains/register", bytes.NewBuffer(relayPayload))
+	if err == nil {
+		relayReq.Header.Set("Content-Type", "application/json")
+		relayResp, rErr := relayClient.Do(relayReq)
+		if rErr == nil && relayResp != nil {
+			defer relayResp.Body.Close()
+			if relayResp.StatusCode == http.StatusOK {
+				var rBody struct {
+					Success    bool   `json:"success"`
+					FullDomain string `json:"full_domain"`
+					Message    string `json:"message"`
+				}
+				if err := json.NewDecoder(relayResp.Body).Decode(&rBody); err == nil && rBody.Success {
+					relaySuccess = true
+					if rBody.FullDomain != "" {
+						fullDomain = rBody.FullDomain
+					}
+				}
+			} else if relayResp.StatusCode == http.StatusForbidden {
+				var errBody struct {
+					Error string `json:"error"`
+				}
+				_ = json.NewDecoder(relayResp.Body).Decode(&errBody)
+				msg := "Dieser Domain-Name ist unzulässig oder enthält gesperrte Begriffe."
+				if errBody.Error != "" {
+					msg = errBody.Error
+				}
+				c.JSON(http.StatusForbidden, gin.H{"error": msg})
+				return
+			} else if relayResp.StatusCode == http.StatusConflict {
+				c.JSON(http.StatusConflict, gin.H{"error": fmt.Sprintf("Die Subdomain '%s' ist bereits registriert.", cleanSub)})
+				return
+			}
+		}
+	}
+
+	// 2b. If Relay is not running, fallback to direct Cloudflare if credentials exist
+	if !relaySuccess && apiToken != "" && zoneID != "" {
 		client := &http.Client{Timeout: 10 * time.Second}
 
 		// Create A-Record
@@ -257,6 +320,7 @@ func (dc *DNSController) CreateServerDomain(c *gin.Context) {
 		Port:        serverPort,
 		TargetIP:    targetIP,
 		IsActive:    true,
+		Status:      "active",
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
@@ -290,7 +354,20 @@ func (dc *DNSController) DeleteServerDomain(c *gin.Context) {
 		return
 	}
 
-	// Optionally delete from Cloudflare if configured
+	// Unregister from Relay if configured
+	var relaySetting models.SystemSetting
+	dc.db.Where("key = 'relay_url'").First(&relaySetting)
+	rURL := relaySetting.Value
+	if rURL == "" {
+		rURL = "http://127.0.0.1:8085"
+	}
+	rClient := &http.Client{Timeout: 3 * time.Second}
+	delReq, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/v1/domains/unregister?subdomain=%s&server_uuid=%s", rURL, domain.Subdomain, server.UUID), nil)
+	if delReq != nil {
+		_, _ = rClient.Do(delReq)
+	}
+
+	// Also directly delete from Cloudflare if direct keys are present
 	var tokenSetting, zoneSetting models.SystemSetting
 	dc.db.Where("key = 'cloudflare_api_token'").First(&tokenSetting)
 	dc.db.Where("key = 'cloudflare_zone_id'").First(&zoneSetting)
@@ -311,3 +388,51 @@ func (dc *DNSController) DeleteServerDomain(c *gin.Context) {
 	dc.db.Delete(&domain)
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "DNS-Records erfolgreich gelöscht."})
 }
+
+// HandleRelayRevocationNotification handles POST /api/servers/:uuid/dns/notify
+// Called by the Relay Micro-Service when an admin revokes a domain with a reason.
+func (dc *DNSController) HandleRelayRevocationNotification(c *gin.Context) {
+	serverUUID := c.Param("uuid")
+	var payload struct {
+		Event      string `json:"event"`
+		Subdomain  string `json:"subdomain"`
+		FullDomain string `json:"full_domain"`
+		Reason     string `json:"reason"`
+	}
+
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payload"})
+		return
+	}
+
+	now := time.Now()
+	// Mark domain as revoked and update reason
+	dc.db.Model(&models.ServerCustomDomain{}).
+		Where("server_uuid = ? AND subdomain = ?", serverUUID, payload.Subdomain).
+		Updates(map[string]interface{}{
+			"is_active":         false,
+			"status":            "revoked",
+			"revocation_reason": payload.Reason,
+			"revoked_at":        &now,
+		})
+
+	// Log in audit activities
+	propJSON, _ := json.Marshal(map[string]string{
+		"full_domain": payload.FullDomain,
+		"subdomain":   payload.Subdomain,
+		"reason":      payload.Reason,
+	})
+	auditLog := models.AuditLog{
+		ActorType:  "Domain-Security-Admin",
+		Event:      "domain:revoked",
+		Properties: string(propJSON),
+		IP:         c.ClientIP(),
+		Timestamp:  time.Now(),
+		CreatedAt:  time.Now(),
+	}
+	dc.db.Create(&auditLog)
+
+	c.JSON(http.StatusOK, gin.H{"received": true})
+}
+
+

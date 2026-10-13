@@ -288,6 +288,7 @@ func SetupRouter(
 			serverAccess.GET("/dns", dnsCtrl.ListServerDomains)
 			serverAccess.POST("/dns", dnsCtrl.CreateServerDomain)
 			serverAccess.DELETE("/dns/:id", dnsCtrl.DeleteServerDomain)
+			serverAccess.POST("/dns/notify", dnsCtrl.HandleRelayRevocationNotification)
 
 			// Instant Server-Klon / 1-Klick-Staging
 			serverAccess.POST("/clone", serverCtrl.CloneServer)

@@ -11,15 +11,22 @@ export const ClusterMetricsGrid: React.FC = () => {
   const startingCount = servers.filter((s) => s.status === 'starting').length;
   const stoppedCount = servers.filter((s) => s.status === 'stopped' || s.status === 'offline').length;
 
+  const totalServersCount = clusterMetrics.totalServers > 0 ? clusterMetrics.totalServers : servers.length;
   const serverProgress =
-    clusterMetrics.totalServers > 0
-      ? (runningCount / clusterMetrics.totalServers) * 100
+    totalServersCount > 0
+      ? (runningCount / totalServersCount) * 100
       : 0;
 
+  const ramUsed = Number.isFinite(clusterMetrics.ramUsedGB) ? clusterMetrics.ramUsedGB : 0;
+  const ramTotal = Number.isFinite(clusterMetrics.ramTotalGB) && clusterMetrics.ramTotalGB > 0 ? clusterMetrics.ramTotalGB : 8;
   const ramPercent =
-    clusterMetrics.ramTotalGB > 0
-      ? Math.round((clusterMetrics.ramUsedGB / clusterMetrics.ramTotalGB) * 100)
+    ramTotal > 0
+      ? Math.round((ramUsed / ramTotal) * 100)
       : 0;
+
+  const safeCpuLoad = Number.isFinite(clusterMetrics.cpuUsedPercent) ? clusterMetrics.cpuUsedPercent : 0;
+  const totalNodesCount = clusterMetrics.totalNodes > 0 ? clusterMetrics.totalNodes : (servers.length > 0 ? 1 : 0);
+  const activeNodesCount = clusterMetrics.activeNodes > 0 ? clusterMetrics.activeNodes : (totalNodesCount > 0 ? 1 : 0);
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -42,7 +49,7 @@ export const ClusterMetricsGrid: React.FC = () => {
             {runningCount}
           </span>
           <span className="text-xs text-slate-400 font-mono">
-            / {clusterMetrics.totalServers || servers.length} Deployed
+            / {totalServersCount} Deployed
           </span>
         </div>
 
@@ -86,10 +93,10 @@ export const ClusterMetricsGrid: React.FC = () => {
 
         <div className="flex items-baseline gap-2 mb-2">
           <span className="text-3xl font-extrabold text-white font-mono tracking-tight tabular-nums">
-            {clusterMetrics.activeNodes}
+            {activeNodesCount}
           </span>
           <span className="text-xs text-slate-400 font-mono">
-            / {clusterMetrics.totalNodes} Nodes Online
+            / {totalNodesCount} {totalNodesCount === 1 ? 'Node Online' : 'Nodes Online'}
           </span>
         </div>
 
@@ -98,7 +105,7 @@ export const ClusterMetricsGrid: React.FC = () => {
           <div
             className="h-full bg-gradient-to-r from-cyan-500 to-sky-400 rounded-full transition-all duration-700 ease-out shadow-sm"
             style={{
-              width: `${clusterMetrics.totalNodes > 0 ? (clusterMetrics.activeNodes / clusterMetrics.totalNodes) * 100 : 0}%`,
+              width: `${totalNodesCount > 0 ? (activeNodesCount / totalNodesCount) * 100 : 0}%`,
             }}
           />
         </div>
@@ -130,7 +137,7 @@ export const ClusterMetricsGrid: React.FC = () => {
 
         <div className="flex items-baseline gap-2 mb-2">
           <span className="text-3xl font-extrabold text-white font-mono tracking-tight tabular-nums">
-            {clusterMetrics.cpuUsedPercent}%
+            {safeCpuLoad}%
           </span>
           <span className="text-xs text-slate-400 font-mono">
             {t('dash_allocated_load')}
@@ -141,13 +148,13 @@ export const ClusterMetricsGrid: React.FC = () => {
         <div className="w-full bg-[#0d1117] rounded-full h-1.5 overflow-hidden mb-3 border border-slate-800/60">
           <div
             className={`h-full rounded-full transition-all duration-700 ease-out ${
-              clusterMetrics.cpuUsedPercent > 85
+              safeCpuLoad > 85
                 ? 'bg-rose-500'
-                : clusterMetrics.cpuUsedPercent > 65
+                : safeCpuLoad > 65
                 ? 'bg-amber-500'
                 : 'bg-gradient-to-r from-indigo-500 to-purple-400'
             }`}
-            style={{ width: `${Math.max(3, Math.min(100, clusterMetrics.cpuUsedPercent))}%` }}
+            style={{ width: `${Math.max(3, Math.min(100, safeCpuLoad))}%` }}
           />
         </div>
 

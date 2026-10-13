@@ -241,9 +241,11 @@ export const NetworkTab: React.FC = () => {
     try {
       setCreatingDns(true);
       const res = await api.dns.create(selectedServer.uuid, {
+        subdomain: newSubdomain.trim(),
         hostname: newSubdomain.trim(),
         base_domain: defaultDomain,
       });
+
       addToast({
         title: language === 'de' ? 'DNS-Records angelegt' : 'DNS Records Created',
         description: res.message || (language === 'de' ? 'A- und SRV-Record erfolgreich in Cloudflare hinterlegt!' : 'A & SRV records created in Cloudflare!'),
