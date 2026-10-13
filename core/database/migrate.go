@@ -40,6 +40,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.DiscordLinkVerification{},
 		&models.FileRevision{},
 		&models.ServerCustomDomain{},
+		&models.ServerNotification{},
 		&models.ServerTrigger{},
 		&models.SftpAccessKey{},
 	}

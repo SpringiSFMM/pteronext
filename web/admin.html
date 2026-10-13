@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="de" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PteroNext DNS &amp; Domain Control Center &bull; dns.pteronext.com</title>
+  <link rel="icon" href="https://panel.pteronext.com/favicon.ico" type="image/x-icon">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              400: '#38bdf8',
+              500: '#0ea5e9',
+              600: '#0284c7',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background: #060911;
+      color: #f1f5f9;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .glass-card {
+      background: rgba(13, 20, 36, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .glass-card-subtle {
+      background: rgba(11, 17, 31, 0.5);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .glass-modal {
+      background: rgba(10, 15, 29, 0.92);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+    }
+    .glow-cyan {
+      box-shadow: 0 0 45px -10px rgba(14, 165, 233, 0.25);
+    }
+    .custom-scroll::-webkit-scrollbar { height: 6px; width: 6px; }
+    .custom-scroll::-webkit-scrollbar-track { background: #080d1a; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+    .custom-scroll::-webkit-scrollbar-thumb:hover { background: #334155; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-brand-500/30 selection:text-brand-400">
+  <!-- Subtle Ambient Gradients -->
+  <div class="fixed inset-0 overflow-hidden pointer-events-none z-0">
+    <div class="absolute -top-[20%] -left-[10%] w-[50vw] h-[50vw] rounded-full bg-sky-600/10 blur-[130px]"></div>
+    <div class="absolute top-[40%] -right-[15%] w-[45vw] h-[45vw] rounded-full bg-indigo-600/10 blur-[140px]"></div>
+    <div class="absolute -bottom-[20%] left-[20%] w-[40vw] h-[40vw] rounded-full bg-emerald-600/5 blur-[120px]"></div>
+  </div>
+
+  <div class="relative z-10 flex-1 flex flex-col">
+    <!-- Header -->
+    <header class="border-b border-slate-800/80 bg-[#070b15]/85 backdrop-blur-md sticky top-0 z-40">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 h-18 py-3.5 flex items-center justify-between">
+        <div class="flex items-center gap-3.5">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 via-sky-400 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/25 text-white font-black text-xl">
+            ⚡
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-base font-extrabold text-white tracking-tight">dns.pteronext.com</span>
+              <span class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20">DNS Control</span>
+            </div>
+            <p class="text-[11px] text-slate-400 font-mono hidden sm:block">Automated Cloudflare DNS Provisioning &amp; Domain Security</p>
+          </div>
+        </div>
+
+        <div id="navControls" class="flex items-center gap-2.5"></div>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 md:p-8 space-y-7">
+      <div id="viewContainer"></div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-900 bg-[#05070d] py-4 text-center text-xs font-mono text-slate-500">
+      <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <div>
+          PteroNext DNS Management Relay &bull; <span class="text-slate-400">dns.pteronext.com</span> &bull; Secure Micro-Service
+        </div>
+        <div>
+          <a href="https://panel.pteronext.com" target="_blank" class="text-sky-400 hover:text-sky-300 transition-colors">PteroNext Panel öffnen &rarr;</a>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Global Modal Container -->
+  <div id="modalOverlay" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div id="modalContent" class="w-full max-w-lg glass-modal rounded-3xl p-6 shadow-2xl relative"></div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="fixed bottom-6 right-6 z-50 space-y-2 pointer-events-none"></div>
+
+  <script>
+    let token = localStorage.getItem('pteronext_dns_token') || '';
+    let domains = [];
+    let stats = { active_domains: 0, revoked_domains: 0, total_domains: 0, base_domain: 'pteronext.com', cf_configured: false };
+    let settings = {};
+    let isConfigured = false;
+    let currentUser = localStorage.getItem('pteronext_dns_user') || 'Admin';
+    let activeFilter = 'all'; // all, active, revoked
+    let searchQuery = '';
+
+    function showToast(title, message, type = 'info') {
+      const tc = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      
+      let borderBg = 'bg-slate-900/95 border-sky-500/40 text-sky-200';
+      let icon = 'ℹ️';
+      if (type === 'success') {
+        borderBg = 'bg-slate-900/95 border-emerald-500/50 text-emerald-200';
+        icon = '✓';
+      } else if (type === 'error') {
+        borderBg = 'bg-rose-950/95 border-rose-500/50 text-rose-200';
+        icon = '⚠️';
+      }
+
+      toast.className = `p-4 rounded-2xl font-mono text-xs shadow-2xl border transition-all duration-300 pointer-events-auto flex items-center gap-3.5 max-w-md ${borderBg}`;
+      toast.innerHTML = `
+        <span class="text-base shrink-0">${icon}</span>
+        <div class="flex-1 min-w-0">
+          <div class="font-bold text-white text-xs">${title}</div>
+          <div class="text-[11px] text-slate-300 mt-0.5 break-words">${message}</div>
+        </div>
+      `;
+      tc.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(10px)';
+        setTimeout(() => toast.remove(), 300);
+      }, 4500);
+    }
+
+    async function api(url, options = {}) {
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
+      };
+      if (token) {
+        headers['Authorization'] = 'Bearer ' + token;
+      }
+      try {
+        const resp = await fetch(url, { ...options, headers });
+        if (resp.status === 401) {
+          if (token) {
+            token = '';
+            localStorage.removeItem('pteronext_dns_token');
+            showToast('Sitzung abgelaufen', 'Bitte erneut anmelden.', 'error');
+            render();
+          }
+          return { error: 'Nicht autorisiert' };
+        }
+        return await resp.json();
+      } catch (err) {
+        return { error: err.message || 'Netzwerkfehler' };
+      }
+    }
+
+    function renderNav() {
+      const el = document.getElementById('navControls');
+      if (token) {
+        el.innerHTML = `
+          <div class="flex items-center gap-2 sm:gap-3">
+            <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-mono">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>${currentUser}</span>
+            </div>
+            <button onclick="openSettingsModal()" class="px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 text-xs font-mono border border-slate-700/80 transition-all flex items-center gap-1.5">
+              <span>⚙️</span>
+              <span class="hidden sm:inline">Einstellungen</span>
+            </button>
+            <button onclick="openPasswordModal()" class="px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 text-xs font-mono border border-slate-700/80 transition-all flex items-center gap-1.5">
+              <span>🔑</span>
+              <span class="hidden sm:inline">Passwort</span>
+            </button>
+            <button onclick="logout()" class="px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/25 text-rose-300 hover:text-rose-200 text-xs font-mono border border-rose-500/25 transition-all">
+              Abmelden
+            </button>
+          </div>
+        `;
+      } else {
+        el.innerHTML = `
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-mono text-amber-400 bg-amber-500/10 px-3 py-1.5 rounded-full border border-amber-500/20 flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+              Geschützter Bereich
+            </span>
+          </div>
+        `;
+      }
+    }
+
+    function render() {
+      renderNav();
+      const vc = document.getElementById('viewContainer');
+
+      if (!token) {
+        // High-end Secure Login View
+        vc.innerHTML = `
+          <div class="max-w-md mx-auto mt-12 p-8 sm:p-10 rounded-3xl glass-card glow-cyan space-y-6">
+            <div class="text-center space-y-2.5">
+              <div class="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-2xl shadow-lg shadow-sky-500/25">
+                🔒
+              </div>
+              <h2 class="text-2xl font-extrabold text-white tracking-tight">DNS Control Center</h2>
+              <p class="text-xs text-slate-400">Melde dich mit deinen Administrator-Zugangsdaten an, um Subdomains zu moderieren und Cloudflare-Automationen zu prüfen.</p>
+            </div>
+
+            <form onsubmit="handleLogin(event)" class="space-y-4 pt-2">
+              <div>
+                <label class="block text-xs font-mono text-slate-400 mb-1.5">Benutzername</label>
+                <input id="loginUser" type="text" placeholder="Admin-Benutzername" autocomplete="username" class="w-full bg-[#080d19] border border-slate-800 rounded-xl px-4 py-3 text-xs text-white font-mono focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none transition-all" required>
+              </div>
+              <div>
+                <label class="block text-xs font-mono text-slate-400 mb-1.5">Passwort</label>
+                <div class="relative">
+                  <input id="loginPass" type="password" placeholder="Passwort eingeben" autocomplete="current-password" class="w-full bg-[#080d19] border border-slate-800 rounded-xl px-4 py-3 text-xs text-white font-mono focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none transition-all pr-10" required>
+                  <button type="button" onclick="togglePassVisibility('loginPass')" class="absolute right-3 top-3 text-slate-400 hover:text-white text-xs">👁️</button>
+                </div>
+              </div>
+              <button id="loginSubmitBtn" type="submit" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-mono text-xs font-bold transition-all shadow-lg shadow-sky-600/30 active:scale-[0.98] flex items-center justify-center gap-2">
+                <span>Anmelden &rarr;</span>
+              </button>
+            </form>
+
+            <div class="pt-2 border-t border-slate-800/80 text-center">
+              <span class="text-[11px] text-slate-500 font-mono">
+                Sitzungen werden kryptografisch geschützt &bull; Rate Limiting aktiv
+              </span>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      // Filtered domains
+      const filtered = domains.filter(d => {
+        if (activeFilter === 'active' && d.status !== 'active') return false;
+        if (activeFilter === 'revoked' && d.status !== 'revoked') return false;
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          const matchSub = (d.subdomain || '').toLowerCase().includes(q);
+          const matchFull = (d.full_domain || '').toLowerCase().includes(q);
+          const matchIp = (d.target_ip || '').toLowerCase().includes(q);
+          const matchServer = (d.server_name || '').toLowerCase().includes(q) || (d.server_uuid || '').toLowerCase().includes(q);
+          if (!matchSub && !matchFull && !matchIp && !matchServer) return false;
+        }
+        return true;
+      });
+
+      const activeCount = domains.filter(d => d.status === 'active').length;
+      const revokedCount = domains.filter(d => d.status === 'revoked').length;
+
+      vc.innerHTML = `
+        <!-- Top Metrics Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+          <div class="glass-card rounded-2xl p-5 relative overflow-hidden group">
+            <div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500/70 to-transparent"></div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono text-slate-400 uppercase tracking-wider">Aktive DNS Domains</span>
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+            </div>
+            <div class="text-3xl font-extrabold text-white font-mono tracking-tight mt-2 flex items-baseline gap-2">
+              <span>${activeCount}</span>
+              <span class="text-xs font-normal text-emerald-400">online</span>
+            </div>
+            <p class="text-[11px] text-slate-500 font-mono mt-1">A &amp; SRV Cloudflare Live-Records</p>
+          </div>
+
+          <div class="glass-card rounded-2xl p-5 relative overflow-hidden group">
+            <div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-rose-500/70 to-transparent"></div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono text-slate-400 uppercase tracking-wider">Widerrufen / Moderiert</span>
+              <span class="text-rose-400 text-sm">⛔</span>
+            </div>
+            <div class="text-3xl font-extrabold text-rose-400 font-mono tracking-tight mt-2 flex items-baseline gap-2">
+              <span>${revokedCount}</span>
+              <span class="text-xs font-normal text-slate-500">gelöscht</span>
+            </div>
+            <p class="text-[11px] text-slate-500 font-mono mt-1">Aus DNS &amp; Panel entfernt</p>
+          </div>
+
+          <div class="glass-card rounded-2xl p-5 relative overflow-hidden group">
+            <div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-sky-500/70 to-transparent"></div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono text-slate-400 uppercase tracking-wider">Basis-Domain</span>
+              <span class="text-sky-400 text-sm">🌐</span>
+            </div>
+            <div class="text-2xl font-extrabold text-sky-400 font-mono tracking-tight mt-2 truncate" title="${stats.base_domain || 'pteronext.com'}">
+              ${stats.base_domain || 'pteronext.com'}
+            </div>
+            <p class="text-[11px] text-slate-500 font-mono mt-1">Standard Suffix für alle Server</p>
+          </div>
+
+          <div class="glass-card rounded-2xl p-5 relative overflow-hidden group cursor-pointer" onclick="openSettingsModal()">
+            <div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-indigo-500/70 to-transparent"></div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono text-slate-400 uppercase tracking-wider">Cloudflare Zone</span>
+              <span class="text-indigo-400 text-sm">⚡</span>
+            </div>
+            <div class="text-xl font-bold font-mono tracking-tight mt-2 flex items-center gap-2">
+              ${stats.cf_configured 
+                ? '<span class="text-emerald-400 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400"></span>Verbunden</span>' 
+                : '<span class="text-amber-400 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-400"></span>Token fehlt</span>'}
+            </div>
+            <p class="text-[11px] text-slate-500 font-mono mt-1 flex items-center justify-between">
+              <span>API Status prüfen</span>
+              <span class="text-sky-400">&rarr;</span>
+            </p>
+          </div>
+        </div>
+
+        <!-- Filter & Search Bar -->
+        <div class="glass-card rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+          <div class="flex items-center gap-2 flex-wrap">
+            <button onclick="setFilter('all')" class="px-3.5 py-1.5 rounded-xl text-xs font-mono transition-all ${activeFilter === 'all' ? 'bg-sky-500 text-white font-bold shadow-md shadow-sky-500/25' : 'bg-slate-800/80 hover:bg-slate-700/80 text-slate-300'}">
+              Alle (${domains.length})
+            </button>
+            <button onclick="setFilter('active')" class="px-3.5 py-1.5 rounded-xl text-xs font-mono transition-all ${activeFilter === 'active' ? 'bg-emerald-500 text-white font-bold shadow-md shadow-emerald-500/25' : 'bg-slate-800/80 hover:bg-slate-700/80 text-slate-300'}">
+              Aktiv (${activeCount})
+            </button>
+            <button onclick="setFilter('revoked')" class="px-3.5 py-1.5 rounded-xl text-xs font-mono transition-all ${activeFilter === 'revoked' ? 'bg-rose-500 text-white font-bold shadow-md shadow-rose-500/25' : 'bg-slate-800/80 hover:bg-slate-700/80 text-slate-300'}">
+              Widerrufen (${revokedCount})
+            </button>
+          </div>
+
+          <div class="flex items-center gap-2.5 flex-1 max-w-md">
+            <div class="relative flex-1">
+              <input 
+                id="tableSearch" 
+                type="text" 
+                value="${searchQuery}" 
+                oninput="handleSearch(this.value)" 
+                placeholder="Subdomain, Server, UUID oder IP suchen..." 
+                class="w-full bg-[#080d19] border border-slate-800 focus:border-sky-500 rounded-xl px-3.5 py-2 text-xs font-mono text-white outline-none pl-8"
+              >
+              <span class="absolute left-2.5 top-2.5 text-xs text-slate-500">🔍</span>
+            </div>
+            <button onclick="loadData()" title="Daten neu laden" class="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 border border-slate-700 transition-all">
+              ↻
+            </button>
+          </div>
+        </div>
+
+        <!-- Domains Table Card -->
+        <div class="glass-card rounded-2xl p-4 sm:p-6 space-y-4">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-800/80">
+            <div>
+              <h3 class="text-sm font-bold text-white uppercase tracking-wider font-mono">Registrierte Subdomains</h3>
+              <p class="text-xs text-slate-400 mt-0.5">Vollständige Übersicht aller über das Panel angelegten DNS-Records.</p>
+            </div>
+            <span class="text-xs font-mono text-slate-400 bg-slate-800/60 px-3 py-1 rounded-full border border-slate-700/60">
+              ${filtered.length} Einträge
+            </span>
+          </div>
+
+          <div class="overflow-x-auto custom-scroll">
+            <table class="w-full text-left text-xs font-mono">
+              <thead class="text-slate-400 border-b border-slate-800/80 text-[11px] uppercase tracking-wider bg-slate-900/60">
+                <tr>
+                  <th class="py-3 px-4">Subdomain &amp; FQDN</th>
+                  <th class="py-3 px-4">Zieladresse (IP:Port)</th>
+                  <th class="py-3 px-4">Server &amp; Panel</th>
+                  <th class="py-3 px-4">Status</th>
+                  <th class="py-3 px-4 text-right">Moderation</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800/50">
+                ${filtered.length === 0 ? `
+                  <tr>
+                    <td colspan="5" class="py-16 text-center text-slate-500">
+                      <div class="text-3xl mb-2">🌐</div>
+                      <div class="font-bold text-sm text-slate-400">Keine Domains gefunden</div>
+                      <div class="text-xs text-slate-500 mt-1">Sobald im Panel eine Domain angelegt wird, erscheint sie hier.</div>
+                    </td>
+                  </tr>
+                ` : ''}
+                ${filtered.map(d => `
+                  <tr class="hover:bg-slate-800/30 transition-colors">
+                    <td class="py-3.5 px-4">
+                      <div class="font-bold text-white flex items-center gap-2">
+                        <span class="text-sky-300">${d.full_domain}</span>
+                        <button onclick="copyText('${d.full_domain}')" title="Domain kopieren" class="text-slate-500 hover:text-white transition-colors text-[11px]">📋</button>
+                      </div>
+                      <div class="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1.5">
+                        <span>Sub: <span class="text-slate-300">${d.subdomain}</span></span>
+                        <span>&bull;</span>
+                        <span>Base: <span class="text-slate-400">${d.base_domain || 'pteronext.com'}</span></span>
+                      </div>
+                    </td>
+                    <td class="py-3.5 px-4">
+                      <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#080d1a] border border-slate-800 text-sky-400">
+                        <span>${d.target_ip}:${d.port}</span>
+                        <button onclick="copyText('${d.target_ip}:${d.port}')" title="IP kopieren" class="text-slate-500 hover:text-white transition-colors">📋</button>
+                      </div>
+                    </td>
+                    <td class="py-3.5 px-4">
+                      <div class="text-slate-200 font-semibold truncate max-w-xs" title="${d.server_name || d.server_uuid}">
+                        ${d.server_name || 'Server #' + d.server_uuid.substring(0, 8)}
+                      </div>
+                      <div class="text-[10px] text-slate-500 truncate max-w-xs flex items-center gap-1 mt-0.5" title="${d.server_uuid}">
+                        <span>UUID: ${d.server_uuid.substring(0, 13)}...</span>
+                        <button onclick="copyText('${d.server_uuid}')" title="UUID kopieren" class="hover:text-slate-300">📋</button>
+                      </div>
+                    </td>
+                    <td class="py-3.5 px-4">
+                      ${d.status === 'active'
+                        ? '<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 text-[10px] font-semibold"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>Aktiv</span>'
+                        : `<div>
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/25 text-[10px] font-semibold"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>Widerrufen</span>
+                            <div class="text-[10px] text-slate-400 mt-1 max-w-xs truncate" title="${d.revocation_note || ''}">Grund: ${d.revocation_note || '-'}</div>
+                           </div>`
+                      }
+                    </td>
+                    <td class="py-3.5 px-4 text-right">
+                      ${d.status === 'active' ? `
+                        <button onclick="openRevokeModal(${d.id}, '${d.full_domain}', '${d.subdomain}')" class="px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/25 text-rose-300 hover:text-white border border-rose-500/25 hover:border-rose-500/50 text-[11px] font-bold transition-all shadow-sm flex items-center gap-1.5 ml-auto">
+                          <span>🗑️</span>
+                          <span>Entfernen</span>
+                        </button>
+                      ` : '<span class="text-slate-500 font-mono text-[11px]">Bereits entfernt</span>'}
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    // Modal Handling
+    function openModal(html) {
+      const overlay = document.getElementById('modalOverlay');
+      const content = document.getElementById('modalContent');
+      content.innerHTML = html;
+      overlay.classList.remove('hidden');
+    }
+
+    function closeModal() {
+      const overlay = document.getElementById('modalOverlay');
+      overlay.classList.add('hidden');
+    }
+
+    // Revocation Modal with Preset Reasons & Notification Clarification
+    function openRevokeModal(domainId, fullDomain, subdomain) {
+      openModal(`
+        <div class="space-y-5 font-mono">
+          <div class="flex items-start justify-between pb-3 border-b border-slate-800">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-lg">
+                ⚠️
+              </div>
+              <div>
+                <h3 class="text-sm font-bold text-white">Subdomain entfernen &amp; sperren</h3>
+                <p class="text-[11px] text-slate-400">${fullDomain}</p>
+              </div>
+            </div>
+            <button onclick="closeModal()" class="text-slate-400 hover:text-white text-base">&times;</button>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs space-y-1">
+            <div class="font-bold flex items-center gap-1.5">
+              <span>🔔 Wichtiger Hinweis:</span>
+            </div>
+            <p class="text-[11px] text-amber-300/90 leading-relaxed">
+              Die Cloudflare A- und SRV-Records werden sofort gelöscht. Der Panel-Betreiber wird <strong>per Popup-Meldung</strong> in seinem Panel über die Entfernung informiert und die Domain wird <strong>aus dem Panel gelöscht</strong>.
+            </p>
+          </div>
+
+          <div>
+            <label class="block text-xs font-mono text-slate-300 mb-2">Begründung für die Entfernung (wird dem Betreiber angezeigt):</label>
+            <div class="flex flex-wrap gap-1.5 mb-2.5">
+              <button type="button" onclick="setRevokeReason('Verstoß gegen die PteroNext Nutzungsrichtlinien')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px]">
+                Nutzungsrichtlinien
+              </button>
+              <button type="button" onclick="setRevokeReason('Unzulässiger oder beleidigender Domain-Name')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px]">
+                Beleidigender Name
+              </button>
+              <button type="button" onclick="setRevokeReason('Zugehöriger Gameserver nicht mehr aktiv / gelöscht')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px]">
+                Inaktiver Server
+              </button>
+              <button type="button" onclick="setRevokeReason('Phishing, Missbrauch oder illegale Aktivitäten gemeldet')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px]">
+                Abuse / Phishing
+              </button>
+            </div>
+            <textarea id="revokeReasonInput" rows="3" placeholder="Detaillierte Begründung angeben..." class="w-full bg-[#080d19] border border-slate-700 focus:border-rose-500 rounded-xl p-3 text-xs text-white outline-none resize-none">Verstoß gegen die PteroNext Nutzungsrichtlinien</textarea>
+          </div>
+
+          <div class="flex items-center justify-end gap-3 pt-2">
+            <button onclick="closeModal()" type="button" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs">
+              Abbrechen
+            </button>
+            <button onclick="submitRevocation(${domainId}, '${fullDomain}')" id="confirmRevokeBtn" type="button" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-lg shadow-rose-600/30 flex items-center gap-1.5">
+              <span>Domain jetzt löschen &amp; Panel benachrichtigen</span>
+            </button>
+          </div>
+        </div>
+      `);
+    }
+
+    function setRevokeReason(text) {
+      const el = document.getElementById('revokeReasonInput');
+      if (el) el.value = text;
+    }
+
+    async function submitRevocation(id, fullDomain) {
+      const reasonEl = document.getElementById('revokeReasonInput');
+      const reason = reasonEl ? reasonEl.value.trim() : '';
+      if (!reason) {
+        showToast('Fehlende Angabe', 'Bitte einen Grund für den Widerruf angeben.', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('confirmRevokeBtn');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerText = 'Wird gelöscht...';
+      }
+
+      const res = await api('/admin/api/domains/revoke', {
+        method: 'POST',
+        body: JSON.stringify({ domain_id: id, reason })
+      });
+
+      closeModal();
+
+      if (res.success) {
+        showToast('Erfolgreich gelöscht', res.message, 'success');
+        await loadData();
+      } else {
+        showToast('Fehler beim Löschen', res.error || 'Aktion fehlgeschlagen', 'error');
+      }
+    }
+
+    // Password Change Modal
+    function openPasswordModal() {
+      openModal(`
+        <div class="space-y-4 font-mono">
+          <div class="flex items-start justify-between pb-3 border-b border-slate-800">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center text-lg">
+                🔑
+              </div>
+              <div>
+                <h3 class="text-sm font-bold text-white">Administrator-Passwort ändern</h3>
+                <p class="text-[11px] text-slate-400">Sichere dein DNS Control Center ab</p>
+              </div>
+            </div>
+            <button onclick="closeModal()" class="text-slate-400 hover:text-white text-base">&times;</button>
+          </div>
+
+          <form onsubmit="handlePasswordChange(event)" class="space-y-3.5 pt-1">
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Aktuelles Passwort</label>
+              <input id="pwdCurrent" type="password" placeholder="Bisheriges Passwort" class="w-full bg-[#080d19] border border-slate-800 focus:border-sky-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none" required>
+            </div>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Neues Passwort (min. 8 Zeichen)</label>
+              <input id="pwdNew" type="password" placeholder="Neues sicheres Passwort" class="w-full bg-[#080d19] border border-slate-800 focus:border-sky-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none" required minlength="8">
+            </div>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Neues Passwort bestätigen</label>
+              <input id="pwdConfirm" type="password" placeholder="Wiederholen" class="w-full bg-[#080d19] border border-slate-800 focus:border-sky-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none" required minlength="8">
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-3">
+              <button onclick="closeModal()" type="button" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs">
+                Abbrechen
+              </button>
+              <button type="submit" class="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white text-xs font-bold">
+                Passwort speichern
+              </button>
+            </div>
+          </form>
+        </div>
+      `);
+    }
+
+    async function handlePasswordChange(e) {
+      e.preventDefault();
+      const cur = document.getElementById('pwdCurrent').value;
+      const nw = document.getElementById('pwdNew').value;
+      const conf = document.getElementById('pwdConfirm').value;
+
+      if (nw !== conf) {
+        showToast('Passwort-Fehler', 'Die neuen Passwörter stimmen nicht überein.', 'error');
+        return;
+      }
+
+      const res = await api('/admin/api/password', {
+        method: 'POST',
+        body: JSON.stringify({ current_password: cur, new_password: nw })
+      });
+
+      if (res.success) {
+        closeModal();
+        showToast('Passwort geändert', 'Das neue Passwort ist sofort gültig.', 'success');
+      } else {
+        showToast('Fehler', res.error || 'Konnte Passwort nicht ändern', 'error');
+      }
+    }
+
+    // Settings Modal
+    function openSettingsModal() {
+      openModal(`
+        <div class="space-y-4 font-mono">
+          <div class="flex items-start justify-between pb-3 border-b border-slate-800">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center text-lg">
+                ⚙️
+              </div>
+              <div>
+                <h3 class="text-sm font-bold text-white">Cloudflare &amp; System Konfiguration</h3>
+                <p class="text-[11px] text-slate-400">DNS API Zonen-Verbindung</p>
+              </div>
+            </div>
+            <button onclick="closeModal()" class="text-slate-400 hover:text-white text-base">&times;</button>
+          </div>
+
+          <form onsubmit="handleSaveSettingsModal(event)" class="space-y-3.5 pt-1">
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Basis-Domain (Standard: pteronext.com)</label>
+              <input id="cfgDomain" type="text" value="${settings.base_domain || 'pteronext.com'}" class="w-full bg-[#080d19] border border-slate-800 focus:border-sky-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none">
+            </div>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Cloudflare Zone ID</label>
+              <input id="cfgZone" type="text" value="${settings.cf_zone_id || ''}" placeholder="z. B. db1796f2fb36..." class="w-full bg-[#080d19] border border-slate-800 focus:border-sky-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none">
+            </div>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">
+                Cloudflare API Token
+                ${isConfigured ? '<span class="text-emerald-400 font-bold ml-1">(Gespeichert ✓)</span>' : ''}
+              </label>
+              <input id="cfgToken" type="password" placeholder="${isConfigured ? '•••••••••••••••• (Aktiv)' : 'Token einfügen...'}" class="w-full bg-[#080d19] border border-slate-800 focus:border-sky-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none">
+              <span class="text-[10px] text-slate-500 block mt-1">Wird verschlüsselt gespeichert und verlässt den Server niemals.</span>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-3">
+              <button onclick="closeModal()" type="button" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs">
+                Abbrechen
+              </button>
+              <button type="submit" class="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white text-xs font-bold">
+                Speichern
+              </button>
+            </div>
+          </form>
+        </div>
+      `);
+    }
+
+    async function handleSaveSettingsModal(e) {
+      e.preventDefault();
+      const payload = {
+        base_domain: document.getElementById('cfgDomain').value.trim(),
+        cf_zone_id: document.getElementById('cfgZone').value.trim(),
+      };
+      const t = document.getElementById('cfgToken').value.trim();
+      if (t) payload.cf_api_token = t;
+
+      const res = await api('/admin/api/settings', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      closeModal();
+      showToast('Gespeichert', res.message || 'Einstellungen aktualisiert', 'success');
+      await loadData();
+    }
+
+    function togglePassVisibility(id) {
+      const el = document.getElementById(id);
+      if (el) {
+        el.type = el.type === 'password' ? 'text' : 'password';
+      }
+    }
+
+    function copyText(str) {
+      navigator.clipboard?.writeText(str);
+      showToast('Kopiert', str, 'info');
+    }
+
+    function setFilter(flt) {
+      activeFilter = flt;
+      render();
+    }
+
+    function handleSearch(val) {
+      searchQuery = val;
+      render();
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const u = document.getElementById('loginUser').value.trim();
+      const p = document.getElementById('loginPass').value;
+      const btn = document.getElementById('loginSubmitBtn');
+      if (btn) btn.disabled = true;
+
+      const res = await api('/admin/api/login', {
+        method: 'POST',
+        body: JSON.stringify({ username: u, password: p })
+      });
+
+      if (btn) btn.disabled = false;
+
+      if (res.success && res.token) {
+        token = res.token;
+        currentUser = res.username || u;
+        localStorage.setItem('pteronext_dns_token', token);
+        localStorage.setItem('pteronext_dns_user', currentUser);
+        showToast('Willkommen', 'Erfolgreich am DNS Control Center angemeldet.', 'success');
+        await loadData();
+      } else {
+        showToast('Login fehlgeschlagen', res.error || 'Ungültige Anmeldedaten', 'error');
+      }
+    }
+
+    async function logout() {
+      await api('/admin/api/logout', { method: 'POST' });
+      token = '';
+      localStorage.removeItem('pteronext_dns_token');
+      localStorage.removeItem('pteronext_dns_user');
+      showToast('Abgemeldet', 'Sitzung beendet.', 'info');
+      render();
+    }
+
+    async function loadData() {
+      if (!token) return render();
+      try {
+        const [domRes, cfgRes, statsRes] = await Promise.all([
+          api('/admin/api/domains'),
+          api('/admin/api/settings'),
+          api('/admin/api/stats')
+        ]);
+        domains = domRes.data || [];
+        settings = cfgRes.settings || {};
+        isConfigured = Boolean(cfgRes.token_configured);
+        if (statsRes && !statsRes.error) {
+          stats = statsRes;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+      render();
+    }
+
+    loadData();
+  </script>
+</body>
+</html>

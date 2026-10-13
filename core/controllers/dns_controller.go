@@ -12,15 +12,17 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pteronext/panel-core/middleware"
 	"github.com/pteronext/panel-core/models"
+	"github.com/pteronext/panel-core/services"
 	"gorm.io/gorm"
 )
 
 type DNSController struct {
-	db *gorm.DB
+	db    *gorm.DB
+	wsHub *services.WebSocketHub
 }
 
-func NewDNSController(db *gorm.DB) *DNSController {
-	return &DNSController{db: db}
+func NewDNSController(db *gorm.DB, wsHub *services.WebSocketHub) *DNSController {
+	return &DNSController{db: db, wsHub: wsHub}
 }
 
 type CloudflareSettingsPayload struct {
@@ -204,12 +206,21 @@ func (dc *DNSController) CreateServerDomain(c *gin.Context) {
 	// 2a. Attempt Relay Micro-Service First (Separated project architecture)
 	relaySuccess := false
 	relayClient := &http.Client{Timeout: 6 * time.Second}
+	scheme := "https"
+	if c.Request.TLS == nil && c.GetHeader("X-Forwarded-Proto") != "https" {
+		scheme = "http"
+	}
+	panelURL := "https://panel.pteronext.com"
+	if c.Request.Host != "" {
+		panelURL = fmt.Sprintf("%s://%s", scheme, c.Request.Host)
+	}
+
 	relayPayload, _ := json.Marshal(map[string]interface{}{
 		"subdomain":   cleanSub,
 		"target_ip":   targetIP,
 		"port":        serverPort,
 		"server_uuid": server.UUID,
-		"panel_url":   "https://panel.pteronext.com",
+		"panel_url":   panelURL,
 		"server_name": server.Name,
 	})
 
@@ -405,22 +416,58 @@ func (dc *DNSController) HandleRelayRevocationNotification(c *gin.Context) {
 		return
 	}
 
-	now := time.Now()
-	// Mark domain as revoked and update reason
-	dc.db.Model(&models.ServerCustomDomain{}).
-		Where("server_uuid = ? AND subdomain = ?", serverUUID, payload.Subdomain).
-		Updates(map[string]interface{}{
-			"is_active":         false,
-			"status":            "revoked",
-			"revocation_reason": payload.Reason,
-			"revoked_at":        &now,
-		})
+	cleanSub := strings.ToLower(strings.TrimSpace(payload.Subdomain))
+	cleanFull := strings.ToLower(strings.TrimSpace(payload.FullDomain))
+	reasonText := strings.TrimSpace(payload.Reason)
+	if reasonText == "" {
+		reasonText = "Vom Administrator aus dem DNS-Netzwerk entfernt."
+	}
 
-	// Log in audit activities
+	// 1. Unconditionally DELETE the domain from the panel database!
+	// (Addressing: "Die domain in dem Panel wird nicht gelöscht")
+	dc.db.Where("server_uuid = ? AND (subdomain = ? OR full_domain = ?)", serverUUID, cleanSub, cleanFull).
+		Delete(&models.ServerCustomDomain{})
+
+	// 2. Create persistent notification popup record so panel operator is notified!
+	// (Addressing: "wird der Panel betreiber nicht benachrichtigt (soll dann als popup angezeigt werden)")
+	title := "Domain von Administrator entfernt"
+	msg := fmt.Sprintf("Die Subdomain '%s' wurde von einem Administrator aus dem DNS-Netzwerk entfernt.", cleanFull)
+	if cleanFull == "" {
+		msg = fmt.Sprintf("Die Subdomain '%s' wurde von einem Administrator aus dem DNS-Netzwerk entfernt.", cleanSub)
+	}
+
+	notif := models.ServerNotification{
+		ServerUUID:  serverUUID,
+		Type:        "dns_revoked",
+		Title:       title,
+		Message:     msg,
+		Reason:      reasonText,
+		Subdomain:   cleanSub,
+		FullDomain:  cleanFull,
+		IsDismissed: false,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+	dc.db.Create(&notif)
+
+	// 3. Dispatch real-time WebSocket event to active panel clients for instant popup
+	if dc.wsHub != nil {
+		dc.wsHub.Broadcast(serverUUID, "dns:revoked", map[string]interface{}{
+			"id":          notif.ID,
+			"title":       title,
+			"message":     msg,
+			"reason":      reasonText,
+			"subdomain":   cleanSub,
+			"full_domain": cleanFull,
+			"revoked_at":  time.Now().Format(time.RFC3339),
+		})
+	}
+
+	// 4. Log in audit activities
 	propJSON, _ := json.Marshal(map[string]string{
-		"full_domain": payload.FullDomain,
-		"subdomain":   payload.Subdomain,
-		"reason":      payload.Reason,
+		"full_domain": cleanFull,
+		"subdomain":   cleanSub,
+		"reason":      reasonText,
 	})
 	auditLog := models.AuditLog{
 		ActorType:  "Domain-Security-Admin",
@@ -432,7 +479,35 @@ func (dc *DNSController) HandleRelayRevocationNotification(c *gin.Context) {
 	}
 	dc.db.Create(&auditLog)
 
-	c.JSON(http.StatusOK, gin.H{"received": true})
+	c.JSON(http.StatusOK, gin.H{
+		"success":  true,
+		"deleted":  true,
+		"notified": true,
+	})
 }
+
+// GetServerNotifications handles GET /api/servers/:uuid/notifications
+func (dc *DNSController) GetServerNotifications(c *gin.Context) {
+	serverUUID := c.Param("uuid")
+	var notifications []models.ServerNotification
+	dc.db.Where("server_uuid = ? AND is_dismissed = ?", serverUUID, false).
+		Order("id desc").
+		Find(&notifications)
+
+	c.JSON(http.StatusOK, gin.H{"notifications": notifications})
+}
+
+// DismissServerNotification handles POST /api/servers/:uuid/notifications/:id/dismiss
+func (dc *DNSController) DismissServerNotification(c *gin.Context) {
+	serverUUID := c.Param("uuid")
+	notifID := c.Param("id")
+
+	dc.db.Model(&models.ServerNotification{}).
+		Where("id = ? AND server_uuid = ?", notifID, serverUUID).
+		Update("is_dismissed", true)
+
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
 
 

@@ -36,6 +36,7 @@ fi
 
 PANEL_DOMAIN="${PANEL_DOMAIN:-panel.pteronext.com}"
 WINGS_DOMAIN="${WINGS_DOMAIN:-wings.pteronext.com}"
+DNS_DOMAIN="${DNS_DOMAIN:-dns.pteronext.com}"
 SERVER_IP="${SERVER_IP:-217.20.120.126}"
 ADMIN_EMAIL="${1:-admin@pteronext.com}"
 
@@ -44,13 +45,15 @@ echo -e "${CYAN}Konfiguration:${NC}"
 echo -e "  • Server IP:     ${BOLD}${SERVER_IP}${NC}"
 echo -e "  • Panel Domain:  ${BOLD}${PANEL_DOMAIN}${NC}"
 echo -e "  • Wings Domain:  ${BOLD}${WINGS_DOMAIN}${NC}"
+echo -e "  • DNS Domain:    ${BOLD}${DNS_DOMAIN}${NC}"
 echo -e "  • SSL E-Mail:    ${BOLD}${ADMIN_EMAIL}${NC}"
 echo ""
 
 # Sorge dafür, dass Domains auf diesem Host immer lokal aufgelöst werden
 if ! grep -q "${PANEL_DOMAIN}" /etc/hosts 2>/dev/null; then
-    echo "127.0.0.1 ${PANEL_DOMAIN} ${WINGS_DOMAIN}" >> /etc/hosts
+    echo "127.0.0.1 ${PANEL_DOMAIN} ${WINGS_DOMAIN} ${DNS_DOMAIN}" >> /etc/hosts
 fi
+
 
 # ------------------------------------------------------------------------------
 # 1. Architecture Detection
@@ -121,6 +124,8 @@ PANEL_CERT="/etc/letsencrypt/live/${PANEL_DOMAIN}/fullchain.pem"
 PANEL_KEY="/etc/letsencrypt/live/${PANEL_DOMAIN}/privkey.pem"
 WINGS_CERT="/etc/letsencrypt/live/${WINGS_DOMAIN}/fullchain.pem"
 WINGS_KEY="/etc/letsencrypt/live/${WINGS_DOMAIN}/privkey.pem"
+DNS_CERT="/etc/letsencrypt/live/${DNS_DOMAIN}/fullchain.pem"
+DNS_KEY="/etc/letsencrypt/live/${DNS_DOMAIN}/privkey.pem"
 
 PUBLIC_DNS_IP=""
 if command -v dig &>/dev/null; then
@@ -135,8 +140,8 @@ if [[ -n "$PUBLIC_DNS_IP" && "$PUBLIC_DNS_IP" == "$SERVER_IP" ]]; then
     CAN_USE_CERTBOT=true
 fi
 
-if [[ -f "${PANEL_CERT}" && -f "${WINGS_CERT}" ]]; then
-    echo -e "${GREEN}[3/8] Gültige SSL-Zertifikate für ${PANEL_DOMAIN} & ${WINGS_DOMAIN} bereits vorhanden.${NC}"
+if [[ -f "${PANEL_CERT}" && -f "${WINGS_CERT}" && -f "${DNS_CERT}" ]]; then
+    echo -e "${GREEN}[3/8] Gültige SSL-Zertifikate für ${PANEL_DOMAIN}, ${WINGS_DOMAIN} & ${DNS_DOMAIN} bereits vorhanden.${NC}"
 elif [ "$CAN_USE_CERTBOT" = true ]; then
     echo -e "${CYAN}[3/8] Öffentlicher DNS stimmt überein (${SERVER_IP}). Beantrage Let's Encrypt Zertifikate...${NC}"
     systemctl stop nginx || true
@@ -147,6 +152,9 @@ elif [ "$CAN_USE_CERTBOT" = true ]; then
     if [[ ! -f "${WINGS_CERT}" ]]; then
         certbot certonly --standalone --agree-tos --no-eff-email --non-interactive --email "${ADMIN_EMAIL}" -d "${WINGS_DOMAIN}" || true
     fi
+    if [[ ! -f "${DNS_CERT}" ]]; then
+        certbot certonly --standalone --agree-tos --no-eff-email --non-interactive --email "${ADMIN_EMAIL}" -d "${DNS_DOMAIN}" || true
+    fi
 else
     echo -e "${AMBER}[3/8] Öffentlicher DNS für '${PANEL_DOMAIN}' zeigt noch auf '${PUBLIC_DNS_IP:-unbekannt}' (nicht ${SERVER_IP}).${NC}"
     echo -e "${CYAN}Erstelle sofort einsatzbereites SSL-Zertifikat mit SAN für Testserver-IP & Domains...${NC}"
@@ -154,12 +162,12 @@ fi
 
 # Fallback auf sicheres OpenSSL-Zertifikat falls Certbot nicht verfügbar/fehlgeschlagen
 if [[ ! -f "${PANEL_CERT}" ]]; then
-    mkdir -p "/etc/letsencrypt/live/${PANEL_DOMAIN}" "/etc/letsencrypt/live/${WINGS_DOMAIN}"
+    mkdir -p "/etc/letsencrypt/live/${PANEL_DOMAIN}" "/etc/letsencrypt/live/${WINGS_DOMAIN}" "/etc/letsencrypt/live/${DNS_DOMAIN}"
     openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
         -keyout "${PANEL_KEY}" \
         -out "${PANEL_CERT}" \
         -subj "/CN=${SERVER_IP}/O=PteroNext/C=DE" \
-        -addext "subjectAltName = DNS:${PANEL_DOMAIN},DNS:${WINGS_DOMAIN},DNS:localhost,IP:${SERVER_IP},IP:127.0.0.1" 2>/dev/null || \
+        -addext "subjectAltName = DNS:${PANEL_DOMAIN},DNS:${WINGS_DOMAIN},DNS:${DNS_DOMAIN},DNS:localhost,IP:${SERVER_IP},IP:127.0.0.1" 2>/dev/null || \
     openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
         -keyout "${PANEL_KEY}" \
         -out "${PANEL_CERT}" \
@@ -176,6 +184,14 @@ if [[ ! -f "${WINGS_CERT}" ]]; then
     chmod 600 "${WINGS_KEY}"
 fi
 
+if [[ ! -f "${DNS_CERT}" ]]; then
+    mkdir -p "/etc/letsencrypt/live/${DNS_DOMAIN}"
+    cp -f "${PANEL_CERT}" "${DNS_CERT}"
+    cp -f "${PANEL_KEY}" "${DNS_KEY}"
+    chmod 644 "${DNS_CERT}"
+    chmod 600 "${DNS_KEY}"
+fi
+
 chmod 755 /etc/letsencrypt /etc/letsencrypt/live /etc/letsencrypt/archive 2>/dev/null || true
 
 echo -e "${GREEN}SSL-Zertifikate erfolgreich verifiziert.${NC}"
@@ -185,6 +201,7 @@ echo -e "${GREEN}SSL-Zertifikate erfolgreich verifiziert.${NC}"
 # ------------------------------------------------------------------------------
 echo -e "${CYAN}[4/8] Konfiguriere Nginx Reverse Proxy...${NC}"
 
+# 4a. PteroNext Panel (Clean URL - without dns-admin)
 cat > "/etc/nginx/sites-available/${PANEL_DOMAIN}.conf" <<EOF
 server {
     listen 80 default_server;
@@ -230,31 +247,61 @@ server {
         proxy_send_timeout 300s;
         proxy_read_timeout 300s;
     }
+}
+EOF
 
-    # Internal / Admin Relay Proxy for Domain Management Micro-Service
-    location /dns-admin/ {
-        proxy_pass http://127.0.0.1:8085/;
+# 4b. Dedicated DNS Management Micro-Service (dns.pteronext.com)
+cat > "/etc/nginx/sites-available/${DNS_DOMAIN}.conf" <<EOF
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${DNS_DOMAIN};
+    return 301 https://\$host\$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name ${DNS_DOMAIN};
+
+    ssl_certificate ${DNS_CERT};
+    ssl_certificate_key ${DNS_KEY};
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    client_max_body_size 64M;
+
+    # Security Headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    location / {
+        proxy_pass http://127.0.0.1:8085;
         proxy_http_version 1.1;
+
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
-    }
 
-    location /admin/api/ {
-        proxy_pass http://127.0.0.1:8085/admin/api/;
-        proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
     }
 }
 EOF
 
-
 rm -f /etc/nginx/sites-enabled/default /etc/nginx/sites-enabled/panel.springisfm.de.conf || true
 ln -sf "/etc/nginx/sites-available/${PANEL_DOMAIN}.conf" "/etc/nginx/sites-enabled/${PANEL_DOMAIN}.conf"
+ln -sf "/etc/nginx/sites-available/${DNS_DOMAIN}.conf" "/etc/nginx/sites-enabled/${DNS_DOMAIN}.conf"
 
 nginx -t
 systemctl restart nginx
@@ -564,6 +611,7 @@ echo -e "${GREEN}${BOLD}========================================================
 echo ""
 echo -e "  🌐 Web Panel:      ${BOLD}https://${PANEL_DOMAIN}${NC} (oder ${BOLD}https://${SERVER_IP}${NC})"
 echo -e "  🦅 Wings Daemon:   ${BOLD}https://${WINGS_DOMAIN}:8080${NC} (SFTP: 2022)"
+echo -e "  ⚡ DNS Relay:      ${BOLD}https://${DNS_DOMAIN}${NC}"
 echo ""
 echo -e "  👤 Admin User:     ${BOLD}admin${NC} (admin@pteronext.internal)"
 echo -e "  🔑 Admin Passwort: ${BOLD}admin123456${NC}"

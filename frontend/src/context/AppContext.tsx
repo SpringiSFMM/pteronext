@@ -1709,6 +1709,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (data.event === 'console output' && Array.isArray(data.args) && data.args.length > 0) {
               const line = String(data.args[0]);
               setTerminalLogs((prev) => [...prev, line]);
+            } else if (data.event === 'dns:revoked' && Array.isArray(data.args) && data.args.length > 0) {
+              const info = typeof data.args[0] === 'string' ? JSON.parse(data.args[0]) : (data.args[0] || {});
+              addToast({
+                title: info.title || 'Domain von Administrator entfernt',
+                description: info.message || `Subdomain '${info.subdomain || info.full_domain}' wurde widerrufen: ${info.reason || ''}`,
+                type: 'error',
+              });
+              window.dispatchEvent(new CustomEvent('pteronext:dns_revoked', { detail: info }));
             } else if (data.event === 'status' && Array.isArray(data.args) && data.args.length > 0) {
               const newSt = String(data.args[0]).toLowerCase() as ServerStatus;
               setSelectedServerState((prev) => (prev && prev.uuid === serverUuid ? { ...prev, status: newSt } : prev));

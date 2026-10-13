@@ -53,6 +53,14 @@ export const NetworkTab: React.FC = () => {
   const [creatingDns, setCreatingDns] = useState(false);
   const [loadingDns, setLoadingDns] = useState(false);
 
+  // Domain Revocation Notification Popup State
+  const [revocationAlert, setRevocationAlert] = useState<{
+    id: number;
+    subdomain: string;
+    full_domain: string;
+    reason: string;
+  } | null>(null);
+
   // Notes Modal State
   const [editingAllocation, setEditingAllocation] = useState<Allocation | null>(null);
   const [editNotes, setEditNotes] = useState('');
@@ -121,12 +129,59 @@ export const NetworkTab: React.FC = () => {
         setCfConfigured(res.cloudflare_configured || false);
         setDefaultDomain(res.default_domain || '');
       }
+
+      // Check for undismissed revocation notifications
+      const notifsRes = await api.dns.getNotifications(selectedServer.uuid);
+      if (notifsRes?.notifications && notifsRes.notifications.length > 0) {
+        const revNotif = notifsRes.notifications.find((n: any) => n.type === 'dns_revoked' && !n.is_dismissed);
+        if (revNotif) {
+          setRevocationAlert({
+            id: revNotif.id,
+            subdomain: revNotif.subdomain,
+            full_domain: revNotif.full_domain,
+            reason: revNotif.reason,
+          });
+        }
+      }
     } catch (e) {
       console.warn('Could not load custom domains:', e);
     } finally {
       setLoadingDns(false);
     }
   };
+
+  useEffect(() => {
+    const handleDnsRevoked = (e: any) => {
+      const detail = e.detail;
+      if (detail) {
+        setRevocationAlert({
+          id: detail.id || 0,
+          subdomain: detail.subdomain || '',
+          full_domain: detail.full_domain || '',
+          reason: detail.reason || '',
+        });
+        setCustomDomains((prev) =>
+          prev.filter((d) => d.subdomain !== detail.subdomain && d.hostname !== detail.full_domain)
+        );
+        fetchDnsDomains();
+      }
+    };
+
+    window.addEventListener('pteronext:dns_revoked', handleDnsRevoked);
+    return () => window.removeEventListener('pteronext:dns_revoked', handleDnsRevoked);
+  }, [selectedServer?.uuid]);
+
+  const dismissRevocationAlert = async (id: number) => {
+    if (selectedServer?.uuid && id > 0) {
+      try {
+        await api.dns.dismissNotification(selectedServer.uuid, id);
+      } catch (e) {
+        console.error('Failed to dismiss notification:', e);
+      }
+    }
+    setRevocationAlert(null);
+  };
+
 
   const fetchReverseProxies = async () => {
     if (!selectedServer?.uuid) return;
@@ -1143,6 +1198,51 @@ export const NetworkTab: React.FC = () => {
         description={deleteModalState.description}
         isDeleting={isDeletingItem}
       />
+
+      {/* Subdomain Revocation Notification Popup */}
+      {revocationAlert && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-md p-6 rounded-3xl bg-[#0c1222] border border-rose-500/40 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-xl shrink-0">
+                ⚠️
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white font-mono">
+                  {language === 'de' ? 'Subdomain von Administrator entfernt' : 'Subdomain Revoked by Admin'}
+                </h3>
+                <p className="text-[11px] text-slate-400 font-mono">
+                  {revocationAlert.full_domain || revocationAlert.subdomain}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-200 space-y-2 font-mono">
+              <div className="font-semibold text-rose-300">
+                {language === 'de' ? 'Grund für den Widerruf:' : 'Reason for revocation:'}
+              </div>
+              <div className="text-slate-200 bg-slate-900/80 p-3 rounded-xl border border-slate-800 text-[11px] leading-relaxed">
+                "{revocationAlert.reason || (language === 'de' ? 'Verstoß gegen die Richtlinien' : 'Policy violation')}"
+              </div>
+              <p className="text-[11px] text-slate-400 pt-1 leading-relaxed">
+                {language === 'de'
+                  ? 'Die Cloudflare DNS-Records (A & SRV) wurden dauerhaft gelöscht und der Eintrag wurde aus deinem Server-Panel entfernt.'
+                  : 'Cloudflare DNS records (A & SRV) were purged and the mapping removed from your server panel.'}
+              </p>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => dismissRevocationAlert(revocationAlert.id)}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-mono text-xs font-bold transition-all shadow-md active:scale-95"
+              >
+                {language === 'de' ? 'Verstanden & Schließen' : 'Acknowledge & Close'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+

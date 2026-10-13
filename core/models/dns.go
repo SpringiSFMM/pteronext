@@ -20,3 +20,18 @@ type ServerCustomDomain struct {
 	UpdatedAt        time.Time  `json:"updated_at"`
 }
 
+// ServerNotification stores incident alerts and moderation popups for server owners.
+type ServerNotification struct {
+	ID          uint      `gorm:"primaryKey" json:"id"`
+	ServerUUID  string    `gorm:"index;type:varchar(64)" json:"server_uuid"`
+	Type        string    `gorm:"type:varchar(64)" json:"type"` // e.g. "dns_revoked"
+	Title       string    `gorm:"type:varchar(255)" json:"title"`
+	Message     string    `gorm:"type:text" json:"message"`
+	Reason      string    `gorm:"type:text" json:"reason"`
+	Subdomain   string    `gorm:"type:varchar(128)" json:"subdomain"`
+	FullDomain  string    `gorm:"type:varchar(255)" json:"full_domain"`
+	IsDismissed bool      `gorm:"default:false" json:"is_dismissed"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+

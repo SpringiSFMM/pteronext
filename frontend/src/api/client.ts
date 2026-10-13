@@ -1729,7 +1729,7 @@ export const api = {
 
     create: async (
       serverUuid: string,
-      payload: { hostname: string; base_domain?: string }
+      payload: { hostname: string; subdomain?: string; base_domain?: string }
     ): Promise<{ message: string; domain: any }> => {
       return request(`/api/servers/${serverUuid}/dns`, {
         method: 'POST',
@@ -1740,6 +1740,16 @@ export const api = {
     delete: async (serverUuid: string, domainId: number): Promise<{ message: string }> => {
       return request(`/api/servers/${serverUuid}/dns/${domainId}`, {
         method: 'DELETE',
+      });
+    },
+
+    getNotifications: async (serverUuid: string): Promise<{ notifications: any[] }> => {
+      return request(`/api/servers/${serverUuid}/notifications`);
+    },
+
+    dismissNotification: async (serverUuid: string, notifId: number): Promise<{ success: boolean }> => {
+      return request(`/api/servers/${serverUuid}/notifications/${notifId}/dismiss`, {
+        method: 'POST',
       });
     },
 

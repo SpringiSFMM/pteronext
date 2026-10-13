@@ -96,11 +96,14 @@ func SetupRouter(
 	incidentCtrl := controllers.NewIncidentController(db, wingsClient, wsHub, webhookService)
 	securityCtrl := controllers.NewSecurityController(scannerService, cfg.DBPath)
 	crashCtrl := controllers.NewCrashController(db, wingsClient)
-	dnsCtrl := controllers.NewDNSController(db)
+	dnsCtrl := controllers.NewDNSController(db, wsHub)
 	diagnosticsCtrl := controllers.NewDiagnosticsController(db, wingsClient)
 	automationCtrl := controllers.NewAutomationController(db)
 	migrationCtrl := controllers.NewMigrationController(db)
 	reverseProxyCtrl := controllers.NewReverseProxyController(db)
+
+	// Webhook notification endpoint for DNS Relay Micro-Service (no user session cookie required)
+	router.POST("/api/servers/:uuid/dns/notify", dnsCtrl.HandleRelayRevocationNotification)
 
 	// -------------------------------------------------------------
 	// Wings Remote API (/api/remote/*) - Protected by DaemonAuth
@@ -288,7 +291,8 @@ func SetupRouter(
 			serverAccess.GET("/dns", dnsCtrl.ListServerDomains)
 			serverAccess.POST("/dns", dnsCtrl.CreateServerDomain)
 			serverAccess.DELETE("/dns/:id", dnsCtrl.DeleteServerDomain)
-			serverAccess.POST("/dns/notify", dnsCtrl.HandleRelayRevocationNotification)
+			serverAccess.GET("/notifications", dnsCtrl.GetServerNotifications)
+			serverAccess.POST("/notifications/:id/dismiss", dnsCtrl.DismissServerNotification)
 
 			// Instant Server-Klon / 1-Klick-Staging
 			serverAccess.POST("/clone", serverCtrl.CloneServer)
