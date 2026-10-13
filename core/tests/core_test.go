@@ -1196,3 +1196,186 @@ func TestServerCreationWithEggAndEnvironment(t *testing.T) {
 	}
 }
 
+// -------------------------------------------------------------
+// Test 14: Strict RBAC, Server Isolation, and Theme Preferences
+// -------------------------------------------------------------
+func TestStrictRBACAndSecurityIsolation(t *testing.T) {
+	env, cleanup := setupTestEnvironment(t)
+	defer cleanup()
+
+	// 1. Admin login
+	wAdminLogin := env.performRequest("POST", "/api/auth/login", map[string]string{
+		"user":     "admin",
+		"password": "admin123456",
+	}, nil)
+	var adminResp struct {
+		Token string `json:"token"`
+	}
+	_ = json.Unmarshal(wAdminLogin.Body.Bytes(), &adminResp)
+	adminHeaders := map[string]string{"Authorization": "Bearer " + adminResp.Token}
+
+	// 2. Register regular user A
+	wUserA := env.performRequest("POST", "/api/auth/register", map[string]string{
+		"username": "user_alice",
+		"email":    "alice@example.com",
+		"password": "alicepassword123",
+	}, nil)
+	if wUserA.Code != http.StatusCreated {
+		t.Fatalf("Expected 201 for registering user Alice, got %d", wUserA.Code)
+	}
+	var aliceResp struct {
+		Token string `json:"token"`
+	}
+	_ = json.Unmarshal(wUserA.Body.Bytes(), &aliceResp)
+	aliceHeaders := map[string]string{"Authorization": "Bearer " + aliceResp.Token}
+
+	// 3. Register regular user B
+	wUserB := env.performRequest("POST", "/api/auth/register", map[string]string{
+		"username": "user_bob",
+		"email":    "bob@example.com",
+		"password": "bobpassword123",
+	}, nil)
+	if wUserB.Code != http.StatusCreated {
+		t.Fatalf("Expected 201 for registering user Bob, got %d", wUserB.Code)
+	}
+	var bobResp struct {
+		Token string `json:"token"`
+	}
+	_ = json.Unmarshal(wUserB.Body.Bytes(), &bobResp)
+	bobHeaders := map[string]string{"Authorization": "Bearer " + bobResp.Token}
+
+	// 4. Assert Admin Endpoints reject non-admin users (403 Forbidden)
+	adminProtectedEndpoints := []string{
+		"/api/nodes",
+		"/api/admin/users",
+		"/api/admin/databases",
+		"/api/admin/database-hosts",
+		"/api/admin/integrations/discord",
+	}
+	for _, ep := range adminProtectedEndpoints {
+		wDeny := env.performRequest("GET", ep, nil, aliceHeaders)
+		if wDeny.Code != http.StatusForbidden && wDeny.Code != http.StatusMethodNotAllowed {
+			t.Errorf("Expected 403 Forbidden for non-admin on %s, got %d", ep, wDeny.Code)
+		}
+	}
+
+	// Non-admin attempting to create a server gets 403 (Deploy instance bypass fix!)
+	var defaultNode models.Node
+	env.db.First(&defaultNode)
+
+	serverPayloadAlice := map[string]interface{}{
+		"name":        "Alice Illicit Survival",
+		"description": "Alice trying to bypass provisioning",
+		"node_id":     defaultNode.ID,
+		"memory":      2048,
+		"swap":        0,
+		"disk":        10240,
+		"io":          500,
+		"cpu":         200,
+	}
+	wCreateServerAlice := env.performRequest("POST", "/api/servers", serverPayloadAlice, aliceHeaders)
+	if wCreateServerAlice.Code != http.StatusForbidden {
+		t.Fatalf("Expected 403 Forbidden when non-admin Alice tries to create a server, got %d", wCreateServerAlice.Code)
+	}
+
+	// 5. Admin creates a server assigned to Alice
+	var alice models.User
+	env.db.Where("username = ?", "user_alice").First(&alice)
+
+	serverPayloadAdmin := map[string]interface{}{
+		"name":        "Alice Survival",
+		"description": "Alice's dedicated instance",
+		"owner_id":    alice.ID,
+		"node_id":     defaultNode.ID,
+		"memory":      2048,
+		"swap":        0,
+		"disk":        10240,
+		"io":          500,
+		"cpu":         200,
+	}
+	wCreateServer := env.performRequest("POST", "/api/servers", serverPayloadAdmin, adminHeaders)
+	if wCreateServer.Code != http.StatusCreated {
+		t.Fatalf("Expected 201 for server creation by Admin, got %d: %s", wCreateServer.Code, wCreateServer.Body.String())
+	}
+	var serverCreated struct {
+		Server models.Server `json:"server"`
+	}
+	_ = json.Unmarshal(wCreateServer.Body.Bytes(), &serverCreated)
+	aliceServerUUID := serverCreated.Server.UUID
+
+	// 6. Bob tries to access Alice's server -> 403 Forbidden
+	wBobForbidden := env.performRequest("GET", "/api/servers/"+aliceServerUUID, nil, bobHeaders)
+	if wBobForbidden.Code != http.StatusForbidden {
+		t.Errorf("Expected 403 for Bob accessing Alice's server, got %d", wBobForbidden.Code)
+	}
+
+	// 7. Bob tries to send power action to Alice's server -> 403 Forbidden
+	wBobPower := env.performRequest("POST", "/api/servers/"+aliceServerUUID+"/power", map[string]string{"action": "kill"}, bobHeaders)
+	if wBobPower.Code != http.StatusForbidden {
+		t.Errorf("Expected 403 for Bob sending power action to Alice's server, got %d", wBobPower.Code)
+	}
+
+	// 8. Alice CAN access her own server
+	wAliceAccess := env.performRequest("GET", "/api/servers/"+aliceServerUUID, nil, aliceHeaders)
+	if wAliceAccess.Code != http.StatusOK {
+		t.Errorf("Expected 200 for Alice accessing her own server, got %d", wAliceAccess.Code)
+	}
+
+	// 9. Audit Logs are isolated: non-admin only sees permitted events
+	wAuditAlice := env.performRequest("GET", "/api/audit-logs", nil, aliceHeaders)
+	if wAuditAlice.Code != http.StatusOK {
+		t.Errorf("Expected 200 for Alice audit logs, got %d", wAuditAlice.Code)
+	}
+
+	// 10. Theme preferences: Alice sets personal theme (emerald), admin sets global theme (amber)
+	wAliceTheme := env.performRequest("PUT", "/api/user/theme", map[string]string{
+		"theme":      "emerald",
+		"custom_css": ".alice-theme { display: block; }",
+	}, aliceHeaders)
+	if wAliceTheme.Code != http.StatusOK {
+		t.Errorf("Expected 200 setting user theme, got %d", wAliceTheme.Code)
+	}
+
+	wGetAliceTheme := env.performRequest("GET", "/api/user/theme", nil, aliceHeaders)
+	if wGetAliceTheme.Code != http.StatusOK {
+		t.Errorf("Expected 200 getting user theme, got %d", wGetAliceTheme.Code)
+	}
+	var themeResp struct {
+		Theme     string `json:"theme"`
+		CustomCSS string `json:"custom_css"`
+	}
+	_ = json.Unmarshal(wGetAliceTheme.Body.Bytes(), &themeResp)
+	if themeResp.Theme != "emerald" {
+		t.Errorf("Expected theme 'emerald', got %s", themeResp.Theme)
+	}
+
+	// Non-admin Bob cannot set global admin theme -> 403 Forbidden
+	wBobGlobalTheme := env.performRequest("PUT", "/api/admin/theme", map[string]string{
+		"global_theme": "crimson",
+	}, bobHeaders)
+	if wBobGlobalTheme.Code != http.StatusForbidden {
+		t.Errorf("Expected 403 Forbidden for non-admin on /api/admin/theme, got %d", wBobGlobalTheme.Code)
+	}
+
+	// Admin sets global theme -> 200 OK
+	wAdminGlobalTheme := env.performRequest("PUT", "/api/admin/theme", map[string]string{
+		"global_theme": "cyberpunk",
+		"custom_css":   "/* global */",
+	}, adminHeaders)
+	if wAdminGlobalTheme.Code != http.StatusOK {
+		t.Errorf("Expected 200 for admin setting global theme, got %d", wAdminGlobalTheme.Code)
+	}
+
+	// Public can read global theme
+	wPublicGlobal := env.performRequest("GET", "/api/theme/global", nil, nil)
+	if wPublicGlobal.Code != http.StatusOK {
+		t.Errorf("Expected 200 reading global theme publicly, got %d", wPublicGlobal.Code)
+	}
+	var globalResp struct {
+		GlobalTheme string `json:"global_theme"`
+	}
+	_ = json.Unmarshal(wPublicGlobal.Body.Bytes(), &globalResp)
+	if globalResp.GlobalTheme != "cyberpunk" {
+		t.Errorf("Expected global theme 'cyberpunk', got %s", globalResp.GlobalTheme)
+	}
+}

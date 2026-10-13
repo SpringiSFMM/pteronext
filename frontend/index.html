@@ -8,6 +8,27 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <title>Server Matrix</title>
+    <script>
+      (function() {
+        try {
+          var stored = localStorage.getItem('pteronext_theme');
+          if (stored) {
+            document.documentElement.setAttribute('data-theme', stored);
+            document.documentElement.classList.add('theme-' + stored);
+          } else {
+            fetch('/api/theme/global')
+              .then(function(r) { return r.json(); })
+              .then(function(data) {
+                if (data && data.global_theme) {
+                  document.documentElement.setAttribute('data-theme', data.global_theme);
+                  document.documentElement.classList.add('theme-' + data.global_theme);
+                }
+              })
+              .catch(function() {});
+          }
+        } catch(e) {}
+      })();
+    </script>
   </head>
   <body class="bg-[#0d1117] text-[#f0f6fc] min-h-screen antialiased selection:bg-slate-700 selection:text-white overflow-x-hidden">
     <div id="root"></div>

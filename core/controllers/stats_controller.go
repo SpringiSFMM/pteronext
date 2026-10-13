@@ -40,6 +40,23 @@ func (s *StatsController) GetSystemStats(c *gin.Context) {
 		return
 	}
 
+	user, hasUser := middleware.GetRequestUser(c)
+	if !hasUser || user == nil || !user.RootAdmin {
+		// Non-admins or unauthenticated callers receive basic health and system version,
+		// but node metrics, host memory breakdown, and daemon internals are sanitized.
+		c.JSON(http.StatusOK, gin.H{
+			"status":         "online",
+			"go_version":     stats.GoVersion,
+			"uptime_seconds": stats.UptimeSeconds,
+			"counts": gin.H{
+				"servers": stats.Counts.Servers,
+				"nodes":   0,
+				"users":   0,
+			},
+		})
+		return
+	}
+
 	c.JSON(http.StatusOK, stats)
 }
 

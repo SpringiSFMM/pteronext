@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useApp } from '../../../context/AppContext';
 import { useTranslation } from '../../../i18n/useTranslation';
 import { api } from '../../../api/client';
@@ -19,6 +19,7 @@ import {
   FileText,
   Activity,
   Move,
+  Bug,
 } from 'lucide-react';
 
 interface Chunk {
@@ -29,6 +30,13 @@ interface Chunk {
   avg_height: number;
   color: string;
   inhabited_sec?: number;
+}
+
+interface Mob {
+  type: string;
+  x: number;
+  y: number;
+  z: number;
 }
 
 export const WorldRegionViewerTab: React.FC = () => {
@@ -45,7 +53,11 @@ export const WorldRegionViewerTab: React.FC = () => {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
   const [loading, setLoading] = useState(false);
+  const chunkMapRef = useRef<Map<string, Chunk>>(new Map());
   const [chunks, setChunks] = useState<Chunk[]>([]);
+  const mobMapRef = useRef<Map<string, Mob>>(new Map());
+  const [mobs, setMobs] = useState<Mob[]>([]);
+  const [showMobs, setShowMobs] = useState(true);
   const [spawnPoint, setSpawnPoint] = useState({ x: 0, z: 0 });
   const [worldBorder, setWorldBorder] = useState({ center_x: 0, center_z: 0, size: 5000 });
   const [availableRegions, setAvailableRegions] = useState<string[]>([]);
@@ -76,7 +88,6 @@ export const WorldRegionViewerTab: React.FC = () => {
         const res = await api.players.list(selectedServer.uuid);
         if (res?.data && Array.isArray(res.data)) {
           const mapped = res.data.map((p: any, idx: number) => {
-            // Coordinate extraction: check direct X/Z or parse location
             let px = typeof p.x === 'number' ? p.x : 0;
             let pz = typeof p.z === 'number' ? p.z : 0;
             if (p.location && typeof p.location === 'string') {
@@ -103,35 +114,78 @@ export const WorldRegionViewerTab: React.FC = () => {
       }
     };
     fetchPlayers();
-    const interval = setInterval(fetchPlayers, 3000);
+    const interval = setInterval(fetchPlayers, 2000);
     return () => clearInterval(interval);
   }, [selectedServer?.uuid]);
 
-  // Load Region Data
-  const loadRegionData = async (rx: number, rz: number) => {
+  // Loaded regions tracking
+  const loadedRegionsRef = useRef<Set<string>>(new Set());
+  const pendingRequestsRef = useRef<Set<string>>(new Set());
+
+  // Load Region Data with Persistent Cache & Viewport Buffering (Never Set-Null)
+  const loadRegionData = useCallback(async (rx: number, rz: number, force = false) => {
     if (!selectedServer?.uuid) return;
+    const regionKey = `${rx},${rz}`;
+
+    if (!force && (loadedRegionsRef.current.has(regionKey) || pendingRequestsRef.current.has(regionKey))) {
+      return;
+    }
+
+    pendingRequestsRef.current.add(regionKey);
     setLoading(true);
+
     try {
       const res = await api.world.getRegion(selectedServer.uuid, rx, rz);
       if (res) {
-        setChunks(res.chunks || []);
+        loadedRegionsRef.current.add(regionKey);
+
+        // Merge Chunks into Map Cache
+        if (Array.isArray(res.chunks)) {
+          res.chunks.forEach((c) => {
+            chunkMapRef.current.set(`${c.x},${c.z}`, c);
+          });
+          // Update Chunks array without dropping previously cached chunks
+          setChunks(Array.from(chunkMapRef.current.values()));
+        }
+
+        // Merge Mobs into Map Cache
+        if (Array.isArray(res.mobs)) {
+          res.mobs.forEach((m) => {
+            const mobKey = `${m.type}-${Math.round(m.x)}-${Math.round(m.z)}`;
+            mobMapRef.current.set(mobKey, m);
+          });
+          setMobs(Array.from(mobMapRef.current.values()));
+        }
+
         if (res.spawn_point) setSpawnPoint(res.spawn_point);
         if (res.world_border) setWorldBorder(res.world_border);
       }
     } catch (err: any) {
-      addToast({
-        title: language === 'de' ? 'Fehler beim Laden' : 'Error Loading Region',
-        description: err.message || (language === 'de' ? 'Region-Daten konnten nicht geladen werden' : 'Failed to load region data'),
-        type: 'error',
-      });
+      console.warn('Region load warning:', err);
     } finally {
-      setLoading(false);
+      pendingRequestsRef.current.delete(regionKey);
+      setLoading(pendingRequestsRef.current.size > 0);
     }
-  };
+  }, [selectedServer?.uuid]);
 
+  // Load active region and surrounding 3x3 viewport buffer
   useEffect(() => {
-    loadRegionData(regionX, regionZ);
-  }, [selectedServer?.uuid, regionX, regionZ]);
+    const timer = setTimeout(() => {
+      // Load current center region
+      loadRegionData(regionX, regionZ);
+
+      // Preload full 3x3 surrounding region cluster (including diagonals) for seamless panning & chunk registration
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dz = -1; dz <= 1; dz++) {
+          if (dx !== 0 || dz !== 0) {
+            loadRegionData(regionX + dx, regionZ + dz);
+          }
+        }
+      }
+    }, 80);
+
+    return () => clearTimeout(timer);
+  }, [regionX, regionZ, loadRegionData]);
 
   // Coordinate Conversion Helpers
   const getCanvasCenter = () => {
@@ -269,6 +323,38 @@ export const WorldRegionViewerTab: React.FC = () => {
       ctx.fillText(p.name, playerScreenX, playerScreenY - 8 * zoom);
     });
 
+    // Render Mobs (Creepers, Zombies, Animals)
+    if (showMobs && mobs.length > 0) {
+      mobs.forEach((m) => {
+        const mobScreenX = centerX + (m.x / 16 - regionX * 32 - 16) * chunkSize;
+        const mobScreenY = centerY + (m.z / 16 - regionZ * 32 - 16) * chunkSize;
+
+        // Skip if way off canvas
+        const canvas = canvasRef.current;
+        if (canvas) {
+          if (mobScreenX < -20 || mobScreenX > canvas.width + 20 || mobScreenY < -20 || mobScreenY > canvas.height + 20) {
+            return;
+          }
+        }
+
+        const isHostile = ['creeper', 'zombie', 'skeleton', 'spider', 'enderman', 'witch', 'drowned'].includes(
+          m.type.toLowerCase()
+        );
+
+        ctx.fillStyle = isHostile ? 'rgba(244, 63, 94, 0.85)' : 'rgba(168, 85, 247, 0.85)';
+        ctx.beginPath();
+        ctx.arc(mobScreenX, mobScreenY, Math.max(2.5, 3 * zoom), 0, Math.PI * 2);
+        ctx.fill();
+
+        if (zoom >= 1.4) {
+          ctx.fillStyle = '#e2e8f0';
+          ctx.font = `${Math.max(9, Math.round(9 * zoom))}px monospace`;
+          ctx.textAlign = 'center';
+          ctx.fillText(m.type, mobScreenX, mobScreenY - 4 * zoom);
+        }
+      });
+    }
+
     // Center Crosshair
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
     ctx.lineWidth = 1;
@@ -278,7 +364,7 @@ export const WorldRegionViewerTab: React.FC = () => {
     ctx.moveTo(centerX, centerY - 10);
     ctx.lineTo(centerX, centerY + 10);
     ctx.stroke();
-  }, [chunks, zoom, regionX, regionZ, worldBorder, spawnPoint, panOffset, hoveredChunk, selectedChunk, players]);
+  }, [chunks, mobs, showMobs, zoom, regionX, regionZ, worldBorder, spawnPoint, panOffset, hoveredChunk, selectedChunk, players]);
 
   // Mouse Interaction Handlers: Pan / Drag & Hover Detection
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -452,7 +538,20 @@ export const WorldRegionViewerTab: React.FC = () => {
           </div>
 
           <button
-            onClick={() => loadRegionData(regionX, regionZ)}
+            onClick={() => setShowMobs((s) => !s)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-mono font-medium transition-all ${
+              showMobs
+                ? 'bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-sm'
+                : 'bg-[#0d1017] text-slate-400 border-[#30363d] hover:text-white'
+            }`}
+            title={language === 'de' ? 'Mobs & Entitäten umschalten' : 'Toggle Mobs & Entities'}
+          >
+            <Bug className="w-3.5 h-3.5 text-purple-400" />
+            <span>{showMobs ? `Mobs (${mobs.length})` : 'Mobs aus'}</span>
+          </button>
+
+          <button
+            onClick={() => loadRegionData(regionX, regionZ, true)}
             disabled={loading}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono font-semibold transition-all disabled:opacity-50"
           >
@@ -504,6 +603,18 @@ export const WorldRegionViewerTab: React.FC = () => {
             <span className="w-2.5 h-2.5 rounded-sm bg-emerald-600" />
             <span className="text-slate-300">
               Chunks: {chunks.length} {language === 'de' ? 'geladen' : 'loaded'}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-sky-400" />
+            <span className="text-slate-300">
+              {language === 'de' ? 'Spieler' : 'Players'}: {players.length}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-purple-400" />
+            <span className="text-slate-300">
+              Mobs: {mobs.length} {showMobs ? '' : '(aus)'}
             </span>
           </div>
         </div>

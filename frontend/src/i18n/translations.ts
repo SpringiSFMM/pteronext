@@ -127,6 +127,11 @@ export interface Translations {
   chat_system: string;
   chat_type_placeholder: string;
   chat_announcement: string;
+  chat_no_messages: string;
+  chat_no_messages_desc: string;
+  chat_dual_way_relay: string;
+  chat_quick_maintenance: string;
+  chat_send_title: string;
 
   // Settings & Theme
   settings_title: string;
@@ -332,6 +337,11 @@ export const translations: Record<Language, Translations> = {
     chat_system: 'System',
     chat_type_placeholder: 'Öffentliche Nachricht an Server senden...',
     chat_announcement: '⚡ Ankündigung',
+    chat_no_messages: 'Keine Chat-Nachrichten',
+    chat_no_messages_desc: 'In-Game-Nachrichten von Spielern und gesendete Web-Nachrichten erscheinen hier live.',
+    chat_dual_way_relay: 'Dual-Way Relay',
+    chat_quick_maintenance: '⚡ Wartungsarbeiten starten in Kürze.',
+    chat_send_title: 'In den Minecraft-Chat senden',
 
     // Settings & Theme
     settings_title: 'Benutzereinstellungen',
@@ -536,6 +546,11 @@ export const translations: Record<Language, Translations> = {
     chat_system: 'System',
     chat_type_placeholder: 'Send public message to server...',
     chat_announcement: '⚡ Announcement',
+    chat_no_messages: 'No Chat Messages',
+    chat_no_messages_desc: 'In-game player messages and relayed web messages will appear here in real time.',
+    chat_dual_way_relay: 'Dual-Way Relay',
+    chat_quick_maintenance: '⚡ Maintenance starting shortly.',
+    chat_send_title: 'Relay message into Minecraft chat',
 
     // Settings & Theme
     settings_title: 'Account Settings',

@@ -423,8 +423,8 @@ export const api = {
       return request<{ data: BackendServer[] }>('/api/servers');
     },
 
-    get: async (uuid: string): Promise<{ server: BackendServer; resolved_startup: string }> => {
-      return request<{ server: BackendServer; resolved_startup: string }>(`/api/servers/${uuid}`);
+    get: async (uuid: string): Promise<{ server: BackendServer; resolved_startup: string; permissions?: string[]; role?: string }> => {
+      return request<{ server: BackendServer; resolved_startup: string; permissions?: string[]; role?: string }>(`/api/servers/${uuid}`);
     },
 
     create: async (payload: {
@@ -1533,6 +1533,8 @@ export const api = {
       }>;
       spawn_point: { x: number; z: number };
       world_border: { center_x: number; center_z: number; size: number };
+      players?: Array<{ uuid: string; name: string; x: number; y: number; z: number; is_online: boolean }>;
+      mobs?: Array<{ type: string; x: number; y: number; z: number }>;
     }> => {
       return request(`/api/servers/${serverUuid}/world/region?rx=${rx}&rz=${rz}`);
     },
@@ -1855,6 +1857,28 @@ export const api = {
     delete: async (serverUuid: string, id: string): Promise<{ success: boolean; message: string }> => {
       return request(`/api/servers/${serverUuid}/reverse-proxy/${id}`, {
         method: 'DELETE',
+      });
+    },
+  },
+
+  // Personal & Global Theme API
+  theme: {
+    getGlobal: async (): Promise<{ global_theme: string; global_css?: string }> => {
+      return request('/api/theme/global');
+    },
+    getUserTheme: async (): Promise<{ personal_theme: string; personal_custom_css?: string; global_theme: string; effective_theme: string }> => {
+      return request('/api/user/theme');
+    },
+    updateUserTheme: async (payload: { theme: string; custom_css?: string }): Promise<{ success: boolean; theme: string }> => {
+      return request('/api/user/theme', {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+    },
+    updateGlobalTheme: async (payload: { theme: string; custom_css?: string }): Promise<{ success: boolean; global_theme: string }> => {
+      return request('/api/admin/theme', {
+        method: 'PUT',
+        body: JSON.stringify(payload),
       });
     },
   },

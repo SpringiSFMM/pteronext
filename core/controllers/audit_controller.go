@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pteronext/panel-core/middleware"
 	"github.com/pteronext/panel-core/models"
 	"gorm.io/gorm"
 )
@@ -158,6 +159,31 @@ func (a *AuditController) ListAuditLogs(c *gin.Context) {
 	}
 
 	query := a.db.Model(&models.AuditLog{}).Order("timestamp DESC")
+
+	user, hasUser := middleware.GetRequestUser(c)
+	if !hasUser || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	if !user.RootAdmin {
+		// Non-admins: only their own actions OR logs related to servers they own / have subuser access to
+		var accessibleServerIDs []uint
+		var ownedServers []models.Server
+		a.db.Model(&models.Server{}).Where("owner_id = ?", user.ID).Pluck("id", &ownedServers)
+		for _, s := range ownedServers {
+			accessibleServerIDs = append(accessibleServerIDs, s.ID)
+		}
+		var subuserServers []uint
+		a.db.Model(&models.Subuser{}).Where("user_id = ?", user.ID).Pluck("server_id", &subuserServers)
+		accessibleServerIDs = append(accessibleServerIDs, subuserServers...)
+
+		if len(accessibleServerIDs) > 0 {
+			query = query.Where("actor_id = ? OR server_id IN (?)", user.ID, accessibleServerIDs)
+		} else {
+			query = query.Where("actor_id = ?", user.ID)
+		}
+	}
 
 	if serverID := c.Query("server_id"); serverID != "" {
 		query = query.Where("server_id = ?", serverID)

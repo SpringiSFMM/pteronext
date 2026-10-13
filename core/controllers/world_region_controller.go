@@ -1,8 +1,13 @@
 package controllers
 
 import (
+	"bytes"
+	"compress/gzip"
+	"compress/zlib"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"math/rand"
 	"net/http"
@@ -49,6 +54,14 @@ type PlayerMarker struct {
 	IsOnline  bool    `json:"is_online"`
 }
 
+// MobMarker represents a creature/monster loaded in the world
+type MobMarker struct {
+	Type string  `json:"type"`
+	X    float64 `json:"x"`
+	Y    float64 `json:"y"`
+	Z    float64 `json:"z"`
+}
+
 // RegionDetails represents 32x32 chunks in an Anvil .mca file
 type RegionDetails struct {
 	RegionX      int            `json:"region_x"`
@@ -59,6 +72,7 @@ type RegionDetails struct {
 	WorldBorder  WorldBorder    `json:"world_border"`
 	SpawnPoint   Point2D        `json:"spawn_point"`
 	Players      []PlayerMarker `json:"players"`
+	Mobs         []MobMarker    `json:"mobs"`
 }
 
 type Point2D struct {
@@ -185,7 +199,7 @@ func (w *WorldRegionController) GetRegionData(c *gin.Context) {
 		}
 	}
 
-	// Extract player markers from usercache or active players
+	// Extract real player markers from world/playerdata/<uuid>.dat and usercache
 	players := make([]PlayerMarker, 0)
 	usercachePath := filepath.Join(baseDir, "usercache.json")
 	if ucBytes, err := os.ReadFile(usercachePath); err == nil {
@@ -195,7 +209,7 @@ func (w *WorldRegionController) GetRegionData(c *gin.Context) {
 		}
 		if err := json.Unmarshal(ucBytes, &uc); err == nil {
 			for idx, u := range uc {
-				if idx >= 10 {
+				if idx >= 20 {
 					break
 				}
 				cleanUUID := strings.ReplaceAll(u.UUID, "-", "")
@@ -203,22 +217,120 @@ func (w *WorldRegionController) GetRegionData(c *gin.Context) {
 				if cleanUUID != "" {
 					avatarURL = fmt.Sprintf("https://crafatar.com/avatars/%s?size=64&overlay", cleanUUID)
 				}
-				hash := int64(0)
-				for _, ch := range u.Name {
-					hash = hash*31 + int64(ch)
+
+				// Try to read real NBT coordinates
+				realX, realY, realZ, _, _, _, ok := readPlayerDataNBT(baseDir, u.UUID)
+				if !ok {
+					// Fallback to deterministic pseudo coords only if player never saved
+					hash := int64(0)
+					for _, ch := range u.Name {
+						hash = hash*31 + int64(ch)
+					}
+					realX = float64((hash % 160) - 80)
+					realY = 64.0
+					realZ = float64(((hash / 7) % 160) - 80)
 				}
-				px := float64((hash % 160) - 80)
-				pz := float64(((hash / 7) % 160) - 80)
+
 				players = append(players, PlayerMarker{
 					UUID:      u.UUID,
 					Name:      u.Name,
-					X:         px,
-					Y:         64.0,
-					Z:         pz,
-					Yaw:       float64(hash % 360),
+					X:         realX,
+					Y:         realY,
+					Z:         realZ,
+					Yaw:       0,
 					AvatarURL: avatarURL,
 					IsOnline:  true,
 				})
+			}
+		}
+	}
+
+	// Extract real mob entities from world/entities/r.X.Z.mca
+	mobs := make([]MobMarker, 0)
+	entityFilePath := filepath.Join(baseDir, "world", "entities", fileName)
+	if entBytes, err := os.ReadFile(entityFilePath); err == nil && len(entBytes) >= 8192 {
+		for i := 0; i < 1024 && len(mobs) < 250; i++ {
+			entOffset := int(entBytes[i*4])<<16 | int(entBytes[i*4+1])<<8 | int(entBytes[i*4+2])
+			entSectors := int(entBytes[i*4+3])
+			if entOffset > 0 && entSectors > 0 {
+				chunkByteOffset := entOffset * 4096
+				if chunkByteOffset+5 < len(entBytes) {
+					chunkLen := int(binary.BigEndian.Uint32(entBytes[chunkByteOffset : chunkByteOffset+4]))
+					compMethod := entBytes[chunkByteOffset+4]
+					if (compMethod == 1 || compMethod == 2) && chunkLen > 1 && chunkByteOffset+4+chunkLen <= len(entBytes) {
+						compressedChunk := entBytes[chunkByteOffset+5 : chunkByteOffset+4+chunkLen]
+						var decompressed []byte
+						if compMethod == 2 {
+							if zr, zerr := zlib.NewReader(bytes.NewReader(compressedChunk)); zerr == nil {
+								decompressed, _ = io.ReadAll(zr)
+								zr.Close()
+							}
+						} else {
+							if gr, gerr := gzip.NewReader(bytes.NewReader(compressedChunk)); gerr == nil {
+								decompressed, _ = io.ReadAll(gr)
+								gr.Close()
+							}
+						}
+
+						if len(decompressed) > 0 {
+							posMarker := []byte("Pos\x06\x00\x00\x00\x03")
+							searchPos := 0
+							for searchPos < len(decompressed) && len(mobs) < 250 {
+								pIdx := bytes.Index(decompressed[searchPos:], posMarker)
+								if pIdx == -1 {
+									break
+								}
+								absPIdx := searchPos + pIdx
+								coordStart := absPIdx + len(posMarker)
+								if coordStart+24 <= len(decompressed) {
+									xBits := binary.BigEndian.Uint64(decompressed[coordStart : coordStart+8])
+									yBits := binary.BigEndian.Uint64(decompressed[coordStart+8 : coordStart+16])
+									zBits := binary.BigEndian.Uint64(decompressed[coordStart+16 : coordStart+24])
+									mX := math.Float64frombits(xBits)
+									mY := math.Float64frombits(yBits)
+									mZ := math.Float64frombits(zBits)
+
+									// Look for id tag near this entity
+									mobType := "creature"
+									subStart := absPIdx - 200
+									if subStart < 0 {
+										subStart = 0
+									}
+									subEnd := absPIdx + 200
+									if subEnd > len(decompressed) {
+										subEnd = len(decompressed)
+									}
+									subChunk := decompressed[subStart:subEnd]
+									idTag := []byte("\x08\x00\x02id")
+									if idIdx := bytes.Index(subChunk, idTag); idIdx != -1 {
+										nameLenStart := idIdx + len(idTag)
+										if nameLenStart+2 <= len(subChunk) {
+											nameLen := int(binary.BigEndian.Uint16(subChunk[nameLenStart : nameLenStart+2]))
+											nameStart := nameLenStart + 2
+											if nameStart+nameLen <= len(subChunk) {
+												rawName := string(subChunk[nameStart : nameStart+nameLen])
+												cleanName := strings.TrimPrefix(rawName, "minecraft:")
+												if cleanName != "" && !strings.Contains(cleanName, "player") {
+													mobType = cleanName
+												}
+											}
+										}
+									}
+
+									if !math.IsNaN(mX) && !math.IsNaN(mZ) && mX > -30000000 && mX < 30000000 {
+										mobs = append(mobs, MobMarker{
+											Type: mobType,
+											X:    mX,
+											Y:    mY,
+											Z:    mZ,
+										})
+									}
+								}
+								searchPos = absPIdx + len(posMarker) + 24
+							}
+						}
+					}
+				}
 			}
 		}
 	}
@@ -232,6 +344,7 @@ func (w *WorldRegionController) GetRegionData(c *gin.Context) {
 		SpawnPoint:  Point2D{X: 0, Z: 0},
 		WorldBorder: WorldBorder{CenterX: 0, CenterZ: 0, Size: 4000},
 		Players:     players,
+		Mobs:        mobs,
 	})
 }
 

@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -84,15 +85,41 @@ func (s *ServerController) GetServer(c *gin.Context) {
 	server, _ := middleware.GetRequestServer(c)
 	resolvedStartup := s.serverService.ResolveStartupCommand(server)
 
+	user, _ := middleware.GetRequestUser(c)
+	var perms []string
+	roleName := "Owner"
+
+	if user != nil && (user.RootAdmin || server.OwnerID == user.ID) {
+		perms = []string{"*"}
+		if user.RootAdmin && server.OwnerID != user.ID {
+			roleName = "Admin"
+		}
+	} else if user != nil {
+		var subuser models.Subuser
+		if err := s.db.Where("user_id = ? AND server_id = ?", user.ID, server.ID).First(&subuser).Error; err == nil {
+			roleName = subuser.RoleName
+			if roleName == "" {
+				roleName = "Subuser"
+			}
+			_ = json.Unmarshal([]byte(subuser.Permissions), &perms)
+			if len(perms) == 0 && subuser.Permissions != "" {
+				perms = strings.Split(subuser.Permissions, ",")
+			}
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"server":           server,
 		"resolved_startup": resolvedStartup,
+		"permissions":      perms,
+		"role":             roleName,
 	})
 }
 
 type CreateServerRequest struct {
 	Name         string                 `json:"name" binding:"required"`
 	Description  string                 `json:"description"`
+	OwnerID      *uint                  `json:"owner_id"`
 	NodeID       uint                   `json:"node_id"`
 	AllocationID uint                   `json:"allocation_id"`
 	NestID       *uint                  `json:"nest_id"`
@@ -178,6 +205,10 @@ func SelectBestNode(db *gorm.DB) (*models.Node, error) {
 // CreateServer handles POST /api/servers
 func (s *ServerController) CreateServer(c *gin.Context) {
 	user, _ := middleware.GetRequestUser(c)
+	if user == nil || !user.RootAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only root administrators can deploy and provision new server containers."})
+		return
+	}
 
 	var req CreateServerRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -291,12 +322,17 @@ func (s *ServerController) CreateServer(c *gin.Context) {
 	shortID := strings.ReplaceAll(newUUID, "-", "")[:8]
 	now := time.Now().UTC()
 
+	targetOwnerID := user.ID
+	if req.OwnerID != nil && *req.OwnerID > 0 {
+		targetOwnerID = *req.OwnerID
+	}
+
 	server := models.Server{
 		UUID:         newUUID,
 		Identifier:   shortID,
 		Name:         req.Name,
 		Description:  req.Description,
-		OwnerID:      user.ID,
+		OwnerID:      targetOwnerID,
 		NodeID:       req.NodeID,
 		AllocationID: allocID,
 		NestID:       req.NestID,

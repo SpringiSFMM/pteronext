@@ -45,7 +45,8 @@ export const AdminDashboardView: React.FC = () => {
     addToast,
     language,
     colorTheme,
-    setColorTheme,
+    globalColorTheme,
+    setGlobalColorTheme,
   } = useApp();
 
   // Discord Bot & OAuth Integration State
@@ -914,29 +915,31 @@ export const AdminDashboardView: React.FC = () => {
             </h2>
           </div>
           <span className="text-xs font-mono text-slate-400">
-            {language === 'de' ? 'Aktuell:' : 'Current:'} <strong className="text-white capitalize">{colorTheme}</strong>
+            {language === 'de' ? 'Globales Theme:' : 'Global Theme:'} <strong className="text-white capitalize">{globalColorTheme}</strong>
           </span>
         </div>
 
         <p className="text-xs text-slate-400">
           {language === 'de'
-            ? 'Wähle das systemweite Erscheinungsbild für alle Nutzer und Dashboards. Die Akzentfarbe wird in Echtzeit auf Navbar, Sidebar, Badges und Buttons angewendet.'
-            : 'Select the system-wide visual appearance for all users and dashboards. Accent colors are applied in real time to navbars, sidebars, badges, and action buttons.'}
+            ? 'Wähle das systemweite Standard-Theme für alle Nutzer und Gäste. Nutzer, die in ihren Account-Settings ein persönliches Theme gewählt haben, behalten ihr eigenes Theme.'
+            : 'Select the system-wide default theme for all users and guests. Users who have chosen a personal theme in their Account Settings will retain their personal theme.'}
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 pt-2">
           {COLOR_THEMES.map((theme) => {
-            const isSelected = colorTheme === theme.id;
+            const isSelected = globalColorTheme === theme.id;
             return (
               <button
                 key={theme.id}
-                onClick={() => {
-                  setColorTheme(theme.id);
-                  addToast({
-                    title: language === 'de' ? 'Theme aktualisiert' : 'Theme Updated',
-                    description: `${theme.name} ${language === 'de' ? 'wurde aktiviert' : 'has been activated'}`,
-                    type: 'success',
-                  });
+                onClick={async () => {
+                  const ok = await setGlobalColorTheme(theme.id);
+                  if (ok) {
+                    addToast({
+                      title: language === 'de' ? 'Globales Theme aktualisiert' : 'Global Theme Updated',
+                      description: `${theme.name} ${language === 'de' ? 'wurde als globales Standard-Theme aktiviert' : 'has been set as the global default theme'}`,
+                      type: 'success',
+                    });
+                  }
                 }}
                 className={`p-3.5 rounded-xl border text-left transition-all relative flex flex-col justify-between gap-3 ${
                   isSelected

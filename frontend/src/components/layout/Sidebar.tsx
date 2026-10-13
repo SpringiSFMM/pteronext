@@ -45,7 +45,7 @@ const GLOBAL_SECTIONS = [
       { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, hint: '⌘1' },
       { id: 'servers', label: 'Servers', icon: ServerIcon, hint: '' },
       { id: 'activity', label: 'Activity / Audit', icon: Activity, hint: '' },
-      { id: 'changelog', label: 'Changelog & Updates', icon: Sparkles, hint: 'v2.8.5' },
+      { id: 'changelog', label: 'Changelog & Updates', icon: Sparkles, hint: 'v2.8.6' },
     ],
   },
   {
@@ -130,6 +130,7 @@ export const Sidebar: React.FC = () => {
     openAccountSettings,
     currentUser,
     adminNodes,
+    canAccessServerTab,
     addToast,
     logout,
   } = useApp();
@@ -267,7 +268,7 @@ export const Sidebar: React.FC = () => {
         }`;
 
   const sidebarContent = (
-    <div className="flex flex-col h-full bg-[#0d1117] text-[#e6edf3]">
+    <div className="flex flex-col h-full bg-[#0d1117] text-[#e6edf3] overflow-x-hidden">
       {/* ── Context Header ── */}
       {isServerMode ? (
         isSidebarCollapsed ? (
@@ -363,7 +364,7 @@ export const Sidebar: React.FC = () => {
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500 font-mono leading-none mt-0.5">
-                  Control Panel v2.8.5
+                  Control Panel v2.8.6
                 </p>
               </div>
             </div>
@@ -390,19 +391,22 @@ export const Sidebar: React.FC = () => {
       )}
 
       {/* ── Navigation body with Collapsible Categories & Smooth Accordions ── */}
-      <div className={`flex-1 overflow-y-auto ${isSidebarCollapsed ? 'px-2 py-3 space-y-2' : 'px-3 py-4 space-y-4'}`}>
+      <div className={`flex-1 ${isSidebarCollapsed ? 'overflow-y-auto overflow-x-hidden no-scrollbar px-2 py-3 space-y-2' : 'overflow-y-auto overflow-x-hidden px-3 py-4 space-y-4 custom-scrollbar'}`}>
         {isServerMode ? (
           /* Server Workspace: Grouped with expandable accordions */
           <div className="space-y-3">
             {SERVER_CATEGORIES.map((category) => {
+              const visibleTabs = category.tabs.filter((t) => canAccessServerTab(t.id));
+              if (visibleTabs.length === 0) return null;
+
               const isCollapsed = collapsedCategories[category.id] ?? false;
-              const hasActiveTab = category.tabs.some((t) => t.id === activeServerTab);
+              const hasActiveTab = visibleTabs.some((t) => t.id === activeServerTab);
 
               if (isSidebarCollapsed) {
                 return (
                   <div key={category.id} className="space-y-1">
                     <div className="my-1.5 border-t border-[#30363d]/50" />
-                    {category.tabs.map((tab) => {
+                    {visibleTabs.map((tab) => {
                       const Icon = tab.icon;
                       const isActive = activeServerTab === tab.id;
                       const label = getTabLabel(tab.id, tab.label);
@@ -476,7 +480,7 @@ export const Sidebar: React.FC = () => {
                   >
                     <div className="overflow-hidden">
                       <nav className="space-y-0.5 py-0.5">
-                        {category.tabs.map((tab) => {
+                        {visibleTabs.map((tab) => {
                           const Icon = tab.icon;
                           const isActive = activeServerTab === tab.id;
                           return (

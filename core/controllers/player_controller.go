@@ -2,6 +2,8 @@ package controllers
 
 import (
 	"bytes"
+	"compress/gzip"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -21,6 +23,119 @@ import (
 	"github.com/pteronext/panel-core/services"
 	"gorm.io/gorm"
 )
+
+// readPlayerDataNBT parses real player position, dimension, gamemode and health from playerdata/<uuid>.dat
+func readPlayerDataNBT(serverDir, uuidStr string) (x, y, z float64, world string, gamemode string, health float64, ok bool) {
+	if uuidStr == "" {
+		return 0, 0, 0, "world", "survival", 20.0, false
+	}
+	cleanUUID := strings.ReplaceAll(uuidStr, "-", "")
+	candidates := []string{
+		filepath.Join(serverDir, "world", "playerdata", uuidStr+".dat"),
+		filepath.Join(serverDir, "playerdata", uuidStr+".dat"),
+		filepath.Join(serverDir, "world", "playerdata", cleanUUID+".dat"),
+		filepath.Join(serverDir, "playerdata", cleanUUID+".dat"),
+	}
+	var datBytes []byte
+	for _, p := range candidates {
+		if b, err := os.ReadFile(p); err == nil && len(b) > 0 {
+			datBytes = b
+			break
+		}
+	}
+	if len(datBytes) == 0 {
+		return 0, 0, 0, "world", "survival", 20.0, false
+	}
+
+	gzReader, err := gzip.NewReader(bytes.NewReader(datBytes))
+	if err != nil {
+		return 0, 0, 0, "world", "survival", 20.0, false
+	}
+	defer gzReader.Close()
+	raw, err := io.ReadAll(gzReader)
+	if err != nil || len(raw) == 0 {
+		return 0, 0, 0, "world", "survival", 20.0, false
+	}
+
+	// 1. Parse Pos: TAG_List containing 3 TAG_Double
+	x, y, z = 0, 64, 0
+	if posIdx := bytes.Index(raw, []byte("Pos\x06\x00\x00\x00\x03")); posIdx != -1 {
+		idx := posIdx + len("Pos\x06\x00\x00\x00\x03")
+		if idx+24 <= len(raw) {
+			xBits := binary.BigEndian.Uint64(raw[idx : idx+8])
+			yBits := binary.BigEndian.Uint64(raw[idx+8 : idx+16])
+			zBits := binary.BigEndian.Uint64(raw[idx+16 : idx+24])
+			x = math.Float64frombits(xBits)
+			y = math.Float64frombits(yBits)
+			z = math.Float64frombits(zBits)
+		}
+	} else if pIdx := bytes.Index(raw, []byte("Pos")); pIdx != -1 && pIdx+31 <= len(raw) {
+		// General fallback for Pos tag
+		if raw[pIdx+3] == 6 && raw[pIdx+4] == 0 && raw[pIdx+5] == 0 && raw[pIdx+6] == 0 && raw[pIdx+7] == 3 {
+			idx := pIdx + 8
+			xBits := binary.BigEndian.Uint64(raw[idx : idx+8])
+			yBits := binary.BigEndian.Uint64(raw[idx+8 : idx+16])
+			zBits := binary.BigEndian.Uint64(raw[idx+16 : idx+24])
+			x = math.Float64frombits(xBits)
+			y = math.Float64frombits(yBits)
+			z = math.Float64frombits(zBits)
+		}
+	}
+
+	// 2. Parse playerGameType (int: 0=Survival, 1=Creative, 2=Adventure, 3=Spectator)
+	gamemode = "survival"
+	if gmIdx := bytes.Index(raw, []byte("playerGameType")); gmIdx != -1 {
+		idx := gmIdx + len("playerGameType")
+		if idx+4 <= len(raw) {
+			gmInt := int32(binary.BigEndian.Uint32(raw[idx : idx+4]))
+			switch gmInt {
+			case 1:
+				gamemode = "creative"
+			case 2:
+				gamemode = "adventure"
+			case 3:
+				gamemode = "spectator"
+			default:
+				gamemode = "survival"
+			}
+		}
+	}
+
+	// 3. Parse Dimension (TAG_String: length 2 bytes + string)
+	world = "world"
+	if dimIdx := bytes.Index(raw, []byte("Dimension")); dimIdx != -1 {
+		idx := dimIdx + len("Dimension")
+		if idx+2 <= len(raw) {
+			strLen := int(binary.BigEndian.Uint16(raw[idx : idx+2]))
+			idx += 2
+			if idx+strLen <= len(raw) {
+				dimStr := string(raw[idx : idx+strLen])
+				if strings.Contains(dimStr, "nether") {
+					world = "world_nether"
+				} else if strings.Contains(dimStr, "end") {
+					world = "world_the_end"
+				} else {
+					world = "world"
+				}
+			}
+		}
+	}
+
+	// 4. Parse Health (TAG_Float = 4 bytes or TAG_Short)
+	health = 20.0
+	if hIdx := bytes.Index(raw, []byte("Health")); hIdx != -1 {
+		idx := hIdx + len("Health")
+		if idx+4 <= len(raw) {
+			hBits := binary.BigEndian.Uint32(raw[idx : idx+4])
+			val := float64(math.Float32frombits(hBits))
+			if val >= 0 && val <= 100 {
+				health = math.Round(val*10) / 10
+			}
+		}
+	}
+
+	return x, y, z, world, gamemode, health, true
+}
 
 type PlayerInfo struct {
 	UUID          string  `json:"uuid"`
@@ -396,7 +511,10 @@ func (p *PlayerController) GetPlayers(c *gin.Context) {
 			avatarURL = fmt.Sprintf("https://crafatar.com/avatars/%s?size=64&overlay", cleanUUID)
 		}
 
-		// Derive deterministic coordinates & metadata from UUID/Name or server files
+		// Attempt reading real NBT player data from playerdata/<uuid>.dat
+		realX, realY, realZ, realWorld, realGamemode, realHealth, hasNBT := readPlayerDataNBT(dir, uuid)
+
+		// Derive deterministic coordinates & metadata as fallback if NBT is missing
 		hash := int64(0)
 		for _, ch := range properName {
 			hash = hash*31 + int64(ch)
@@ -409,6 +527,17 @@ func (p *PlayerController) GetPlayers(c *gin.Context) {
 			pWorld = "world_nether"
 		} else if hash%9 == 0 {
 			pWorld = "world_the_end"
+		}
+		pGamemode := "survival"
+		pHealth := 20.0
+
+		if hasNBT {
+			pX = math.Round(realX*10) / 10
+			pY = math.Round(realY*10) / 10
+			pZ = math.Round(realZ*10) / 10
+			pWorld = realWorld
+			pGamemode = realGamemode
+			pHealth = realHealth
 		}
 
 		// Virtual IP subnet based on player hash (e.g. 192.168.1.X or client IP)
@@ -423,14 +552,14 @@ func (p *PlayerController) GetPlayers(c *gin.Context) {
 			IsWhitelisted: wlMap[lowerName] || (uuid != "" && wlMap[uuid]),
 			Ping:          15 + int(math.Abs(float64(hash%35))),
 			Playtime:      "Live",
-			Location:      fmt.Sprintf("%.0f, %.0f, %.0f", pX, pY, pZ),
+			Location:      fmt.Sprintf("%.1f, %.1f, %.1f", pX, pY, pZ),
 			World:         pWorld,
 			X:             pX,
 			Y:             pY,
 			Z:             pZ,
 			IP:            playerIP,
-			Gamemode:      "survival",
-			Health:        20.0,
+			Gamemode:      pGamemode,
+			Health:        pHealth,
 			AvatarURL:     avatarURL,
 		})
 	}

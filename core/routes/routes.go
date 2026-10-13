@@ -47,12 +47,12 @@ func SetupRouter(
 		c.JSON(http.StatusOK, gin.H{"status": "ok", "app": "pteronext-core"})
 	})
 
-	// Public system telemetry, changelog, and setup onboarding endpoints
+	accountCtrl := controllers.NewAccountController(db, auditService)
+
+	// Public system telemetry, global theme, and setup onboarding endpoints
 	statsCtrl := controllers.NewStatsController(statsService, wingsClient, db)
 	router.GET("/api/system/stats", statsCtrl.GetSystemStats)
-	router.GET("/api/system/diagnostics", statsCtrl.GetDiagnostics)
-	router.GET("/api/system/health/storage", statsCtrl.GetStorageHealth)
-	router.POST("/api/system/health/clean-logs", statsCtrl.CleanOldLogs)
+	router.GET("/api/theme/global", accountCtrl.GetGlobalTheme)
 	router.GET("/api/system/health/watchdog", statsCtrl.WatchdogHealth)
 
 	changelogCtrl := controllers.NewChangelogController()
@@ -84,7 +84,6 @@ func SetupRouter(
 	apiKeyCtrl := controllers.NewAPIKeyController(db)
 	auditCtrl := controllers.NewAuditController(db)
 	wsCtrl := controllers.NewWebSocketController(wsHub)
-	accountCtrl := controllers.NewAccountController(db, auditService)
 	nestCtrl := controllers.NewNestController(db)
 	userAdminCtrl := controllers.NewUserAdminController(db)
 	backupCtrl := controllers.NewBackupController(backupService)
@@ -344,10 +343,25 @@ func SetupRouter(
 			accountGroup.POST("/discord/link", discordCtrl.LinkDiscord)
 			accountGroup.POST("/discord/unlink", discordCtrl.UnlinkDiscord)
 
+			// Theme preferences (Personal User Theme)
+			accountGroup.GET("/theme", accountCtrl.GetUserTheme)
+			accountGroup.PUT("/theme", accountCtrl.UpdateUserTheme)
+
 			// API Keys
 			accountGroup.GET("/api-keys", apiKeyCtrl.ListAPIKeys)
 			accountGroup.POST("/api-keys", apiKeyCtrl.CreateAPIKey)
 			accountGroup.DELETE("/api-keys/:id", apiKeyCtrl.DeleteAPIKey)
+		}
+
+		// User Theme aliases
+		apiGroup.GET("/user/theme", accountCtrl.GetUserTheme)
+		apiGroup.PUT("/user/theme", accountCtrl.UpdateUserTheme)
+
+		// Admin Global Theme management (Admin only)
+		adminThemeGroup := apiGroup.Group("/admin/theme")
+		adminThemeGroup.Use(middleware.RequireAdmin())
+		{
+			adminThemeGroup.PUT("", accountCtrl.UpdateGlobalTheme)
 		}
 
 		// Audit logs
@@ -422,6 +436,15 @@ func SetupRouter(
 		adminUpdatesGroup.Use(middleware.RequireAdmin())
 		{
 			adminUpdatesGroup.POST("/install", systemUpdateCtrl.InstallUpdate)
+		}
+
+		// Admin System Health & Maintenance (Admin only)
+		adminHealthGroup := apiGroup.Group("/system")
+		adminHealthGroup.Use(middleware.RequireAdmin())
+		{
+			adminHealthGroup.GET("/diagnostics", statsCtrl.GetDiagnostics)
+			adminHealthGroup.GET("/health/storage", statsCtrl.GetStorageHealth)
+			adminHealthGroup.POST("/health/clean-logs", statsCtrl.CleanOldLogs)
 		}
 	}
 

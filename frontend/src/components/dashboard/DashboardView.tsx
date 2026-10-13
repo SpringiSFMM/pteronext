@@ -37,7 +37,10 @@ export const DashboardView: React.FC = () => {
     handlePowerAction,
     addToast,
     setIsCreateServerOpen,
+    currentUser,
   } = useApp();
+
+  const isAdmin = currentUser?.rootAdmin || currentUser?.role === 'root_admin';
 
   const { t } = useTranslation();
 
@@ -98,7 +101,7 @@ export const DashboardView: React.FC = () => {
                 {t('dash_cluster_operational')}
               </span>
               <span className="text-[11px] font-mono text-slate-400 bg-[#0d1117]/80 px-2.5 py-1 rounded-full border border-slate-800">
-                PteroNext v2.8.5 Enterprise
+                PteroNext v2.8.6 Enterprise
               </span>
             </div>
             
@@ -111,27 +114,31 @@ export const DashboardView: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
-            <button
-              onClick={() => setActiveView('admin-nodes')}
-              className="px-3.5 py-2 rounded-xl bg-slate-800/70 hover:bg-slate-700/80 text-slate-300 hover:text-white border border-slate-700/80 text-xs font-mono font-medium transition-all flex items-center gap-2 shadow-sm"
-            >
-              <Radio className="w-3.5 h-3.5 text-cyan-400" />
-              <span>{t('dash_nodes_matrix')}</span>
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => setActiveView('admin-nodes')}
+                className="px-3.5 py-2 rounded-xl bg-slate-800/70 hover:bg-slate-700/80 text-slate-300 hover:text-white border border-slate-700/80 text-xs font-mono font-medium transition-all flex items-center gap-2 shadow-sm"
+              >
+                <Radio className="w-3.5 h-3.5 text-cyan-400" />
+                <span>{t('dash_nodes_matrix')}</span>
+              </button>
+            )}
 
-            <button
-              onClick={() => setIsCreateServerOpen(true)}
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-indigo-600 hover:from-indigo-500 hover:to-indigo-400 text-white text-xs font-mono font-bold transition-all shadow-lg shadow-indigo-500/25 active:scale-95 flex items-center gap-2 border border-indigo-400/30"
-            >
-              <Plus className="w-4 h-4" />
-              <span>{t('dash_deploy_instance')}</span>
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => setIsCreateServerOpen(true)}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-indigo-600 hover:from-indigo-500 hover:to-indigo-400 text-white text-xs font-mono font-bold transition-all shadow-lg shadow-indigo-500/25 active:scale-95 flex items-center gap-2 border border-indigo-400/30"
+              >
+                <Plus className="w-4 h-4" />
+                <span>{t('dash_deploy_instance')}</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Top Stat Cards: Telemetry Sparklines & Cluster Metrics */}
-      <ClusterMetricsGrid />
+      {/* Top Stat Cards: Telemetry Sparklines & Cluster Metrics (Admin Only) */}
+      {isAdmin && <ClusterMetricsGrid />}
 
       {/* Workload Instances Section */}
       <div className="space-y-4">
@@ -456,11 +463,13 @@ export const DashboardView: React.FC = () => {
         )}
       </div>
 
-      {/* Grid: Node Infrastructure & Audit Activity Stream */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2 items-start">
-        <NodeStatusMatrix />
-        <ActivityStream />
-      </div>
+      {/* Grid: Node Infrastructure & Audit Activity Stream (Admin Only) */}
+      {isAdmin && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2 items-start">
+          <NodeStatusMatrix />
+          <ActivityStream />
+        </div>
+      )}
     </div>
   );
 };

@@ -36,8 +36,8 @@ export const ModernNavbar: React.FC = () => {
     latest_version: string;
     update_available: boolean;
   }>({
-    current_version: 'v2.8.5',
-    latest_version: 'v2.8.5',
+    current_version: 'v2.8.6',
+    latest_version: 'v2.8.6',
     update_available: false,
   });
   const [checkingUpdate, setCheckingUpdate] = useState(false);
@@ -155,14 +155,16 @@ export const ModernNavbar: React.FC = () => {
             </kbd>
           </button>
 
-          {/* New Server Action */}
-          <button
-            onClick={() => setIsCreateServerOpen(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-medium font-sans bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white transition-all shadow-sm"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{language === 'de' ? 'Server erstellen' : 'New Server'}</span>
-          </button>
+          {/* New Server Action (Root Admin Only) */}
+          {(currentUser?.rootAdmin || currentUser?.role === 'root_admin') && (
+            <button
+              onClick={() => setIsCreateServerOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-medium font-sans bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white transition-all shadow-sm"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{language === 'de' ? 'Server erstellen' : 'New Server'}</span>
+            </button>
+          )}
 
           {/* User Avatar & Settings Trigger */}
           <button

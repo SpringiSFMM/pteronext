@@ -49,7 +49,9 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
     accountSettingsTab,
     setAccountSettingsTab,
     colorTheme,
+    globalColorTheme,
     setColorTheme,
+    resetPersonalTheme,
     backgroundEffect,
     setBackgroundEffect,
     customCss,
@@ -1573,14 +1575,30 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
 
             {/* 2. Color Theme Palette */}
             <div className="space-y-3">
-              <div>
-                <h3 className="text-xs font-bold text-white font-mono uppercase tracking-wider flex items-center gap-2">
-                  <Palette className="w-4 h-4 text-amber-400" />
-                  <span>Color Theme Palettes (11 Themes)</span>
-                </h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Select your preferred color scheme. Buttons, active tabs, and glows update instantly.
-                </p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-xs font-bold text-white font-mono uppercase tracking-wider flex items-center gap-2">
+                    <Palette className="w-4 h-4 text-amber-400" />
+                    <span>Personal Color Theme (11 Themes)</span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Select your personal preferred color scheme. This only affects your account and does not change the global theme for other users.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await resetPersonalTheme();
+                    addToast({
+                      title: 'Standard wiederhergestellt',
+                      description: `Folgt nun wieder dem globalen Panel-Theme (${globalColorTheme}).`,
+                      type: 'info',
+                    });
+                  }}
+                  className="px-2.5 py-1 text-[11px] font-mono text-slate-400 hover:text-white bg-[#161b22] hover:bg-[#21262d] border border-[#30363d] rounded-lg transition-all shrink-0 self-start sm:self-auto"
+                >
+                  Globales Theme nutzen ({globalColorTheme})
+                </button>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[280px] overflow-y-auto pr-1 custom-scrollbar">

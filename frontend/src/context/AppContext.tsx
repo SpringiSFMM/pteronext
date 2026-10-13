@@ -327,6 +327,11 @@ interface AppContextType {
   currentUser: CurrentUser;
   setCurrentUser: React.Dispatch<React.SetStateAction<CurrentUser>>;
 
+  // Subuser Permissions for currently selected server
+  currentServerPermissions: string[];
+  currentServerRole: string;
+  canAccessServerTab: (tabId: ServerDetailTab) => boolean;
+
   // Search
   searchQuery: string;
   setSearchQuery: (query: string) => void;
@@ -411,11 +416,15 @@ interface AppContextType {
 
   // Color Themes & User Preferences
   colorTheme: ColorTheme;
+  globalColorTheme: ColorTheme;
   setColorTheme: (theme: ColorTheme) => void;
+  setGlobalColorTheme: (theme: ColorTheme) => Promise<boolean>;
+  resetPersonalTheme: () => Promise<boolean>;
   backgroundEffect: BackgroundEffect;
   setBackgroundEffect: (effect: BackgroundEffect) => void;
   customCss: string;
   setCustomCss: (css: string) => void;
+  setGlobalCustomCss: (css: string) => Promise<boolean>;
   language: 'de' | 'en';
   setLanguage: (lang: 'de' | 'en') => void;
 
@@ -672,6 +681,53 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [users, setUsers] = useState<SubUser[]>([]);
   const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [currentUser, setCurrentUser] = useState<CurrentUser>({
+    username: '',
+    role: 'user',
+    email: '',
+    avatar: '',
+  });
+
+  const [currentServerPermissions, setCurrentServerPermissions] = useState<string[]>(['*']);
+  const [currentServerRole, setCurrentServerRole] = useState<string>('Owner');
+
+  const canAccessServerTab = useCallback((tabId: ServerDetailTab): boolean => {
+    // 1. Root admin or Owner has unrestricted access
+    if (currentUser?.rootAdmin || currentUser?.role === 'root_admin') return true;
+    if (currentServerRole === 'Owner' || currentServerRole === 'Admin') return true;
+    if (currentServerPermissions.includes('*')) return true;
+
+    // 2. Map tabs to standard Pterodactyl permission keys
+    const TAB_PERMISSIONS_MAP: Record<ServerDetailTab, string[]> = {
+      'console': ['console.view', 'control.console'],
+      'diagnostics': ['admin.diagnostics', 'server.diagnostics'],
+      'files': ['file.read', 'file.list'],
+      'backups': ['backup.read', 'backup.list'],
+      'players': ['player.read', 'player.list', 'console.view'],
+      'network': ['allocation.read', 'allocation.list'],
+      'webhooks': ['webhook.read', 'webhook.list'],
+      'world-map': ['world.read', 'world.view', 'file.read'],
+      'plugin-store': ['file.read', 'file.write', 'plugin.install'],
+      'game-config': ['file.read', 'file.write', 'startup.read'],
+      'sidecars': ['database.read', 'database.create'],
+      'databases': ['database.read', 'database.list'],
+      'schedules': ['schedule.read', 'schedule.list'],
+      'security': ['admin.security', 'settings.view'],
+      'users': ['user.read', 'user.list'],
+      'audit': ['audit.read', 'audit.list'],
+      'settings': ['settings.view', 'settings.edit', 'startup.read'],
+    };
+
+    const needed = TAB_PERMISSIONS_MAP[tabId];
+    if (!needed || needed.length === 0) return true;
+
+    // Check if user has any of the needed permissions
+    return needed.some((perm) => {
+      if (currentServerPermissions.includes(perm)) return true;
+      const prefix = perm.split('.')[0] + '.*';
+      return currentServerPermissions.includes(prefix);
+    });
+  }, [currentUser, currentServerRole, currentServerPermissions]);
 
   const [adminNodes, setAdminNodes] = useState<AdminNode[]>([]);
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
@@ -692,7 +748,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   });
 
+  const [globalColorTheme, setGlobalColorThemeState] = useState<ColorTheme>('zinc');
+  const personalThemeRef = useRef<string | null>(null);
+
+  // Sets personal user theme (Account Settings / Command Palette / Navbar)
   const setColorTheme = useCallback((theme: ColorTheme) => {
+    personalThemeRef.current = theme;
     setColorThemeState(theme);
     try {
       localStorage.setItem('pteronext_theme', theme);
@@ -700,7 +761,58 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       document.documentElement.classList.remove('theme-zinc', 'theme-violet', 'theme-emerald', 'theme-orange', 'theme-amber');
       document.documentElement.classList.add(`theme-${theme}`);
     } catch {}
+
+    // Persist personal theme preference to backend for the current user
+    if (api.auth.isAuthenticated()) {
+      api.theme.updateUserTheme({ theme }).catch((err) => {
+        console.warn('Could not sync user theme to backend:', err);
+      });
+    }
   }, []);
+
+  // Sets global panel theme (Admin Dashboard only)
+  const setGlobalColorTheme = useCallback(async (theme: ColorTheme): Promise<boolean> => {
+    try {
+      setGlobalColorThemeState(theme);
+      await api.theme.updateGlobalTheme({ theme });
+
+      // If current user has NO personal theme set, apply the global theme immediately
+      if (!personalThemeRef.current) {
+        setColorThemeState(theme);
+        try {
+          localStorage.setItem('pteronext_theme', theme);
+          document.documentElement.setAttribute('data-theme', theme);
+          document.documentElement.classList.remove('theme-zinc', 'theme-violet', 'theme-emerald', 'theme-orange', 'theme-amber');
+          document.documentElement.classList.add(`theme-${theme}`);
+        } catch {}
+      }
+      return true;
+    } catch (err: any) {
+      console.warn('Could not update global theme:', err);
+      return false;
+    }
+  }, []);
+
+  // Resets personal theme back to following the global theme
+  const resetPersonalTheme = useCallback(async (): Promise<boolean> => {
+    try {
+      personalThemeRef.current = null;
+      if (api.auth.isAuthenticated()) {
+        await api.theme.updateUserTheme({ theme: '' });
+      }
+      setColorThemeState(globalColorTheme);
+      try {
+        localStorage.setItem('pteronext_theme', globalColorTheme);
+        document.documentElement.setAttribute('data-theme', globalColorTheme);
+        document.documentElement.classList.remove('theme-zinc', 'theme-violet', 'theme-emerald', 'theme-orange', 'theme-amber');
+        document.documentElement.classList.add(`theme-${globalColorTheme}`);
+      } catch {}
+      return true;
+    } catch (err: any) {
+      console.warn('Could not reset personal theme:', err);
+      return false;
+    }
+  }, [globalColorTheme]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', colorTheme);
@@ -745,7 +857,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     document.body.setAttribute('data-bg', backgroundEffect);
   }, [backgroundEffect]);
 
-  // Custom CSS Injection
+  // Custom CSS Injection (Personal vs Global)
   const [customCss, setCustomCssState] = useState<string>(() => {
     try {
       return localStorage.getItem('pteronext_custom_css') || '';
@@ -766,7 +878,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       styleEl.textContent = css;
     } catch {}
-  }, []);
+
+    if (api.auth.isAuthenticated()) {
+      api.theme.updateUserTheme({ theme: colorTheme, custom_css: css }).catch((err) => {
+        console.warn('Could not sync user custom css to backend:', err);
+      });
+    }
+  }, [colorTheme]);
+
+  const setGlobalCustomCss = useCallback(async (css: string): Promise<boolean> => {
+    try {
+      await api.theme.updateGlobalTheme({ theme: colorTheme, custom_css: css });
+      return true;
+    } catch (err: any) {
+      console.warn('Could not update global custom css:', err);
+      return false;
+    }
+  }, [colorTheme]);
 
   useEffect(() => {
     let styleEl = document.getElementById('pteronext-custom-css');
@@ -812,12 +940,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return [];
   });
 
-  const [currentUser, setCurrentUser] = useState<CurrentUser>({
-    username: '',
-    role: 'user',
-    email: '',
-    avatar: '',
-  });
 
   const [clusterMetrics, setClusterMetrics] = useState<ClusterMetrics>({
     totalServers: 0,
@@ -1070,13 +1192,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const refreshUserData = useCallback(async () => {
+    let isRoot = false;
     try {
       const meRes = await api.auth.me();
       if (meRes?.user) {
         const u = meRes.user as any;
+        isRoot = !!u.root_admin;
         setCurrentUser({
+          id: u.id,
           username: u.username,
-          role: u.root_admin ? 'root_admin' : 'user',
+          role: isRoot ? 'root_admin' : 'user',
+          rootAdmin: isRoot,
           email: u.email,
           avatar: u.avatar_url || u.avatar || initialsAvatar(u.username),
         });
@@ -1087,7 +1213,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     refreshServers();
     refreshStats();
-    refreshAdminData();
+    if (isRoot) {
+      refreshAdminData();
+    }
 
     try {
       const nodeRes = await api.nodes.list();
@@ -1131,14 +1259,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setIsAuthenticated(true);
           if (res.user) {
             const u = res.user as any;
+            const isRoot = !!u.root_admin;
             setCurrentUser({
               id: u.id,
               username: u.username,
-              role: u.root_admin ? 'root_admin' : 'user',
-              rootAdmin: !!u.root_admin,
+              role: isRoot ? 'root_admin' : 'user',
+              rootAdmin: isRoot,
               email: u.email,
               avatar: u.avatar_url || u.avatar || initialsAvatar(u.username),
             });
+
+            // Route cleanly based on role: non-admin must NEVER land on admin routes
+            if (!isRoot) {
+              setActiveViewState('dashboard');
+              window.history.replaceState({}, '', '/');
+            }
           }
           await refreshUserData();
           return { success: true };
@@ -1159,8 +1294,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const logout = useCallback(() => {
     api.auth.logout();
     setIsAuthenticated(false);
+    setCurrentUser({
+      username: '',
+      role: 'user',
+      email: '',
+      avatar: '',
+      rootAdmin: false,
+    });
     setServers([]);
     setSelectedServer(null);
+    setNodes([]);
+    setAdminNodes([]);
+    setAdminUsers([]);
+    setAdminEggs([]);
+    setAdminNests([]);
+    setAdminDatabaseHosts([]);
+    setAdminGlobalDatabases([]);
+    setActivities([]);
+    setClusterMetrics({
+      totalServers: 0,
+      runningServers: 0,
+      activeNodes: 0,
+      totalNodes: 0,
+      cpuUsedPercent: 0,
+      cpuCores: 0,
+      ramUsedGB: 0,
+      ramTotalGB: 0,
+      diskUsedGB: 0,
+      diskTotalGB: 0,
+      networkThroughput: '0 KB/s',
+    });
+    setActiveViewState('dashboard');
+    setActiveServerTabState('console');
+    setCurrentServerPermissions([]);
+    setCurrentServerRole('None');
+    try {
+      localStorage.removeItem('pteronext_selected_server');
+      localStorage.removeItem('pteronext_active_tab');
+      localStorage.removeItem('pteronext_active_view');
+      sessionStorage.clear();
+      window.history.replaceState({}, '', '/');
+    } catch {}
   }, []);
 
   // Initial Load on Provider Mount
@@ -1201,19 +1375,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       // 2. Validate token and load user info from GET /api/auth/me
+      let meRes: any = null;
       try {
-        const meRes = await api.auth.me();
+        meRes = await api.auth.me();
         if (isMounted && meRes?.user) {
           const u = meRes.user as any;
+          const isRoot = !!u.root_admin;
           setCurrentUser({
             id: u.id,
             username: u.username,
-            role: u.root_admin ? 'root_admin' : 'user',
-            rootAdmin: !!u.root_admin,
+            role: isRoot ? 'root_admin' : 'user',
+            rootAdmin: isRoot,
             email: u.email,
             avatar: u.avatar_url || u.avatar || initialsAvatar(u.username),
           });
           setIsAuthenticated(true);
+
+          // Route Guard: if authenticated user is non-admin and activeView is an admin view, immediately kick to dashboard
+          if (!isRoot) {
+            setActiveViewState((currentView) => {
+              if (currentView.startsWith('admin-')) {
+                window.history.replaceState({}, '', '/');
+                return 'dashboard';
+              }
+              return currentView;
+            });
+          }
         } else {
           if (isMounted) setIsAuthenticated(false);
           api.auth.clearToken();
@@ -1226,6 +1413,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         api.auth.clearToken();
         if (isMounted) setIsAuthChecking(false);
         return;
+      }
+
+      // 2b. Load user's personal theme or fallback to global theme
+      try {
+        const themeRes = await api.theme.getUserTheme();
+        if (isMounted && themeRes) {
+          if (themeRes.global_theme) {
+            setGlobalColorThemeState(themeRes.global_theme as ColorTheme);
+          }
+          if (themeRes.personal_theme) {
+            personalThemeRef.current = themeRes.personal_theme;
+          } else {
+            personalThemeRef.current = null;
+          }
+
+          const effTheme = (themeRes.effective_theme || themeRes.personal_theme || themeRes.global_theme || 'zinc') as ColorTheme;
+          setColorThemeState(effTheme);
+          localStorage.setItem('pteronext_theme', effTheme);
+          document.documentElement.setAttribute('data-theme', effTheme);
+          document.documentElement.classList.remove('theme-zinc', 'theme-violet', 'theme-emerald', 'theme-orange', 'theme-amber');
+          document.documentElement.classList.add(`theme-${effTheme}`);
+
+          if (themeRes.personal_custom_css) {
+            setCustomCssState(themeRes.personal_custom_css);
+            localStorage.setItem('pteronext_custom_css', themeRes.personal_custom_css);
+          }
+        }
+      } catch (e) {
+        console.warn('[AppContext] Could not fetch user theme preferences:', e);
       }
 
       // 3. Load servers from GET /api/servers
@@ -1243,41 +1459,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.warn('[AppContext] Could not fetch servers (/api/servers):', e);
       }
 
-      // 4. Load system stats from GET /api/system/stats
-      try {
-        const statsRes = await api.stats.getSystemStats();
-        if (isMounted && statsRes) {
-          const totalRAM = (statsRes.host_memory_total_mb && statsRes.host_memory_total_mb > 0)
-            ? +(statsRes.host_memory_total_mb / 1024).toFixed(1)
-            : (statsRes.total_node_ram_mb && statsRes.total_node_ram_mb > 0 ? +(statsRes.total_node_ram_mb / 1024).toFixed(1) : 8.0);
-          const usedRAM = (statsRes.allocated_server_ram_mb && statsRes.allocated_server_ram_mb > 0)
-            ? +(statsRes.allocated_server_ram_mb / 1024).toFixed(1)
-            : (statsRes.host_memory_used_mb && statsRes.host_memory_used_mb > 0 ? +(statsRes.host_memory_used_mb / 1024).toFixed(1) : 2.0);
+      // 4. Load system stats from GET /api/system/stats (Only meaningful for root admin)
+      if (meRes?.user?.root_admin) {
+        try {
+          const statsRes = await api.stats.getSystemStats();
+          if (isMounted && statsRes) {
+            const totalRAM = (statsRes.host_memory_total_mb && statsRes.host_memory_total_mb > 0)
+              ? +(statsRes.host_memory_total_mb / 1024).toFixed(1)
+              : (statsRes.total_node_ram_mb && statsRes.total_node_ram_mb > 0 ? +(statsRes.total_node_ram_mb / 1024).toFixed(1) : 8.0);
+            const usedRAM = (statsRes.allocated_server_ram_mb && statsRes.allocated_server_ram_mb > 0)
+              ? +(statsRes.allocated_server_ram_mb / 1024).toFixed(1)
+              : (statsRes.host_memory_used_mb && statsRes.host_memory_used_mb > 0 ? +(statsRes.host_memory_used_mb / 1024).toFixed(1) : 2.0);
 
-          setClusterMetrics((prev) => ({
-            ...prev,
-            totalServers: statsRes.counts?.servers ?? prev.totalServers,
-            activeNodes: statsRes.counts?.nodes ?? prev.activeNodes,
-            totalNodes: statsRes.counts?.nodes ?? prev.totalNodes,
-            cpuUsedPercent: Math.min(100, Math.max(0, Math.round(statsRes.memory_alloc_mb * 3.5))),
-            cpuCores: statsRes.num_cpu || prev.cpuCores,
-            ramTotalGB: totalRAM,
-            ramUsedGB: usedRAM,
-          }));
+            setClusterMetrics((prev) => ({
+              ...prev,
+              totalServers: statsRes.counts?.servers ?? prev.totalServers,
+              activeNodes: statsRes.counts?.nodes ?? prev.activeNodes,
+              totalNodes: statsRes.counts?.nodes ?? prev.totalNodes,
+              cpuUsedPercent: Math.min(100, Math.max(0, Math.round(statsRes.memory_alloc_mb * 3.5))),
+              cpuCores: statsRes.num_cpu || prev.cpuCores,
+              ramTotalGB: totalRAM,
+              ramUsedGB: usedRAM,
+            }));
+          }
+        } catch (e) {
+          console.warn('[AppContext] Could not fetch system stats (/api/system/stats):', e);
         }
-      } catch (e) {
-        console.warn('[AppContext] Could not fetch system stats (/api/system/stats):', e);
-      }
 
-      // 5. Load nodes from GET /api/nodes
-      try {
-        const nodeRes = await api.nodes.list();
-        if (isMounted) {
-          const rawNodes = nodeRes?.data || [];
-          setNodes(rawNodes.map(mapBackendNodeToFrontend));
+        // 5. Load nodes and all admin datasets (Nodes, Users, Eggs, Nests, Databases)
+        try {
+          const nodeRes = await api.nodes.list();
+          if (isMounted) {
+            const rawNodes = nodeRes?.data || [];
+            setNodes(rawNodes.map(mapBackendNodeToFrontend));
+          }
+        } catch (e) {
+          console.warn('[AppContext] Could not fetch nodes (/api/nodes):', e);
         }
-      } catch (e) {
-        console.warn('[AppContext] Could not fetch nodes (/api/nodes):', e);
+
+        // 5b. Populate admin nodes, users, eggs, nests, and databases
+        try {
+          if (isMounted) {
+            await refreshAdminData();
+          }
+        } catch (e) {
+          console.warn('[AppContext] Could not refresh admin data:', e);
+        }
       }
 
       // 6. Load audit activities from GET /api/audit-logs
@@ -1307,11 +1534,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    initBackend().then(() => {
-      if (isMounted) {
-        refreshAdminData();
-      }
-    });
+    initBackend();
 
     const unsubAuth = onUnauthorized(() => {
       if (isMounted) {
@@ -1347,6 +1570,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTerminalLogs([]);
 
     async function loadServerContext() {
+      // 0. Load server permissions and role for current user
+      try {
+        const srvDetail = await api.servers.get(serverUuid);
+        if (isCurrent && srvDetail) {
+          if (Array.isArray(srvDetail.permissions)) {
+            setCurrentServerPermissions(srvDetail.permissions);
+          }
+          if (srvDetail.role) {
+            setCurrentServerRole(srvDetail.role);
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to load server permissions:', e);
+      }
+
       // 1. Load real files from backend node filesystem
       try {
         const fileRes = await api.files.list(serverUuid);
@@ -2989,6 +3227,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsAccountSettingsOpen,
         currentUser,
         setCurrentUser,
+        currentServerPermissions,
+        currentServerRole,
+        canAccessServerTab,
         searchQuery,
         setSearchQuery,
         servers,
@@ -3026,11 +3267,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         openAccountSettings,
         updateServerStartup,
         colorTheme,
+        globalColorTheme,
         setColorTheme,
+        setGlobalColorTheme,
+        resetPersonalTheme,
         backgroundEffect,
         setBackgroundEffect,
         customCss,
         setCustomCss,
+        setGlobalCustomCss,
         language,
         setLanguage,
         isCommandPaletteOpen,

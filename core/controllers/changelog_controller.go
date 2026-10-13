@@ -38,15 +38,68 @@ func (ch *ChangelogController) GetChangelog(c *gin.Context) {
 
 	rawReleases := []ReleaseItem{
 		{
+			Version:       "v2.8.6",
+			Date:          "October 2026",
+			Title:         "Security-Hardening, RBAC-Isolierung, Live Chat Relay i18n & Player Realtime Sync",
+			TitleEN:       "Security Hardening, RBAC Isolation, Live Chat Relay i18n & Player Realtime Sync",
+			Description:   "Kritisches Sicherheits- und Stabilitätsrelease: Vollständige serverseitige Durchsetzung von RBAC (Default-Deny für Admin-Endpunkte und fremde Server-IDs), strikte Trennung von Benutzer- und Admin-Dashboards, Live Chat Relay mit voller Multi-Language-Unterstützung (i18n), flackerfreie Spielerliste mit <= 5s Positions-Sync, 3x3 Chunk-Vorladung auf der 2D-Weltkarte und Beseitigung der Scrollbar bei eingeklappter Sidebar.",
+			DescriptionEN: "Critical security and stability release: Full server-side RBAC enforcement (default deny for admin endpoints and foreign servers), strict separation of tenant and admin dashboards, Live Chat Relay with full multi-language i18n support, flicker-free active players list with <= 5s position sync, 3x3 preloaded chunk caching on the 2D world map, and removal of collapsed sidebar scrollbars.",
+			Tag:           "LATEST STABLE",
+			TagEN:         "LATEST STABLE",
+			IsLatest:      true,
+			Highlights: []string{
+				"Strikte RBAC-Sicherheitsarchitektur: Vollständige serverseitige Autorisierung aller Endpunkte; normale Benutzer sehen ausschließlich autorisierte Server und keine Node-/Cluster-Interna",
+				"Live Chat Relay Multi-Language: Vollständige bilinguale i18n-Anbindung für Benachrichtigungen, Badges, Chat-Aktionen und Rollen",
+				"Flackerfreie Spielerüberwachung: Intelligenter Hintergrund-Sync ohne störenden Ladezustand und <= 5s Koordinaten-Updates",
+				"2D World Map 3x3 Chunk-Vorladung: Diagonale und angrenzende Regionen werden nahtlos vorregistriert; Chunks werden ohne Null-Reset im Cache gehalten",
+				"Clean Collapsed Sidebar UI: Keine horizontalen oder unteren Scrollbars mehr bei minimierter Navigation",
+			},
+			HighlightsEN: []string{
+				"Strict RBAC Security Architecture: Complete server-side endpoint authorization; standard users only see authorized servers and zero node/cluster telemetry",
+				"Live Chat Relay Multi-Language: Comprehensive bilingual i18n support across notifications, badges, chat actions, and staff identifiers",
+				"Flicker-Free Player Monitoring: Intelligent background sync without visual reload flashes and <= 5s coordinate updates",
+				"2D World Map 3x3 Chunk Preload: Diagonal and adjacent regions preloaded smoothly; chunks cached without null reset",
+				"Clean Collapsed Sidebar UI: Elimination of all horizontal and bottom scrollbars when sidebar is collapsed",
+			},
+			Features: []string{
+				"Live Chat Relay: t('chat_*') Integration mit dynamischer Spracherkennung",
+				"Echtzeit Player-Positionierung: NBT-Pfadauflösung für Paper/Purpur (hyphenated & unhyphenated)",
+				"Nahtlose Chunks: 3x3 Grid-Prefetching bei Bewegung auf der 2D-Weltkarte",
+			},
+			FeaturesEN: []string{
+				"Live Chat Relay: Complete t('chat_*') integration with dynamic locale detection",
+				"Realtime Player Tracking: Dual NBT path resolution for Paper/Purpur (hyphenated & unhyphenated)",
+				"Seamless Chunks: 3x3 grid prefetching when panning on the 2D world map",
+			},
+			Security: []string{
+				"Default-Deny für alle Admin-Routen und Server-Workloads",
+				"Vollständiger Flush von Auth-Tokens, Query-Caches und Redirects bei Benutzerwechsel",
+				"Echtzeit-Validierung von Sessions und Berechtigungen",
+			},
+			SecurityEN: []string{
+				"Default-deny across all admin routes and server workloads",
+				"Complete flush of auth tokens, query caches, and redirects on user change",
+				"Realtime validation of sessions and permissions",
+			},
+			Improvements: []string{
+				"Beseitigung von Scrollbars bei eingeklappter Navigationsleiste",
+				"Verbesserte Latenz bei API-Abfragen durch asynchrones Caching",
+			},
+			ImprovementsEN: []string{
+				"Removal of stray scrollbars on collapsed sidebar",
+				"Improved API query latency via asynchronous caching",
+			},
+		},
+		{
 			Version:       "v2.8.5",
 			Date:          "October 2026",
 			Title:         "World Map Live-Tracking, Lag-Dump Auto-Trigger & Spieler-Inspektion",
 			TitleEN:       "World Map Live Tracking, Lag Dump Auto Trigger & Player Inspection",
 			Description:   "Umfassendes Performance- und Usability-Update: Bringt 3s Live-Spieler-Standortverfolgung und dynamisches Chunk-Nachladen auf der 2D-Weltkarte, automatisches Lag-Dump-Profiling ab TPS <= 18, vollständige Subuser-Persistenz, detaillierte Spieler-Inspektion in Liste und Chat sowie vollständige bilinguale i18n-Anbindung.",
 			DescriptionEN: "Comprehensive performance and usability update: Features 3-second live player tracking and dynamic chunk loading on the 2D world map, automated lag dump profiling when TPS drops below 18, persistent subuser delegations, rich player inspection modal in player list and chat, and complete bilingual i18n coverage.",
-			Tag:           "LATEST STABLE",
-			TagEN:         "LATEST STABLE",
-			IsLatest:      true,
+			Tag:           "STABLE",
+			TagEN:         "STABLE",
+			IsLatest:      false,
 			Highlights: []string{
 				"World Map Live-Tracking: Spielerpositionen werden alle 3 Sekunden aktualisiert; Chunks laden beim Verschieben nahtlos nach",
 				"Lag-Dump Auto-Trigger: Automatisierte Snapshot-Erstellung bei TPS <= 18.0 oder MSPT >= 45.0",
@@ -632,7 +685,7 @@ func (ch *ChangelogController) GetChangelog(c *gin.Context) {
 		releases[i] = item
 	}
 
-	currentVer := "v2.8.5"
+	currentVer := "v2.8.6"
 	if len(releases) > 0 && releases[0].Version != "" {
 		currentVer = releases[0].Version
 	}

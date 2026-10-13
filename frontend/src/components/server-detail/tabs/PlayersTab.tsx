@@ -106,10 +106,12 @@ export const PlayersTab: React.FC = () => {
     });
   };
 
-  const fetchPlayerData = async () => {
+  const fetchPlayerData = async (isBackground = false) => {
     if (!selectedServer?.uuid) return;
     try {
-      setLoading(true);
+      if (!isBackground) {
+        setLoading(true);
+      }
       const [playersRes, bansRes] = await Promise.allSettled([
         api.players.list(selectedServer.uuid),
         api.players.getBans(selectedServer.uuid),
@@ -124,7 +126,9 @@ export const PlayersTab: React.FC = () => {
     } catch (err: any) {
       console.error('Failed to fetch player data:', err);
     } finally {
-      setLoading(false);
+      if (!isBackground) {
+        setLoading(false);
+      }
     }
   };
 
@@ -134,8 +138,11 @@ export const PlayersTab: React.FC = () => {
       setLoading(false);
       return;
     }
-    fetchPlayerData();
-    const interval = setInterval(fetchPlayerData, 8000);
+    fetchPlayerData(false);
+    // Realtime sync interval: <= 5 seconds (4000ms)
+    const interval = setInterval(() => {
+      fetchPlayerData(true);
+    }, 4000);
     return () => clearInterval(interval);
   }, [selectedServer?.uuid, selectedServer?.status]);
 
@@ -518,7 +525,7 @@ export const PlayersTab: React.FC = () => {
           </div>
 
           <button
-            onClick={fetchPlayerData}
+            onClick={() => fetchPlayerData(false)}
             className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors"
             title={t('common_refresh')}
           >
@@ -605,6 +612,11 @@ export const PlayersTab: React.FC = () => {
                               WL
                             </span>
                           )}
+                          {player.gamemode && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-mono capitalize">
+                              {player.gamemode}
+                            </span>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-3 mt-1 text-[11px] text-slate-400 font-mono">
@@ -616,10 +628,12 @@ export const PlayersTab: React.FC = () => {
                             <Clock className="w-3 h-3 text-slate-500" />
                             {player.playtime || '42m'}
                           </span>
-                          {player.location && (
-                            <span className="flex items-center gap-1">
+                          {(player.x !== undefined || player.location) && (
+                            <span className="flex items-center gap-1 text-slate-300">
                               <MapPin className="w-3 h-3 text-indigo-400" />
-                              {player.location}
+                              {player.x !== undefined && player.y !== undefined && player.z !== undefined
+                                ? `[${Math.round(player.x)}, ${Math.round(player.y)}, ${Math.round(player.z)}]`
+                                : player.location}
                             </span>
                           )}
                         </div>
@@ -767,12 +781,12 @@ export const PlayersTab: React.FC = () => {
               <div className="flex items-center gap-2">
                 <MessageSquare className="w-4 h-4 text-sky-400" />
                 <h3 className="text-sm font-semibold text-white font-mono uppercase tracking-wider">
-                  Live Chat Relay
+                  {t('chat_relay_title')}
                 </h3>
               </div>
               <span className="flex items-center gap-1.5 text-[10px] text-emerald-400 font-mono">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Web & Minecraft Live-Sync
+                {t('chat_web_minecraft_sync')}
               </span>
             </div>
 
@@ -780,7 +794,7 @@ export const PlayersTab: React.FC = () => {
             <div className="mt-2.5 px-3 py-1.5 rounded-lg bg-emerald-950/20 border border-emerald-500/20 text-[10px] font-mono text-emerald-300/90 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 <Shield className="w-3 h-3 text-emerald-400 shrink-0" />
-                <span>Öffentlicher & nationaler Chat aktiv. Private MSGs (/msg, /tell, /w) werden ausgeblendet.</span>
+                <span>{t('chat_privacy_notice')}</span>
               </span>
             </div>
 
@@ -792,9 +806,9 @@ export const PlayersTab: React.FC = () => {
               {chatMessages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500 text-xs">
                   <Gamepad2 className="w-8 h-8 mb-2 text-slate-600 opacity-60" />
-                  <p className="font-semibold text-slate-400">Keine Chat-Nachrichten</p>
+                  <p className="font-semibold text-slate-400">{t('chat_no_messages')}</p>
                   <p className="text-[11px] text-slate-500 mt-1 max-w-[220px]">
-                    In-Game-Nachrichten von Spielern und gesendete Web-Nachrichten erscheinen hier live.
+                    {t('chat_no_messages_desc')}
                   </p>
                 </div>
               ) : (
@@ -881,7 +895,7 @@ export const PlayersTab: React.FC = () => {
                               : 'bg-slate-800 text-slate-400'
                           }`}
                         >
-                          {isWebAdmin ? 'Web Admin' : isMinecraft ? 'In-Game' : 'System'}
+                          {isWebAdmin ? t('chat_web_admin') : isMinecraft ? t('chat_in_game') : t('chat_system')}
                         </span>
                       </div>
 
@@ -914,10 +928,10 @@ export const PlayersTab: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={() => setChatInput('⚡ Wartungsarbeiten starten in Kürze.')}
+                onClick={() => setChatInput(t('chat_quick_maintenance'))}
                 className="px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/25 transition-colors whitespace-nowrap"
               >
-                ⚡ Ankündigung
+                {t('chat_announcement')}
               </button>
             </div>
 
@@ -926,21 +940,21 @@ export const PlayersTab: React.FC = () => {
               <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 px-1">
                 <span className="flex items-center gap-1.5">
                   <Crown className="w-3 h-3 text-amber-400" />
-                  <span>Sende als:</span>
+                  <span>{t('chat_send_as')}</span>
                   <span className="text-indigo-400 font-bold">
                     {activeAdminName}
                   </span>
                   <span className="text-[9px] px-1 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                    Web Admin
+                    {t('chat_web_admin')}
                   </span>
                 </span>
-                <span className="text-emerald-400 text-[10px]">Dual-Way Relay</span>
+                <span className="text-emerald-400 text-[10px]">{t('chat_dual_way_relay')}</span>
               </div>
 
               <div className="relative">
                 <input
                   type="text"
-                  placeholder={`Öffentliche Nachricht an Server senden...`}
+                  placeholder={t('chat_type_placeholder')}
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                   className="w-full pl-3 pr-10 py-2.5 rounded-xl bg-[#0d1117] border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors font-mono"
@@ -949,7 +963,7 @@ export const PlayersTab: React.FC = () => {
                   type="submit"
                   disabled={!chatInput.trim()}
                   className="absolute right-1.5 top-1.5 p-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:hover:bg-indigo-600 text-white transition-all active:scale-95 shadow-md"
-                  title="In den Minecraft-Chat senden"
+                  title={t('chat_send_title')}
                 >
                   <Send className="w-3.5 h-3.5" />
                 </button>

@@ -28,6 +28,8 @@ type User struct {
 	DiscordLinkedAt  *time.Time     `json:"discord_linked_at"`
 	RoleID           *uint          `gorm:"index" json:"role_id"`
 	Role             *Role          `gorm:"foreignKey:RoleID" json:"role,omitempty"`
+	Theme            string         `gorm:"type:varchar(32);default:''" json:"theme"`
+	CustomCSS        string         `gorm:"type:text" json:"custom_css"`
 	CreatedAt        time.Time      `json:"created_at"`
 	UpdatedAt        time.Time      `json:"updated_at"`
 	DeletedAt        gorm.DeletedAt `gorm:"index" json:"-"`

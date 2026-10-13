@@ -484,3 +484,138 @@ func (a *AccountController) GetActivity(c *gin.Context) {
 		"page":  page,
 	})
 }
+
+type UpdateThemeRequest struct {
+	Theme       string `json:"theme"`
+	GlobalTheme string `json:"global_theme"`
+	CustomCSS   string `json:"custom_css"`
+}
+
+func (r *UpdateThemeRequest) GetTheme() string {
+	if r.Theme != "" {
+		return r.Theme
+	}
+	return r.GlobalTheme
+}
+
+// GetUserTheme handles GET /api/user/theme
+func (a *AccountController) GetUserTheme(c *gin.Context) {
+	user, ok := middleware.GetRequestUser(c)
+	if !ok || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	var u models.User
+	if err := a.db.First(&u, user.ID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	// Fetch global theme for fallback
+	var globalThemeSetting models.SystemSetting
+	a.db.Where("key = ?", "theme_global").First(&globalThemeSetting)
+	globalTheme := globalThemeSetting.Value
+	if globalTheme == "" {
+		globalTheme = "zinc"
+	}
+
+	effectiveTheme := u.Theme
+	if effectiveTheme == "" {
+		effectiveTheme = globalTheme
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"theme":               effectiveTheme,
+		"personal_theme":      u.Theme,
+		"personal_custom_css": u.CustomCSS,
+		"global_theme":        globalTheme,
+		"effective_theme":     effectiveTheme,
+	})
+}
+
+// UpdateUserTheme handles PUT /api/user/theme
+func (a *AccountController) UpdateUserTheme(c *gin.Context) {
+	user, ok := middleware.GetRequestUser(c)
+	if !ok || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	var req UpdateThemeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
+		return
+	}
+
+	themeToSet := req.GetTheme()
+	updates := map[string]interface{}{
+		"theme": themeToSet,
+	}
+	if req.CustomCSS != "" || c.Request.ContentLength > 0 {
+		updates["custom_css"] = req.CustomCSS
+	}
+
+	if err := a.db.Model(&models.User{}).Where("id = ?", user.ID).Updates(updates).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed updating user theme"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "User theme preferences saved.",
+		"theme":   themeToSet,
+	})
+}
+
+// GetGlobalTheme handles GET /api/theme/global (Public, used before login & preloader)
+func (a *AccountController) GetGlobalTheme(c *gin.Context) {
+	var themeSetting models.SystemSetting
+	a.db.Where("key = ?", "theme_global").First(&themeSetting)
+	val := themeSetting.Value
+	if val == "" {
+		val = "zinc"
+	}
+
+	var cssSetting models.SystemSetting
+	a.db.Where("key = ?", "theme_global_css").First(&cssSetting)
+
+	c.JSON(http.StatusOK, gin.H{
+		"global_theme": val,
+		"global_css":   cssSetting.Value,
+	})
+}
+
+// UpdateGlobalTheme handles PUT /api/admin/theme (Admin only)
+func (a *AccountController) UpdateGlobalTheme(c *gin.Context) {
+	user, ok := middleware.GetRequestUser(c)
+	if !ok || user == nil || !user.RootAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only root administrators can modify global themes"})
+		return
+	}
+
+	var req UpdateThemeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
+		return
+	}
+
+	themeToSet := req.GetTheme()
+	if themeToSet != "" {
+		var s models.SystemSetting
+		a.db.Where("key = ?", "theme_global").FirstOrCreate(&s, models.SystemSetting{Key: "theme_global"})
+		s.Value = themeToSet
+		a.db.Save(&s)
+	}
+
+	var css models.SystemSetting
+	a.db.Where("key = ?", "theme_global_css").FirstOrCreate(&css, models.SystemSetting{Key: "theme_global_css"})
+	css.Value = req.CustomCSS
+	a.db.Save(&css)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":      true,
+		"message":      "Global theme updated successfully.",
+		"global_theme": themeToSet,
+	})
+}
