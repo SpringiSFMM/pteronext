@@ -18,7 +18,7 @@ jobs:
       packages: write
     steps:
       - name: Code checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Docker metadata
         id: docker_meta
