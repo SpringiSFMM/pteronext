@@ -559,6 +559,26 @@ func (s *ServerController) DeleteServer(c *gin.Context) {
 	server, _ := middleware.GetRequestServer(c)
 	user, _ := middleware.GetRequestUser(c)
 
+	if user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized."})
+		return
+	}
+
+	// Security requirement: User must confirm their account password
+	var delReq struct {
+		Password string `json:"password"`
+	}
+	_ = c.ShouldBindJSON(&delReq)
+
+	if delReq.Password == "" {
+		delReq.Password = c.GetHeader("X-Password")
+	}
+
+	if delReq.Password == "" || !user.CheckPassword(delReq.Password) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Ungültiges Account-Passwort. Bitte bestätige die Serverlöschung mit deinem Passwort."})
+		return
+	}
+
 	// 1. Instruct Wings daemon to delete the server environment & container
 	if server.Node != nil {
 		if err := s.wingsClient.DeleteServer(server.Node, server.UUID); err != nil {

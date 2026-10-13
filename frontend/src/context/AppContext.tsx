@@ -278,9 +278,10 @@ function mapBackendNodeToAdmin(
   };
 }
 
-function mapBackendUserToAdmin(user: AuthUser & { created_at?: string; avatar_url?: string; avatar?: string }, serversCount = 0): AdminUser {
+function mapBackendUserToAdmin(user: AuthUser & { created_at?: string; avatar_url?: string; avatar?: string; is_subuser?: boolean; subuser_servers?: string[]; servers_count?: number; discord_id?: string; discord_username?: string }, serversCount = 0): AdminUser {
   return {
     id: String(user.id),
+    uuid: (user as any).uuid || '',
     username: user.username,
     email: user.email,
     avatar: (user as any).avatar_url || (user as any).avatar || initialsAvatar(user.username),
@@ -288,7 +289,11 @@ function mapBackendUserToAdmin(user: AuthUser & { created_at?: string; avatar_ur
     twoFactor: !!user.two_factor_enabled,
     lastLogin: '—',
     createdAt: user.created_at ? user.created_at.slice(0, 10) : '—',
-    serversCount,
+    serversCount: user.servers_count !== undefined ? user.servers_count : serversCount,
+    isSubuser: !!(user as any).is_subuser,
+    subuserServers: (user as any).subuser_servers || [],
+    discordId: (user as any).discord_id || '',
+    discordUsername: (user as any).discord_username || '',
   };
 }
 
@@ -440,7 +445,7 @@ interface AppContextType {
   // Node & Server Administration
   updateAdminNode: (id: string, updates: any) => Promise<boolean>;
   updateServerAdminSettings: (serverId: string, updates: any) => Promise<boolean>;
-  deleteServer: (serverId: string) => Promise<boolean>;
+  deleteServer: (serverId: string, password?: string) => Promise<boolean>;
   toggleServerSuspension: (serverId: string) => Promise<boolean>;
   reinstallServer: (serverId: string) => Promise<boolean>;
 
@@ -469,6 +474,7 @@ interface AppContextType {
   addDatabase: (db: Omit<DatabaseInstance, 'id' | 'connections' | 'sizeMB'>) => void;
   deleteDatabase: (id: string) => void;
   addUser: (user: Omit<SubUser, 'id' | 'addedAt'>) => void;
+  updateUser: (id: string, user: Partial<SubUser> & { path_rules?: any; command_rules?: any }) => Promise<boolean>;
   deleteUser: (id: string) => void;
 
   // Refresh Helpers
@@ -706,7 +712,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       'players': ['player.read', 'player.list', 'console.view'],
       'network': ['allocation.read', 'allocation.list'],
       'webhooks': ['webhook.read', 'webhook.list'],
-      'world-map': ['world.read', 'world.view', 'file.read'],
       'plugin-store': ['file.read', 'file.write', 'plugin.install'],
       'game-config': ['file.read', 'file.write', 'startup.read'],
       'sidecars': ['database.read', 'database.create'],
@@ -1269,11 +1274,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               avatar: u.avatar_url || u.avatar || initialsAvatar(u.username),
             });
 
-            // Route cleanly based on role: non-admin must NEVER land on admin routes
-            if (!isRoot) {
-              setActiveViewState('dashboard');
-              window.history.replaceState({}, '', '/');
-            }
+            // Always route to dashboard on login (as long as user is authenticated)
+            setActiveViewState('dashboard');
+            window.history.replaceState({}, '', '/');
           }
           await refreshUserData();
           return { success: true };
@@ -2477,6 +2480,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
+  const updateUser = async (
+    id: string,
+    userPatch: Partial<SubUser> & { path_rules?: any; command_rules?: any }
+  ): Promise<boolean> => {
+    if (selectedServer?.uuid) {
+      try {
+        await api.subusers.update(selectedServer.uuid, id, {
+          role_name: userPatch.role,
+          permissions: userPatch.permissions,
+          path_rules: userPatch.path_rules,
+          command_rules: userPatch.command_rules,
+        });
+
+        setUsers((prev) =>
+          prev.map((u) => (u.id === id ? { ...u, ...userPatch } : u))
+        );
+
+        addToast({
+          title: 'Sub-User Updated',
+          description: `Updated permissions and role for ${userPatch.username || 'subuser'}.`,
+          type: 'success',
+        });
+        return true;
+      } catch (err: any) {
+        console.warn('Subuser backend update error:', err);
+        addToast({
+          title: 'Update Failed',
+          description: err?.message || 'Could not update subuser permissions.',
+          type: 'error',
+        });
+        return false;
+      }
+    }
+
+    setUsers((prev) =>
+      prev.map((u) => (u.id === id ? { ...u, ...userPatch } : u))
+    );
+    return true;
+  };
+
   const deleteUser = async (id: string) => {
     const target = users.find((u) => u.id === id);
     if (selectedServer?.uuid) {
@@ -2989,15 +3032,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const deleteServer = async (serverId: string): Promise<boolean> => {
+  const deleteServer = async (serverId: string, password?: string): Promise<boolean> => {
     try {
       const target = servers.find((s) => s.id === serverId || s.uuid === serverId);
       const targetUuid = target?.uuid || serverId;
       if (targetUuid) {
         try {
-          await api.servers.delete(targetUuid);
-        } catch (apiErr) {
+          await api.servers.delete(targetUuid, password);
+        } catch (apiErr: any) {
           console.warn('Backend server delete failed:', apiErr);
+          addToast({
+            title: 'Delete Failed',
+            description: apiErr?.message || 'Ungültiges Account-Passwort oder Löschfehler.',
+            type: 'error',
+          });
+          return false;
         }
         try {
           localStorage.removeItem(`pteronext_files_${targetUuid}`);
@@ -3025,7 +3074,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return true;
     } catch (err: any) {
       addToast({
-        title: 'Deletion Failed',
+        title: 'Server Delete Failed',
         description: err?.message || 'Could not delete server.',
         type: 'error',
       });
@@ -3310,6 +3359,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addDatabase,
         deleteDatabase,
         addUser,
+        updateUser,
         deleteUser,
         refreshServers,
         refreshStats,

@@ -186,6 +186,8 @@ export const SettingsTab: React.FC = () => {
   const [serverJarFile, setServerJarFile] = useState('server.jar');
   const [isInstallingVersion, setIsInstallingVersion] = useState(false);
   const [dangerModalAction, setDangerModalAction] = useState<'reinstall' | 'delete' | null>(null);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deletePasswordError, setDeletePasswordError] = useState('');
   const [includePreReleases, setIncludePreReleases] = useState(false);
   const [rawApiVersions, setRawApiVersions] = useState<Record<string, string[]> | null>(null);
 
@@ -432,6 +434,8 @@ export const SettingsTab: React.FC = () => {
   };
 
   const handleDelete = () => {
+    setDeletePassword('');
+    setDeletePasswordError('');
     setDangerModalAction('delete');
   };
 
@@ -445,12 +449,22 @@ export const SettingsTab: React.FC = () => {
             : 'Server queued for installation script execution.',
         type: 'warning',
       });
-    } else if (dangerModalAction === 'delete') {
       setDangerModalAction(null);
-      await deleteServer(selectedServer.uuid || selectedServer.id);
+    } else if (dangerModalAction === 'delete') {
+      if (!deletePassword) {
+        setDeletePasswordError(language === 'de' ? 'Bitte gib dein Account-Passwort ein.' : 'Please enter your account password.');
+        return;
+      }
+      const ok = await deleteServer(selectedServer.uuid || selectedServer.id, deletePassword);
+      if (ok) {
+        setDangerModalAction(null);
+        setDeletePassword('');
+        setDeletePasswordError('');
+      } else {
+        setDeletePasswordError(language === 'de' ? 'Falsches Account-Passwort.' : 'Incorrect account password.');
+      }
       return;
     }
-    setDangerModalAction(null);
   };
 
   return (
@@ -1499,6 +1513,10 @@ export const SettingsTab: React.FC = () => {
               : 'Reinstall'
             : undefined
         }
+        requirePassword={dangerModalAction === 'delete'}
+        password={deletePassword}
+        onPasswordChange={setDeletePassword}
+        passwordError={deletePasswordError}
       />
     </div>
   );

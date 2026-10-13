@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   ShieldAlert,
   Trash2,
+  Edit2,
   Lock,
   Mail,
   Check,
@@ -37,10 +38,11 @@ interface CommandRule {
 }
 
 export const UsersTab: React.FC = () => {
-  const { users, addUser, deleteUser, addToast } = useApp();
+  const { users, addUser, updateUser, deleteUser, addToast } = useApp();
   const { language } = useTranslation();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingSubUser, setEditingSubUser] = useState<SubUser | null>(null);
   const [deleteTargetSubUser, setDeleteTargetSubUser] = useState<SubUser | null>(null);
   const [isDeletingSubUser, setIsDeletingSubUser] = useState(false);
   const [email, setEmail] = useState('');
@@ -122,9 +124,38 @@ export const UsersTab: React.FC = () => {
     setPathRules((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleInviteUser = (e: React.FormEvent) => {
+  const openEditModal = (su: SubUser) => {
+    setEditingSubUser(su);
+    setEmail(su.email);
+    setRole((su.role as any) || 'Custom');
+    setSelectedPermissions(su.permissions || []);
+    setIsModalOpen(true);
+  };
+
+  const openInviteModal = () => {
+    setEditingSubUser(null);
+    setEmail('');
+    applyPreset('Moderator');
+    setIsModalOpen(true);
+  };
+
+  const handleSaveSubUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
+
+    if (editingSubUser) {
+      await updateUser(editingSubUser.id, {
+        email,
+        username: editingSubUser.username,
+        role: role as any,
+        permissions: selectedPermissions,
+        path_rules: pathRules,
+        command_rules: [{ type: commandRuleMode, command: commandTokens }],
+      });
+      setIsModalOpen(false);
+      setEditingSubUser(null);
+      return;
+    }
 
     const username = email.split('@')[0];
     addUser({
@@ -185,10 +216,7 @@ export const UsersTab: React.FC = () => {
         </div>
 
         <button
-          onClick={() => {
-            applyPreset('Moderator');
-            setIsModalOpen(true);
-          }}
+          onClick={openInviteModal}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-mono text-xs font-bold shadow-md transition-all active:scale-95"
         >
           <UserPlus className="w-4 h-4" />
@@ -325,13 +353,22 @@ export const UsersTab: React.FC = () => {
                   Joined: {user.addedAt}
                 </span>
                 {user.role !== 'Admin' && (
-                  <button
-                    onClick={() => setDeleteTargetSubUser(user)}
-                    title={language === 'de' ? 'Benutzerzugriff widerrufen' : 'Revoke User Access'}
-                    className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-slate-900 transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <>
+                    <button
+                      onClick={() => openEditModal(user)}
+                      title={language === 'de' ? 'Berechtigungen bearbeiten' : 'Edit Sub-User'}
+                      className="p-1.5 text-slate-400 hover:text-indigo-400 rounded-lg hover:bg-slate-900 transition-colors"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setDeleteTargetSubUser(user)}
+                      title={language === 'de' ? 'Benutzerzugriff widerrufen' : 'Revoke User Access'}
+                      className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-slate-900 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -356,10 +393,13 @@ export const UsersTab: React.FC = () => {
       {isModalOpen && (
         <Modal
           isOpen={true}
-          onClose={() => setIsModalOpen(false)}
-          title="INVITE TEAM SUB-USER & CONFIGURE RBAC"
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingSubUser(null);
+          }}
+          title={editingSubUser ? `EDIT SUB-USER PERMISSIONS: ${editingSubUser.username}` : "INVITE TEAM SUB-USER & CONFIGURE RBAC"}
         >
-          <form onSubmit={handleInviteUser} className="space-y-4 max-h-[80vh] overflow-y-auto pr-1">
+          <form onSubmit={handleSaveSubUser} className="space-y-4 max-h-[80vh] overflow-y-auto pr-1">
             {/* Presets Bar */}
             <div className="p-3 rounded-xl bg-[#0d1117] border border-slate-800 space-y-2">
               <span className="text-[10px] font-mono uppercase text-slate-400 block font-semibold">
@@ -550,7 +590,7 @@ export const UsersTab: React.FC = () => {
                 type="submit"
                 className="px-4 py-2 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-mono font-bold text-xs shadow-md active:scale-95"
               >
-                Save & Dispatch Invite
+                {editingSubUser ? 'Save Permissions' : 'Save & Dispatch Invite'}
               </button>
             </div>
           </form>

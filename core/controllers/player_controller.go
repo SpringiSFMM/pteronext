@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -171,6 +172,8 @@ type PlayerController struct {
 	wingsClient *services.WingsClient
 	wsHub       *services.WebSocketHub
 	dataDir     string
+	lastSaveMu  sync.Mutex
+	lastSave    map[string]time.Time
 }
 
 func NewPlayerController(db *gorm.DB, wingsClient *services.WingsClient, wsHub *services.WebSocketHub, dataDir string) *PlayerController {
@@ -182,6 +185,7 @@ func NewPlayerController(db *gorm.DB, wingsClient *services.WingsClient, wsHub *
 		wingsClient: wingsClient,
 		wsHub:       wsHub,
 		dataDir:     dataDir,
+		lastSave:    make(map[string]time.Time),
 	}
 }
 
@@ -337,6 +341,21 @@ func (p *PlayerController) GetPlayers(c *gin.Context) {
 	if !isRunning {
 		c.JSON(http.StatusOK, gin.H{"data": []PlayerInfo{}})
 		return
+	}
+
+	// Flush in-memory player coordinates to disk asynchronously (throttled to once every 5 seconds)
+	// Paper/Spigot only writes playerdata/<uuid>.dat on save-all or player leave.
+	p.lastSaveMu.Lock()
+	now := time.Now()
+	last := p.lastSave[server.UUID]
+	if now.Sub(last) >= 5*time.Second {
+		p.lastSave[server.UUID] = now
+		p.lastSaveMu.Unlock()
+		go func(node *models.Node, sUUID string) {
+			_ = p.wingsClient.SendCommand(node, sUUID, "save-all")
+		}(server.Node, server.UUID)
+	} else {
+		p.lastSaveMu.Unlock()
 	}
 
 	opsMap := make(map[string]bool)

@@ -112,6 +112,7 @@ export interface AdminNode extends NodeInfo {
 
 export interface AdminUser {
   id: string;
+  uuid?: string;
   username: string;
   email: string;
   avatar: string;
@@ -120,6 +121,10 @@ export interface AdminUser {
   lastLogin: string;
   createdAt: string;
   serversCount: number;
+  isSubuser?: boolean;
+  subuserServers?: string[];
+  discordId?: string;
+  discordUsername?: string;
 }
 
 export interface EggVariable {
@@ -275,7 +280,6 @@ export type ServerDetailTab =
   | 'audit'
   | 'game-config'
   | 'plugin-store'
-  | 'world-map'
   | 'webhooks'
   | 'diagnostics'
   | 'settings';

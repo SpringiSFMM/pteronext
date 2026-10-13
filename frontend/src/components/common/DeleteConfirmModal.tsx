@@ -13,6 +13,10 @@ export interface DeleteConfirmModalProps {
   confirmText?: string;
   cancelText?: string;
   isDeleting?: boolean;
+  requirePassword?: boolean;
+  password?: string;
+  onPasswordChange?: (val: string) => void;
+  passwordError?: string;
 }
 
 export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
@@ -25,6 +29,10 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
   confirmText,
   cancelText,
   isDeleting = false,
+  requirePassword = false,
+  password = '',
+  onPasswordChange,
+  passwordError,
 }) => {
   const { language } = useTranslation();
 
@@ -62,6 +70,25 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
           <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
           <p className="text-slate-200 leading-relaxed">{defaultDescription}</p>
         </div>
+
+        {requirePassword && (
+          <div className="space-y-1.5 pt-1">
+            <label className="text-[11px] font-semibold text-slate-300 block">
+              {language === 'de' ? 'Account-Passwort zur Bestätigung:' : 'Account Password for Confirmation:'}
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => onPasswordChange && onPasswordChange(e.target.value)}
+              placeholder={language === 'de' ? 'Dein Account-Passwort eingeben' : 'Enter your account password'}
+              className="w-full px-3 py-2 rounded-xl bg-[#0d1117] border border-slate-700 focus:border-rose-500 text-white font-mono text-xs focus:outline-none transition-colors"
+              autoFocus
+            />
+            {passwordError && (
+              <p className="text-[11px] text-rose-400 font-semibold">{passwordError}</p>
+            )}
+          </div>
+        )}
 
         <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-800">
           <button

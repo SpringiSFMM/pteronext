@@ -52,6 +52,8 @@ export const AdminServersView: React.FC = () => {
   // Modals state
   const [editingServer, setEditingServer] = useState<Server | null>(null);
   const [deletingServer, setDeletingServer] = useState<Server | null>(null);
+  const [adminDeletePassword, setAdminDeletePassword] = useState('');
+  const [adminDeletePasswordError, setAdminDeletePasswordError] = useState('');
   const [reinstallingServer, setReinstallingServer] = useState<Server | null>(null);
 
   // Edit form state
@@ -129,8 +131,18 @@ export const AdminServersView: React.FC = () => {
 
   const handleConfirmDelete = async () => {
     if (!deletingServer) return;
-    await deleteServer(deletingServer.id);
-    setDeletingServer(null);
+    if (!adminDeletePassword) {
+      setAdminDeletePasswordError('Bitte gib dein Account-Passwort ein.');
+      return;
+    }
+    const ok = await deleteServer(deletingServer.id, adminDeletePassword);
+    if (ok) {
+      setDeletingServer(null);
+      setAdminDeletePassword('');
+      setAdminDeletePasswordError('');
+    } else {
+      setAdminDeletePasswordError('Falsches Account-Passwort oder Löschfehler.');
+    }
   };
 
   const handleConfirmReinstall = async () => {
@@ -744,6 +756,23 @@ export const AdminServersView: React.FC = () => {
                 This will terminate the Wings container, erase all files and databases, and free
                 port {deletingServer.allocation}.
               </p>
+            </div>
+
+            <div className="space-y-1.5 pt-1">
+              <label className="text-[11px] font-sans font-semibold text-slate-300 block">
+                Account-Passwort zur Bestätigung:
+              </label>
+              <input
+                type="password"
+                value={adminDeletePassword}
+                onChange={(e) => setAdminDeletePassword(e.target.value)}
+                placeholder="Dein Account-Passwort eingeben"
+                className="w-full px-3 py-2 rounded-xl bg-[#0d1117] border border-slate-700 focus:border-rose-500 text-white font-mono text-xs focus:outline-none transition-colors"
+                autoFocus
+              />
+              {adminDeletePasswordError && (
+                <p className="text-[11px] text-rose-400 font-sans font-semibold">{adminDeletePasswordError}</p>
+              )}
             </div>
 
             <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#212836]">

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useTranslation } from '../../i18n/useTranslation';
-import { Plus, ShieldCheck, Trash2, Inbox, UserRound, UserPlus } from 'lucide-react';
+import { Plus, ShieldCheck, Trash2, Inbox, UserRound, UserPlus, Search, Info, Key, Shield, Server, Check, Copy } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { DeleteConfirmModal } from '../common/DeleteConfirmModal';
 
@@ -11,12 +11,32 @@ export const AdminUsersView: React.FC = () => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deleteTargetUser, setDeleteTargetUser] = useState<any | null>(null);
+  const [inspectedUser, setInspectedUser] = useState<any | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [isDeletingUser, setIsDeletingUser] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isRootAdmin, setIsRootAdmin] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+
+  const filteredUsers = useMemo(() => {
+    if (!searchQuery.trim()) return adminUsers;
+    const q = searchQuery.toLowerCase().trim();
+    return adminUsers.filter(
+      (u) =>
+        u.username.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q) ||
+        (u.uuid && u.uuid.toLowerCase().includes(q))
+    );
+  }, [adminUsers, searchQuery]);
+
+  const handleCopy = (text: string, key: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,13 +78,25 @@ export const AdminUsersView: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="btn btn-primary self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>{t('users_new_user')}</span>
-        </button>
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="relative flex-1 sm:w-64">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder={language === 'de' ? 'Benutzer & E-Mails suchen...' : 'Search users & emails...'}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#0d1117] border border-[#30363d] focus:border-indigo-500 text-white font-mono text-xs focus:outline-none transition-colors"
+            />
+          </div>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="btn btn-primary self-start sm:self-auto shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>{t('users_new_user')}</span>
+          </button>
+        </div>
       </div>
 
       {/* Loading skeleton */}
@@ -93,7 +125,7 @@ export const AdminUsersView: React.FC = () => {
         </div>
       )}
 
-      {adminUsers.length > 0 && (
+      {filteredUsers.length > 0 && (
         <div className="card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
@@ -101,6 +133,7 @@ export const AdminUsersView: React.FC = () => {
                 <tr>
                   <th className="py-3 px-4">User</th>
                   <th className="py-3 px-4">Role</th>
+                  <th className="py-3 px-4">Account Type</th>
                   <th className="py-3 px-4">Two-Factor (2FA)</th>
                   <th className="py-3 px-4">Allocated Servers</th>
                   <th className="py-3 px-4">Registered</th>
@@ -108,17 +141,23 @@ export const AdminUsersView: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#30363d]/70">
-                {adminUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-[#1c2128] transition-colors">
+                {filteredUsers.map((user) => (
+                  <tr
+                    key={user.id}
+                    onClick={() => setInspectedUser(user)}
+                    className="hover:bg-[#1c2128] transition-colors cursor-pointer group"
+                  >
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
                         <img
                           src={user.avatar}
                           alt={user.username}
-                          className="w-8 h-8 rounded-lg object-cover border border-[#30363d]"
+                          className="w-8 h-8 rounded-lg object-cover border border-[#30363d] group-hover:border-indigo-500/50 transition-colors"
                         />
                         <div>
-                          <p className="font-semibold text-white">{user.username}</p>
+                          <p className="font-semibold text-white group-hover:text-indigo-400 transition-colors flex items-center gap-1.5">
+                            <span>{user.username}</span>
+                          </p>
                           <p className="text-[11px] text-slate-400 font-mono">{user.email}</p>
                         </div>
                       </div>
@@ -134,6 +173,19 @@ export const AdminUsersView: React.FC = () => {
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-[#21262d] text-slate-300 border border-[#30363d]">
                           <UserRound className="w-3 h-3" />
                           <span>Member</span>
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="py-3 px-4">
+                      {user.isSubuser ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                          <Shield className="w-3 h-3 text-indigo-400" />
+                          <span>Sub-User ({user.subuserServers?.length || 1})</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium text-slate-400">
+                          <span>Standard User</span>
                         </span>
                       )}
                     </td>
@@ -159,7 +211,10 @@ export const AdminUsersView: React.FC = () => {
 
                     <td className="py-3 px-4 text-right">
                       <button
-                        onClick={() => setDeleteTargetUser(user)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteTargetUser(user);
+                        }}
                         title="Delete account"
                         className="p-1.5 rounded-md bg-[#21262d] hover:bg-rose-500/15 text-slate-400 hover:text-rose-400 border border-[#30363d] hover:border-rose-500/30 transition-colors"
                       >
@@ -260,6 +315,148 @@ export const AdminUsersView: React.FC = () => {
         }
         isDeleting={isDeletingUser}
       />
+
+      {/* User Details Inspector Modal */}
+      {inspectedUser && (
+        <Modal
+          isOpen={true}
+          onClose={() => setInspectedUser(null)}
+          title={`Benutzerdetails: ${inspectedUser.username}`}
+          subtitle="Vollständige Kontodetails, Rollen & Serverdelegationen"
+          icon={<Info className="w-5 h-5 text-indigo-400" />}
+          badge={inspectedUser.rootAdmin ? "ROOT ADMIN" : (inspectedUser.isSubuser ? "SUB-USER" : "MEMBER")}
+          badgeColor={inspectedUser.rootAdmin ? "emerald" : (inspectedUser.isSubuser ? "purple" : "default")}
+          maxWidth="lg"
+        >
+          <div className="space-y-4 text-xs font-mono">
+            {/* Header profile summary */}
+            <div className="p-4 rounded-xl bg-[#0d1117] border border-slate-800 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <img
+                  src={inspectedUser.avatar}
+                  alt={inspectedUser.username}
+                  className="w-12 h-12 rounded-xl object-cover border border-[#30363d]"
+                />
+                <div>
+                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                    {inspectedUser.username}
+                    {inspectedUser.rootAdmin && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        Root
+                      </span>
+                    )}
+                    {inspectedUser.isSubuser && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                        Sub-User
+                      </span>
+                    )}
+                  </h4>
+                  <p className="text-slate-400 text-xs mt-0.5">{inspectedUser.email}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Core metadata grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="p-3 bg-[#0d1117] rounded-xl border border-slate-800">
+                <span className="text-[10px] text-slate-500 block uppercase tracking-wider font-semibold">
+                  Account ID
+                </span>
+                <span className="text-white font-semibold">#{inspectedUser.id}</span>
+              </div>
+
+              <div className="p-3 bg-[#0d1117] rounded-xl border border-slate-800 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] text-slate-500 block uppercase tracking-wider font-semibold">
+                    UUID
+                  </span>
+                  <span className="text-slate-300 font-semibold truncate block max-w-[180px]">
+                    {inspectedUser.uuid || '—'}
+                  </span>
+                </div>
+                {inspectedUser.uuid && (
+                  <button
+                    onClick={() => handleCopy(inspectedUser.uuid, 'user-uuid')}
+                    className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+                  >
+                    {copiedKey === 'user-uuid' ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                )}
+              </div>
+
+              <div className="p-3 bg-[#0d1117] rounded-xl border border-slate-800">
+                <span className="text-[10px] text-slate-500 block uppercase tracking-wider font-semibold">
+                  2-Faktor-Authentifizierung (2FA)
+                </span>
+                <span className={inspectedUser.twoFactor ? "text-emerald-400 font-semibold" : "text-slate-500"}>
+                  {inspectedUser.twoFactor ? "Aktiviert & Erzwingbar" : "Deaktiviert"}
+                </span>
+              </div>
+
+              <div className="p-3 bg-[#0d1117] rounded-xl border border-slate-800">
+                <span className="text-[10px] text-slate-500 block uppercase tracking-wider font-semibold">
+                  Registriert am
+                </span>
+                <span className="text-white font-semibold">{inspectedUser.createdAt || '—'}</span>
+              </div>
+
+              <div className="p-3 bg-[#0d1117] rounded-xl border border-slate-800">
+                <span className="text-[10px] text-slate-500 block uppercase tracking-wider font-semibold">
+                  Eigene Server (Owner)
+                </span>
+                <span className="text-white font-semibold">
+                  {inspectedUser.serversCount} {inspectedUser.serversCount === 1 ? 'Server' : 'Server'}
+                </span>
+              </div>
+
+              <div className="p-3 bg-[#0d1117] rounded-xl border border-slate-800">
+                <span className="text-[10px] text-slate-500 block uppercase tracking-wider font-semibold">
+                  Verknüpftes Discord Konto
+                </span>
+                <span className="text-slate-300 font-semibold">
+                  {inspectedUser.discordUsername || (inspectedUser.discordId ? `ID: ${inspectedUser.discordId}` : 'Nicht verknüpft')}
+                </span>
+              </div>
+            </div>
+
+            {/* Sub-User Delegations */}
+            <div className="p-4 rounded-xl bg-[#0d1117] border border-slate-800 space-y-2">
+              <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold block">
+                Sub-User Serverzugriffe & Delegationen ({inspectedUser.subuserServers?.length || 0})
+              </span>
+              {inspectedUser.subuserServers && inspectedUser.subuserServers.length > 0 ? (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {inspectedUser.subuserServers.map((sName: string, idx: number) => (
+                    <span
+                      key={idx}
+                      className="px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/25 text-xs font-mono flex items-center gap-1.5"
+                    >
+                      <Server className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>{sName}</span>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-slate-500 text-xs">Dieser Benutzer ist auf keinen fremden Servern als Sub-User eingetragen.</p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setInspectedUser(null)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs transition-colors"
+              >
+                Schließen
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };

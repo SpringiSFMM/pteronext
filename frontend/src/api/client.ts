@@ -456,9 +456,11 @@ export const api = {
       });
     },
 
-    delete: async (uuid: string): Promise<void> => {
+    delete: async (uuid: string, password?: string): Promise<void> => {
       return request<void>(`/api/servers/${uuid}`, {
         method: 'DELETE',
+        headers: password ? { 'X-Password': password } : undefined,
+        body: JSON.stringify({ password: password || '' }),
       });
     },
 
@@ -639,6 +641,18 @@ export const api = {
     }): Promise<{ data: any; subuser: any }> => {
       return request(`/api/servers/${serverUuid}/subusers`, {
         method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+    update: async (serverUuid: string, subuserId: number | string, payload: {
+      role_name?: string;
+      role?: string;
+      permissions?: any;
+      path_rules?: any;
+      command_rules?: any;
+    }): Promise<{ data: any; subuser: any }> => {
+      return request(`/api/servers/${serverUuid}/subusers/${subuserId}`, {
+        method: 'PUT',
         body: JSON.stringify(payload),
       });
     },

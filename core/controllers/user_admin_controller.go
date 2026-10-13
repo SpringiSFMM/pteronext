@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -20,8 +21,16 @@ func NewUserAdminController(db *gorm.DB) *UserAdminController {
 	return &UserAdminController{db: db}
 }
 
+// AdminUserListItem represents a user account decorated with subuser status and server stats.
+type AdminUserListItem struct {
+	models.User
+	IsSubuser      bool     `json:"is_subuser"`
+	SubuserServers []string `json:"subuser_servers"`
+	ServersCount   int64    `json:"servers_count"`
+}
+
 // ListUsers handles GET /api/admin/users
-// Returns all user accounts.
+// Returns all user accounts with enriched subuser status and server information.
 func (u *UserAdminController) ListUsers(c *gin.Context) {
 	var users []models.User
 	if err := u.db.Preload("Role").Order("id asc").Find(&users).Error; err != nil {
@@ -29,9 +38,46 @@ func (u *UserAdminController) ListUsers(c *gin.Context) {
 		return
 	}
 
+	// Query all subuser mappings
+	var subusers []models.Subuser
+	u.db.Preload("User").Find(&subusers)
+	subuserMap := make(map[uint][]string)
+	for _, su := range subusers {
+		// fetch server name if possible
+		var s models.Server
+		sName := fmt.Sprintf("Server #%d", su.ServerID)
+		if err := u.db.Select("name").First(&s, su.ServerID).Error; err == nil && s.Name != "" {
+			sName = s.Name
+		}
+		subuserMap[su.UserID] = append(subuserMap[su.UserID], sName)
+	}
+
+	// Query server ownership counts
+	type ServerCount struct {
+		OwnerID uint
+		Count   int64
+	}
+	var serverCounts []ServerCount
+	u.db.Model(&models.Server{}).Select("owner_id, count(*) as count").Group("owner_id").Scan(&serverCounts)
+	ownerCountMap := make(map[uint]int64)
+	for _, sc := range serverCounts {
+		ownerCountMap[sc.OwnerID] = sc.Count
+	}
+
+	result := make([]AdminUserListItem, len(users))
+	for i, usr := range users {
+		delegated := subuserMap[usr.ID]
+		result[i] = AdminUserListItem{
+			User:           usr,
+			IsSubuser:      len(delegated) > 0,
+			SubuserServers: delegated,
+			ServersCount:   ownerCountMap[usr.ID],
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"data":  users,
-		"users": users,
+		"data":  result,
+		"users": result,
 	})
 }
 

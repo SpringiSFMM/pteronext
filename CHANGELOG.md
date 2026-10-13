@@ -2,8 +2,25 @@
 This file is a running track of new features and fixes to each version of the panel released starting with `v0.4.0`.
 
 This project follows [Semantic Versioning](http://semver.org) guidelines.
-## v2.8.4
+
+## v2.8.7
 ### Added
+* **Live Player Coordinates & Realtime Synchronization**: In-game player positions (X, Y, Z, Dimension, Health) update live with automatic asynchronous `save-all` flush, eliminating join-only static coordinate caching.
+* **Account Password Protection for Server Deletion**: Deleting any server instance requires account password entry and strict server-side verification before Wings container and volume cleanup.
+* **Server-Side AES-256-GCM Backup Encryption & Locking**: Locking a snapshot via the lock icon server-side encrypts the `.tar.gz` archive with AES-256-GCM and shields it against deletion.
+* **Sub-User Granular Editing**: Full interface and `PUT /api/servers/:uuid/subusers/:id` backend route to edit sub-user roles, permissions, command whitelists, and path guardrails.
+* **Wings SFTP Prefix & Case-Insensitive Auth Fix**: Authenticates SFTP users with short UUID prefixes (`SpringiSFM.<8-char>`), full UUIDs, and case-insensitive usernames.
+* **Dashboard Login Redirection**: Authenticated logins always route directly to Dashboard.
+* **Admin Users Live Search & Inspection Modal**: Search filter for usernames and emails, explicit Sub-User badge, and complete account details inspection modal.
+
+### Removed
+* **Legacy 2D World & Chunks Tab**: Completely removed from navigation, views, routing, and translation keys.
+
+## v2.8.6
+### Added
+* **Strict RBAC Security Enforcement**: Complete server-side endpoint authorization with default-deny rules.
+* **Live Chat Relay Multi-Language Support**: Full bilingual i18n support across web-to-game chat relay.
+* **Clean Collapsed Sidebar UI**: Removed bottom scrollbars when sidebar is minimized.
 * **Dynamic Theme Glow & Accents**: Added theme-aware ambient accent glow lines and border highlights to server cards that react to the active panel theme.
 * **Release Synchronizer**: Aligned global control panel, sidebar, footer, and navbar version counters to v2.8.4.
 

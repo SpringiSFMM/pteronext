@@ -173,6 +173,7 @@ func SetupRouter(
 			subuserCtrl := controllers.NewSubuserController(db)
 			serverAccess.GET("/subusers", subuserCtrl.ListSubusers)
 			serverAccess.POST("/subusers", subuserCtrl.CreateSubuser)
+			serverAccess.PUT("/subusers/:id", subuserCtrl.UpdateSubuser)
 			serverAccess.DELETE("/subusers/:id", subuserCtrl.DeleteSubuser)
 
 			// Files (Filesystem persistence on node)

@@ -52,7 +52,7 @@ func (c *SftpRemoteController) AuthenticateSFTP(ctx *gin.Context) {
 	rawServerIdent := parts[len(parts)-1]
 
 	var server models.Server
-	if err := c.db.Where("(uuid = ? OR identifier = ?) AND node_id = ?", rawServerIdent, rawServerIdent, node.ID).First(&server).Error; err != nil {
+	if err := c.db.Where("(uuid = ? OR identifier = ? OR uuid LIKE ?) AND node_id = ?", rawServerIdent, rawServerIdent, rawServerIdent+"%", node.ID).First(&server).Error; err != nil {
 		ctx.JSON(http.StatusForbidden, gin.H{"error": "Server not found on this node."})
 		return
 	}
@@ -106,7 +106,7 @@ func (c *SftpRemoteController) AuthenticateSFTP(ctx *gin.Context) {
 
 	// 2. Regular User Authentication
 	var user models.User
-	if err := c.db.Where("username = ?", rawUsername).First(&user).Error; err != nil {
+	if err := c.db.Where("LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?)", rawUsername, rawUsername).First(&user).Error; err != nil {
 		ctx.JSON(http.StatusForbidden, gin.H{"error": "Authorization credentials were not correct."})
 		return
 	}

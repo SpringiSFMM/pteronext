@@ -296,14 +296,63 @@ func (b *BackupService) DeleteBackup(serverUUID, backupUUID string) error {
 	return b.db.Delete(backup).Error
 }
 
+// getServerEncryptionKey returns a derived server key for automated lock encryption
+func getServerEncryptionKey(serverUUID string) string {
+	return fmt.Sprintf("pteronext_server_locked_%s", serverUUID)
+}
+
 // ToggleLock changes the lock status of a backup.
+// When locked, the snapshot is marked locked against deletion and encrypted server-side with AES-256-GCM.
 func (b *BackupService) ToggleLock(serverUUID, backupUUID string) (*models.Backup, error) {
 	backup, err := b.GetBackup(serverUUID, backupUUID)
 	if err != nil {
 		return nil, err
 	}
 
-	backup.IsLocked = !backup.IsLocked
+	targetLocked := !backup.IsLocked
+	serverKey := getServerEncryptionKey(serverUUID)
+
+	if targetLocked {
+		// LOCKING: Encrypt server-side if currently plain tar.gz
+		if !backup.IsEncrypted {
+			oldPath := filepath.Join(b.backupDir, serverUUID, backup.UUID+".tar.gz")
+			if rawData, rErr := os.ReadFile(oldPath); rErr == nil && len(rawData) > 0 {
+				encBytes, salt, encErr := encryptArchive(rawData, serverKey)
+				if encErr == nil {
+					newPath := filepath.Join(b.backupDir, serverUUID, backup.UUID+".tar.gz.enc")
+					if wErr := os.WriteFile(newPath, encBytes, 0600); wErr == nil {
+						_ = os.Remove(oldPath)
+						backup.IsEncrypted = true
+						backup.EncryptionSalt = salt
+						backup.Bytes = int64(len(encBytes))
+						hash := sha256.Sum256(encBytes)
+						backup.Checksum = hex.EncodeToString(hash[:])
+					}
+				}
+			}
+		}
+		backup.IsLocked = true
+	} else {
+		// UNLOCKING: If encrypted with the server lock key, decrypt back to plain tar.gz
+		if backup.IsEncrypted {
+			encPath := filepath.Join(b.backupDir, serverUUID, backup.UUID+".tar.gz.enc")
+			if encData, rErr := os.ReadFile(encPath); rErr == nil && len(encData) > 0 {
+				if decBytes, dErr := decryptArchive(encData, serverKey); dErr == nil {
+					plainPath := filepath.Join(b.backupDir, serverUUID, backup.UUID+".tar.gz")
+					if wErr := os.WriteFile(plainPath, decBytes, 0600); wErr == nil {
+						_ = os.Remove(encPath)
+						backup.IsEncrypted = false
+						backup.EncryptionSalt = ""
+						backup.Bytes = int64(len(decBytes))
+						hash := sha256.Sum256(decBytes)
+						backup.Checksum = hex.EncodeToString(hash[:])
+					}
+				}
+			}
+		}
+		backup.IsLocked = false
+	}
+
 	if err := b.db.Save(backup).Error; err != nil {
 		return nil, err
 	}
@@ -329,12 +378,22 @@ func (b *BackupService) readDecryptedTarReader(backup *models.Backup, serverUUID
 
 	var gzData []byte
 	if backup.IsEncrypted {
-		if decryptPassword == "" {
-			return nil, nil, errors.New("this backup is encrypted; password is required to inspect or restore")
+		var dec []byte
+		var dErr error
+		if decryptPassword != "" {
+			dec, dErr = decryptArchive(raw, decryptPassword)
 		}
-		dec, dErr := decryptArchive(raw, decryptPassword)
+		if dErr != nil || decryptPassword == "" {
+			// Try server lock key
+			serverKey := getServerEncryptionKey(serverUUID)
+			if sDec, sErr := decryptArchive(raw, serverKey); sErr == nil {
+				dec = sDec
+				dErr = nil
+			}
+		}
+
 		if dErr != nil {
-			return nil, nil, dErr
+			return nil, nil, fmt.Errorf("this backup is encrypted; password is required or invalid: %w", dErr)
 		}
 		gzData = dec
 	} else {

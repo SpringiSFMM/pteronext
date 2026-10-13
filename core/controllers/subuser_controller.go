@@ -186,6 +186,89 @@ func (s *SubuserController) CreateSubuser(c *gin.Context) {
 	})
 }
 
+// UpdateSubuserRequest defines the JSON payload for modifying an existing subuser delegation.
+type UpdateSubuserRequest struct {
+	RoleName     string      `json:"role_name"`
+	Role         string      `json:"role"`
+	Permissions  interface{} `json:"permissions"`
+	PathRules    interface{} `json:"path_rules"`
+	CommandRules interface{} `json:"command_rules"`
+}
+
+// UpdateSubuser handles PUT /api/servers/:uuid/subusers/:id
+func (s *SubuserController) UpdateSubuser(c *gin.Context) {
+	server, _ := middleware.GetRequestServer(c)
+	idStr := c.Param("id")
+
+	numID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid subuser ID format."})
+		return
+	}
+
+	var subuser models.Subuser
+	if err := s.db.Where("server_id = ? AND (id = ? OR user_id = ?)", server.ID, numID, numID).First(&subuser).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Subuser not found on this server."})
+		return
+	}
+
+	var req UpdateSubuserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payload: " + err.Error()})
+		return
+	}
+
+	roleName := req.RoleName
+	if roleName == "" {
+		roleName = req.Role
+	}
+	if roleName != "" {
+		subuser.RoleName = roleName
+	}
+
+	if req.Permissions != nil {
+		switch p := req.Permissions.(type) {
+		case string:
+			subuser.Permissions = p
+		default:
+			b, _ := json.Marshal(p)
+			subuser.Permissions = string(b)
+		}
+	}
+
+	if req.PathRules != nil {
+		switch pr := req.PathRules.(type) {
+		case string:
+			subuser.PathRules = pr
+		default:
+			b, _ := json.Marshal(pr)
+			subuser.PathRules = string(b)
+		}
+	}
+
+	if req.CommandRules != nil {
+		switch cr := req.CommandRules.(type) {
+		case string:
+			subuser.CommandRules = cr
+		default:
+			b, _ := json.Marshal(cr)
+			subuser.CommandRules = string(b)
+		}
+	}
+
+	if err := s.db.Save(&subuser).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed updating subuser: " + err.Error()})
+		return
+	}
+
+	_ = s.db.Preload("User").First(&subuser, subuser.ID)
+
+	c.JSON(http.StatusOK, gin.H{
+		"data":    subuser,
+		"subuser": subuser,
+	})
+}
+
 // DeleteSubuser handles DELETE /api/servers/:uuid/subusers/:id
 func (s *SubuserController) DeleteSubuser(c *gin.Context) {
 	server, _ := middleware.GetRequestServer(c)
