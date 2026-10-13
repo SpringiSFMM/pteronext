@@ -4,7 +4,7 @@ import { useTranslation } from '../../i18n/useTranslation';
 import { Sparkles, GitBranch, Heart, ExternalLink, ShieldCheck, HeartHandshake } from 'lucide-react';
 
 export const Footer: React.FC = () => {
-  const { setActiveView } = useApp();
+  const { setActiveView, systemVersion } = useApp();
   const { language } = useTranslation();
 
   return (
@@ -58,7 +58,7 @@ export const Footer: React.FC = () => {
             title="System Changelog ansehen"
           >
             <Sparkles className="w-3 h-3 text-[var(--theme-accent)]" />
-            <span>v2.8.8 Release</span>
+            <span>{systemVersion || 'v2.8.8'} Release</span>
           </button>
 
           <button

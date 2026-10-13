@@ -483,6 +483,9 @@ interface AppContextType {
   refreshDatabases: () => Promise<void>;
   loadDirectory: (dir?: string) => Promise<FileItem[]>;
 
+  // System Version
+  systemVersion: string;
+
   // Toasts
   toasts: ToastMessage[];
   addToast: (toast: Omit<ToastMessage, 'id'>) => void;
@@ -678,6 +681,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
+  const [systemVersion, setSystemVersion] = useState<string>('v2.8.8');
+
+  useEffect(() => {
+    let mounted = true;
+    api.updates
+      .check()
+      .then((res) => {
+        if (mounted && res?.current_version) {
+          setSystemVersion(res.current_version);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [nodes, setNodes] = useState<NodeInfo[]>([]);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
@@ -3365,6 +3385,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         refreshStats,
         refreshDatabases,
         loadDirectory,
+        systemVersion,
         toasts,
         addToast,
         removeToast,

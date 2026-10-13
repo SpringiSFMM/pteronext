@@ -2,6 +2,14 @@
 This file is a running track of new features and fixes to each version of the panel released starting with `v0.4.0`.
 
 This project follows [Semantic Versioning](http://semver.org) guidelines.
+## v2.8.8
+### Added
+* **Global Version Synchronization**: Unified version display to v2.8.8 dynamically across sidebar, header navbar, footer, dashboard and changelog with automated GitHub release sync.
+* **Semgrep Security Auditing & Code Hardening**: Full remediation of security warnings across backend controllers and services.
+* **DOMPurify Console XSS Hardening**: Sanitized real-time server console output stream and terminal logs against malicious HTML/script injections.
+* **Modern TLS 1.2+ Enforcement**: Mandated TLS 1.2+ minimum protocol across all daemon and reverse proxy SSL configurations.
+* **Comprehensive Architecture Documentation**: Added 5,400+ line system architecture, security and deployment manual in `DOCUMENTATION.md`.
+* **Automated GitHub Tag & Release Changelog Sync**: Dynamic synchronization of GitHub tags and releases directly into the panel changelog view.
 
 ## v2.8.7
 ### Added

@@ -70,8 +70,8 @@ export const ModernNavbar: React.FC = () => {
       const res = await api.updates.check();
       if (res) {
         setVersionInfo({
-          current_version: res.current_version || 'v2.7.4',
-          latest_version: res.latest_version || res.current_version || 'v2.7.4',
+          current_version: res.current_version || 'v2.8.8',
+          latest_version: res.latest_version || res.current_version || 'v2.8.8',
           update_available: Boolean(res.update_available),
         });
       }

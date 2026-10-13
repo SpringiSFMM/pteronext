@@ -1,8 +1,12 @@
 package controllers
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -27,10 +31,127 @@ type ReleaseItem struct {
 	ImprovementsEN []string `json:"improvements_en"`
 }
 
-type ChangelogController struct{}
+type GitHubRelease struct {
+	TagName     string    `json:"tag_name"`
+	Name        string    `json:"name"`
+	Body        string    `json:"body"`
+	PublishedAt time.Time `json:"published_at"`
+	Prerelease  bool      `json:"prerelease"`
+}
+
+type GitHubTag struct {
+	Name   string `json:"name"`
+	Commit struct {
+		SHA string `json:"sha"`
+	} `json:"commit"`
+}
+
+type ChangelogController struct {
+	githubRepo    string
+	mu            sync.RWMutex
+	cachedGitHub  []ReleaseItem
+	lastFetchTime time.Time
+}
 
 func NewChangelogController() *ChangelogController {
-	return &ChangelogController{}
+	return &ChangelogController{
+		githubRepo: "SpringiSFMM/pteronext",
+	}
+}
+
+func (ch *ChangelogController) fetchGitHubSync() []ReleaseItem {
+	ch.mu.RLock()
+	if time.Since(ch.lastFetchTime) < 5*time.Minute && ch.cachedGitHub != nil {
+		cached := ch.cachedGitHub
+		ch.mu.RUnlock()
+		return cached
+	}
+	ch.mu.RUnlock()
+
+	ch.mu.Lock()
+	defer ch.mu.Unlock()
+
+	if time.Since(ch.lastFetchTime) < 5*time.Minute && ch.cachedGitHub != nil {
+		return ch.cachedGitHub
+	}
+
+	client := &http.Client{Timeout: 4 * time.Second}
+	var gitHubReleases []ReleaseItem
+
+	// 1. Fetch GitHub official releases if available
+	req, err := http.NewRequest("GET", fmt.Sprintf("https://api.github.com/repos/%s/releases", ch.githubRepo), nil)
+	if err == nil {
+		req.Header.Set("User-Agent", "PteroNext-Panel-Changelog")
+		req.Header.Set("Accept", "application/vnd.github.v3+json")
+		if resp, err := client.Do(req); err == nil && resp.StatusCode == http.StatusOK {
+			var ghRels []GitHubRelease
+			if err := json.NewDecoder(resp.Body).Decode(&ghRels); err == nil {
+				for _, r := range ghRels {
+					tag := "STABLE"
+					if r.Prerelease {
+						tag = "BETA"
+					}
+					gitHubReleases = append(gitHubReleases, ReleaseItem{
+						Version:       r.TagName,
+						Date:          r.PublishedAt.Format("January 2006"),
+						Title:         r.Name,
+						TitleEN:       r.Name,
+						Description:   r.Body,
+						DescriptionEN: r.Body,
+						Tag:           tag,
+						TagEN:         tag,
+						Highlights:    []string{fmt.Sprintf("Synchronisiert von GitHub Release: %s", r.TagName)},
+						HighlightsEN:  []string{fmt.Sprintf("Synchronized from GitHub Release: %s", r.TagName)},
+					})
+				}
+			}
+			resp.Body.Close()
+		}
+	}
+
+	// 2. Fetch GitHub tags
+	tagReq, err := http.NewRequest("GET", fmt.Sprintf("https://api.github.com/repos/%s/tags", ch.githubRepo), nil)
+	if err == nil {
+		tagReq.Header.Set("User-Agent", "PteroNext-Panel-Changelog")
+		tagReq.Header.Set("Accept", "application/vnd.github.v3+json")
+		if resp, err := client.Do(tagReq); err == nil && resp.StatusCode == http.StatusOK {
+			var ghTags []GitHubTag
+			if err := json.NewDecoder(resp.Body).Decode(&ghTags); err == nil {
+				for _, t := range ghTags {
+					found := false
+					for _, existing := range gitHubReleases {
+						if existing.Version == t.Name {
+							found = true
+							break
+						}
+					}
+					if !found {
+						shortSHA := t.Commit.SHA
+						if len(shortSHA) > 7 {
+							shortSHA = shortSHA[:7]
+						}
+						gitHubReleases = append(gitHubReleases, ReleaseItem{
+							Version:       t.Name,
+							Date:          "GitHub Release",
+							Title:         fmt.Sprintf("Release %s (GitHub)", t.Name),
+							TitleEN:       fmt.Sprintf("Release %s (GitHub)", t.Name),
+							Description:   fmt.Sprintf("Automatisch synchronisierter Release-Stand von GitHub Repository %s.", ch.githubRepo),
+							DescriptionEN: fmt.Sprintf("Automatically synchronized release state from GitHub repository %s.", ch.githubRepo),
+							Tag:           "STABLE",
+							TagEN:         "STABLE",
+							Highlights:    []string{fmt.Sprintf("GitHub Commit SHA: %s", shortSHA)},
+							HighlightsEN:  []string{fmt.Sprintf("GitHub Commit SHA: %s", shortSHA)},
+						})
+					}
+				}
+			}
+			resp.Body.Close()
+		}
+	}
+
+	ch.cachedGitHub = gitHubReleases
+	ch.lastFetchTime = time.Now()
+	return ch.cachedGitHub
 }
 
 func (ch *ChangelogController) GetChangelog(c *gin.Context) {
@@ -38,15 +159,64 @@ func (ch *ChangelogController) GetChangelog(c *gin.Context) {
 
 	rawReleases := []ReleaseItem{
 		{
+			Version:       "v2.8.8",
+			Date:          "October 2026",
+			Title:         "Semgrep-Sicherheits-Hardening, DOMPurify XSS-Schutz, TLS 1.2+ & Dokumentation",
+			TitleEN:       "Semgrep Security Hardening, DOMPurify Console XSS Hardening, TLS 1.2+ & Documentation",
+			Description:   "Umfangreiches Sicherheits- und Stabilitäts-Release: Behebung aller von Semgrep identifizierten Sicherheitslücken, Härtung der Web-Konsole gegen XSS mittels DOMPurify, Erzwingung von modernem TLS 1.2+ für alle SSL-Endpunkte, systemweite Synchronisierung der Versionsanzeige auf v2.8.8 über alle Komponenten (Sidebar, Footer, Navbar, Dashboard & Changelog) sowie Hinzufügen einer 5.400+ Zeilen umfassenden Enterprise-Dokumentation (DOCUMENTATION.md).",
+			DescriptionEN: "Comprehensive security and stability release: Remediation of all Semgrep-identified vulnerabilities, hardening the server web console against XSS via DOMPurify, enforcement of modern TLS 1.2+ across SSL endpoints, synchronized v2.8.8 version display across all components (Sidebar, Footer, Navbar, Dashboard & Changelog), and addition of a 5,400+ line enterprise architecture and deployment manual (DOCUMENTATION.md).",
+			Tag:           "LATEST STABLE",
+			TagEN:         "LATEST STABLE",
+			IsLatest:      true,
+			Highlights: []string{
+				"Semgrep Security Hardening: Vollständige Bereinigung aller gemeldeten Schwachstellen in Controller- und Backend-Services",
+				"DOMPurify XSS-Schutz: Web-Konsole filtert Terminal- und Log-Ausgaben gegen Cross-Site-Scripting ab",
+				"Modern TLS 1.2+ Enforced: Veraltete SSL/TLS-Protokolle deaktiviert; ausschließlich sichere Cipher-Suites",
+				"Globaler Versions-Sync v2.8.8: Einheitliche Versionsanzeige in Sidebar, Navbar, Footer, Dashboard und Changelog",
+				"Umfassende Dokumentation: 5.400+ Zeilen Enterprise-Architektur-, Sicherheits- und Deployment-Dokumentation in DOCUMENTATION.md",
+			},
+			HighlightsEN: []string{
+				"Semgrep Security Hardening: Complete remediation of all flagged security vulnerabilities across backend controllers and services",
+				"DOMPurify Console XSS Hardening: Web console sanitizes terminal stream and log payloads against XSS attacks",
+				"Modern TLS 1.2+ Enforced: Deprecated SSL/TLS protocols disabled with strict modern cipher suites",
+				"Global Version Sync v2.8.8: Unified versioning across Sidebar, Navbar, Footer, Dashboard, and Changelog",
+				"Comprehensive Documentation: 5,400+ line enterprise architecture, security, and deployment manual in DOCUMENTATION.md",
+			},
+			Features: []string{
+				"DOMPurify HTML-Sanitizing im Minecraft- und Server-Konsolen-Stream",
+				"Systemweite Versions-Synchronisation v2.8.8",
+				"DOCUMENTATION.md mit vollständiger API-, Sicherheits- und Architektur-Referenz",
+				"Dependabot-Integration zur automatischen Dependency-Überwachung",
+			},
+			FeaturesEN: []string{
+				"DOMPurify HTML sanitization for server web console output stream",
+				"System-wide v2.8.8 version synchronization",
+				"DOCUMENTATION.md with comprehensive API, security, and architecture reference",
+				"Dependabot configuration for automated dependency security monitoring",
+			},
+			Security: []string{
+				"Semgrep Security Rules Auditing & Remediation",
+				"DOMPurify XSS Filterung im Console-Stream",
+				"TLS 1.2+ Mindeststandard in Nginx- und Daemon-Konfigurationen",
+				"Bereinigte Fehler- und Exception-Rückgaben ohne Server-Interna",
+			},
+			SecurityEN: []string{
+				"Semgrep security rules auditing and code remediation",
+				"DOMPurify XSS filtering for console output stream",
+				"TLS 1.2+ minimum protocol enforcement in SSL configurations",
+				"Sanitized error and exception responses without leaking internal server paths",
+			},
+		},
+		{
 			Version:       "v2.8.7",
 			Date:          "October 2026",
 			Title:         "Live Player Position, Server-Löschung mit Passwort, SFTP-Fix & Sub-User-Verwaltung",
 			TitleEN:       "Live Player Positions, Password-Protected Server Deletion, SFTP Fix & Sub-User Management",
 			Description:   "Umfassendes Feature- und Stabilitätsrelease: Echte Echtzeit-Spielerpositionen (mit asynchronem Save-All-Flush), vollständige Entfernung der veralteten 2D-Weltkarte, obligatorische Passwortabfrage bei Serverlöschung, serverseitige AES-256-Verschlüsselung für gesicherte Backups, vollständige Sub-User-Bearbeitung, SFTP-Präfix- & Benutzerauthentifizierungs-Korrektur, nahtlose Login-Weiterleitung zum Dashboard sowie Live-Suche und Detailinspektion für Admin-Benutzer inklusive Sub-User-Status.",
 			DescriptionEN: "Comprehensive feature and stability release: Real live player positions (via background save-all flush), complete removal of legacy 2D world map, mandatory account password verification upon server deletion, server-side AES-256 encryption on locked backups, full sub-user permission editing, SFTP prefix and username authentication fix, seamless login redirect to dashboard, and admin user search with sub-user badges and full details inspection modal.",
-			Tag:           "LATEST STABLE",
-			TagEN:         "LATEST STABLE",
-			IsLatest:      true,
+			Tag:           "STABLE",
+			TagEN:         "STABLE",
+			IsLatest:      false,
 			Highlights: []string{
 				"Echtzeit-Spielerpositionen: In-Game-Koordinaten (X, Y, Z, Dimension, Health) aktualisieren sich live und synchronisieren sich ohne Join-Verzögerung",
 				"2D World & Chunks Tab entfernt: Vollständig aus Navigation, Routing und Komponenten bereinigt",
@@ -712,10 +882,31 @@ func (ch *ChangelogController) GetChangelog(c *gin.Context) {
 		},
 	}
 
+	// Merge GitHub releases/tags that are newer or not in curated releases
+	ghReleases := ch.fetchGitHubSync()
+	curatedMap := make(map[string]bool)
+	for _, r := range rawReleases {
+		curatedMap[r.Version] = true
+	}
+	var newGitHubReleases []ReleaseItem
+	for _, g := range ghReleases {
+		if !curatedMap[g.Version] {
+			newGitHubReleases = append(newGitHubReleases, g)
+		}
+	}
+	if len(newGitHubReleases) > 0 {
+		rawReleases = append(newGitHubReleases, rawReleases...)
+	}
+
 	// Localize if requested
 	releases := make([]ReleaseItem, len(rawReleases))
 	for i, r := range rawReleases {
 		item := r
+		if i == 0 {
+			item.IsLatest = true
+		} else {
+			item.IsLatest = false
+		}
 		if lang == "en" {
 			if item.TitleEN != "" {
 				item.Title = item.TitleEN
@@ -742,7 +933,7 @@ func (ch *ChangelogController) GetChangelog(c *gin.Context) {
 		releases[i] = item
 	}
 
-	currentVer := "v2.8.6"
+	currentVer := "v2.8.8"
 	if len(releases) > 0 && releases[0].Version != "" {
 		currentVer = releases[0].Version
 	}

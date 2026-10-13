@@ -132,6 +132,7 @@ export const Sidebar: React.FC = () => {
     canAccessServerTab,
     addToast,
     logout,
+    systemVersion,
   } = useApp();
 
   const { t, language, setLanguage } = useTranslation();
@@ -362,7 +363,7 @@ export const Sidebar: React.FC = () => {
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500 font-mono leading-none mt-0.5">
-                  Control Panel v2.8.8
+                  Control Panel {systemVersion || 'v2.8.8'}
                 </p>
               </div>
             </div>
@@ -622,9 +623,9 @@ export const Sidebar: React.FC = () => {
                                 />
                                 <span className="truncate">{getGlobalItemLabel(item.id, item.label)}</span>
                               </div>
-                              {item.hint && (
+                              {(item.hint || (item.id as string) === 'changelog') && (
                                 <span className="text-[10px] font-mono text-slate-500">
-                                  {item.hint}
+                                  {(item.id as string) === 'changelog' ? (systemVersion || 'v2.8.8') : item.hint}
                                 </span>
                               )}
                               {isActive && !item.hint && (

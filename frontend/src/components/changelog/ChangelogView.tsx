@@ -57,11 +57,10 @@ export const ChangelogView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedReleases, setExpandedReleases] = useState<Record<string, boolean>>({
-    'v2.7.3': true,
-    'v2.7.2': false,
-    'v2.7.1': false,
-    'v2.7.0': false,
-    'v2.6.0': false,
+    'v2.8.8': true,
+    'v2.8.7': false,
+    'v2.8.6': false,
+    'v2.8.5': false,
   });
 
   // Multi-Page Pagination State
@@ -184,12 +183,110 @@ export const ChangelogView: React.FC = () => {
 
   const defaultReleases: Release[] = [
     {
+      version: 'v2.8.8',
+      title: language === 'de'
+        ? 'Semgrep-Sicherheits-Hardening, DOMPurify XSS-Schutz, TLS 1.2+ & Dokumentation'
+        : 'Semgrep Security Hardening, DOMPurify Console XSS Hardening, TLS 1.2+ & Documentation',
+      date: 'October 2026',
+      tag: 'LATEST STABLE',
+      features: language === 'de'
+        ? [
+            'Systemweite Versions-Synchronisation auf v2.8.8 in Navbar, Sidebar, Footer, Dashboard und Changelog mit automatischem GitHub-Abgleich',
+            'DOMPurify Web-Konsolen-Härtung: Bereinigt Live-Terminal- und Log-Ausgaben gegen XSS-Injektionen',
+            'Modernes TLS 1.2+ als Mindeststandard in SSL- und Reverse-Proxy-Konfigurationen erzwungen',
+            '5.400+ Zeilen Enterprise System- & Sicherheitsdokumentation (DOCUMENTATION.md) hinzugefügt',
+            'Dependabot Dependency Monitoring zur proaktiven Überwachung aller npm- und Go-Pakete',
+          ]
+        : [
+            'System-wide version synchronization to v2.8.8 across navbar, sidebar, footer, dashboard and changelog with automated GitHub sync',
+            'DOMPurify web console hardening: Sanitizes terminal and log output stream against XSS injections',
+            'Modern TLS 1.2+ minimum protocol enforced across SSL and reverse proxy configurations',
+            '5,400+ line enterprise system & security manual (DOCUMENTATION.md) added',
+            'Dependabot dependency monitoring for proactive npm and Go dependency updates',
+          ],
+      security: language === 'de'
+        ? [
+            'Behebung sämtlicher von Semgrep markierter Sicherheitslücken in Controllern und Services',
+            'DOMPurify XSS-Filterung im Server-Konsolen-Stream',
+            'Veraltete TLS-Protokolle (TLS 1.0/1.1) vollständig deaktiviert',
+          ]
+        : [
+            'Remediation of all Semgrep-flagged security vulnerabilities in backend controllers and services',
+            'DOMPurify XSS sanitization for server console stream',
+            'Deprecated TLS protocols (TLS 1.0/1.1) completely disabled',
+          ],
+      improvements: language === 'de'
+        ? [
+            'Automatischer Abgleich der Changelog-Releases und Tags direkt mit GitHub',
+            'Einheitliche dynamische Versionsanzeige über alle Komponenten ohne manuelle Sync-Notwendigkeit',
+          ]
+        : [
+            'Automatic synchronization of changelog releases and tags directly with GitHub',
+            'Unified dynamic version display across all components without manual sync overhead',
+          ],
+    },
+    {
+      version: 'v2.8.7',
+      title: language === 'de'
+        ? 'Live Player Position, Server-Löschung mit Passwort, SFTP-Fix & Sub-User-Verwaltung'
+        : 'Live Player Positions, Password-Protected Server Deletion, SFTP Fix & Sub-User Management',
+      date: 'October 2026',
+      tag: 'STABLE',
+      features: language === 'de'
+        ? [
+            'Echtzeit-Spielerpositionen: In-Game-Koordinaten aktualisieren sich live und synchronisieren sich ohne Join-Verzögerung',
+            'Legacy 2D World & Chunks Tab vollständig entfernt',
+            'Sicherheits-Serverlöschung: Erfordert zwingend Eingabe und Verifizierung des Account-Passworts',
+            'Serverseitige Backup-Sperre mit AES-256-Verschlüsselung',
+            'Sub-User Berechtigungs- und Rollenbearbeitung über PUT /api/servers/:uuid/subusers/:id',
+            'Wings SFTP Prefix- und Username-Fix für zuverlässige SFTP-Verbindungen',
+          ]
+        : [
+            'Realtime player tracking: In-game player coordinates update live without join delays',
+            'Legacy 2D World & Chunks tab completely cleaned and removed',
+            'Password-protected server deletion requiring account password verification',
+            'Server-side backup locking with AES-256 encryption',
+            'Sub-user permission editing via PUT /api/servers/:uuid/subusers/:id',
+            'Wings SFTP prefix and username auth fix for reliable SFTP logins',
+          ],
+      security: language === 'de'
+        ? [
+            'Passwort-Bestätigung bei destruktiver Server-Entfernung',
+            'AES-256-GCM Backup-Archiv-Schutz und Löschblockade',
+          ]
+        : [
+            'Password confirmation for destructive server removal',
+            'AES-256-GCM backup archive protection and deletion guard',
+          ],
+    },
+    {
+      version: 'v2.8.6',
+      title: language === 'de'
+        ? 'Security-Hardening, RBAC-Isolierung, Live Chat Relay i18n & Player Realtime Sync'
+        : 'Security Hardening, RBAC Isolation, Live Chat Relay i18n & Player Realtime Sync',
+      date: 'October 2026',
+      tag: 'STABLE',
+      features: language === 'de'
+        ? [
+            'Strikte RBAC-Sicherheitsarchitektur mit Default-Deny für Admin-Endpunkte',
+            'Live Chat Relay mit voller Multi-Language (i18n) Anbindung',
+            'Flackerfreie Spielerüberwachung ohne UI-Reload',
+            'Clean Collapsed Sidebar UI ohne störende Scrollbars',
+          ]
+        : [
+            'Strict RBAC security architecture with default-deny on admin endpoints',
+            'Live Chat Relay with comprehensive bilingual i18n support',
+            'Flicker-free player monitoring without visual reload flashes',
+            'Clean collapsed sidebar UI without scrollbars',
+          ],
+    },
+    {
       version: 'v2.7.3',
       title: language === 'de'
         ? 'Live-Player Tracking Fix & Bereinigung des In-Game Chat Relays'
         : 'Live Player Tracking Fix & In-Game Chat Relay Cleanup',
       date: 'October 2026',
-      tag: 'LATEST STABLE',
+      tag: 'STABLE',
       features: language === 'de'
         ? [
             'Präzises Live-Player Tracking: Abfrage des tatsächlichen Serverzustands via TCP Server List Ping und Join/Leave-Log-Auswertung statt statischem usercache.json',
@@ -497,7 +594,7 @@ export const ChangelogView: React.FC = () => {
                     : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                 }`}
               >
-                {updateStatus?.latest_version || 'v2.7.3'}{' '}
+                {updateStatus?.latest_version || updateStatus?.current_version || 'v2.8.8'}{' '}
                 {updateStatus?.update_available
                   ? language === 'de'
                     ? 'UPDATE VERFÜGBAR'
@@ -572,7 +669,7 @@ export const ChangelogView: React.FC = () => {
       {/* Release Timeline (Collapsible Accordions) */}
       <div className="space-y-4">
         {paginatedReleases.map((release) => {
-          const isExpanded = expandedReleases[release.version] ?? (release.version === 'v2.7.3');
+          const isExpanded = expandedReleases[release.version] ?? (release.version === (displayReleases[0]?.version || 'v2.8.8'));
           const featureItems =
             release.features && release.features.length > 0
               ? release.features
@@ -598,16 +695,14 @@ export const ChangelogView: React.FC = () => {
                 <div className="flex items-center gap-3.5 min-w-0">
                   <span
                     className={`text-sm font-mono font-bold px-3 py-1 rounded-xl transition-colors ${
-                      release.version === 'v2.7.3'
+                      release.version === (displayReleases[0]?.version || 'v2.8.8')
                         ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                        : release.version === 'v2.7.2'
-                        ? 'bg-teal-500/15 text-teal-400 border border-teal-500/30'
-                        : release.version === 'v2.7.1'
+                        : release.version === 'v2.8.7'
                         ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30'
-                        : release.version === 'v2.7.0'
+                        : release.version === 'v2.8.6'
+                        ? 'bg-teal-500/15 text-teal-400 border border-teal-500/30'
+                        : release.version === 'v2.7.3'
                         ? 'bg-sky-500/15 text-sky-400 border border-sky-500/30'
-                        : release.version === 'v2.6.0'
-                        ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30'
                         : 'bg-slate-800 text-slate-300 border border-slate-700'
                     }`}
                   >
@@ -633,10 +728,10 @@ export const ChangelogView: React.FC = () => {
                   {release.tag && (
                     <span
                       className={`text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
-                        release.version === 'v2.7.3'
+                        release.version === (displayReleases[0]?.version || 'v2.8.8')
                           ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                          : release.version === 'v2.7.2'
-                          ? 'bg-teal-500/10 text-teal-400 border border-teal-500/20'
+                          : release.version === 'v2.8.7'
+                          ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
                           : release.tag.includes('MAJOR')
                           ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
                           : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'

@@ -38,6 +38,7 @@ export const DashboardView: React.FC = () => {
     addToast,
     setIsCreateServerOpen,
     currentUser,
+    systemVersion,
   } = useApp();
 
   const isAdmin = currentUser?.rootAdmin || currentUser?.role === 'root_admin';
@@ -101,7 +102,7 @@ export const DashboardView: React.FC = () => {
                 {t('dash_cluster_operational')}
               </span>
               <span className="text-[11px] font-mono text-slate-400 bg-[#0d1117]/80 px-2.5 py-1 rounded-full border border-slate-800">
-                PteroNext v2.8.8 Enterprise
+                PteroNext {systemVersion || 'v2.8.8'} Enterprise
               </span>
             </div>
             
