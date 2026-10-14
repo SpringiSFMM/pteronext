@@ -18,6 +18,7 @@ import {
   Copy,
   Check,
   Plus,
+  Download,
   AlertTriangle,
   ExternalLink,
   Shield,
@@ -41,6 +42,7 @@ export const AdminServersView: React.FC = () => {
     toggleServerSuspension,
     reinstallServer,
     setIsCreateServerOpen,
+    setIsImportModalOpen,
     addToast,
   } = useApp();
 
@@ -198,6 +200,13 @@ export const AdminServersView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => setIsImportModalOpen(true)}
+            className="btn btn-secondary px-3.5 py-2 font-medium text-xs shadow-sm flex items-center gap-1.5 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10"
+          >
+            <Download className="w-4 h-4 text-indigo-400" />
+            <span>Pterodactyl / Pelican Import</span>
+          </button>
           <button
             onClick={() => setIsCreateServerOpen(true)}
             className="btn btn-primary px-4 py-2 font-medium text-xs shadow-sm flex items-center gap-1.5"

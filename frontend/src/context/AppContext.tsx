@@ -437,9 +437,11 @@ interface AppContextType {
   isCommandPaletteOpen: boolean;
   setIsCommandPaletteOpen: (open: boolean) => void;
 
-  // Server Creation Modal
+  // Server Creation & Import Modal
   isCreateServerOpen: boolean;
   setIsCreateServerOpen: (open: boolean) => void;
+  isImportModalOpen: boolean;
+  setIsImportModalOpen: (open: boolean) => void;
   createServer: (payload: any) => Promise<boolean>;
 
   // Node & Server Administration
@@ -482,6 +484,25 @@ interface AppContextType {
   refreshStats: () => Promise<void>;
   refreshDatabases: () => Promise<void>;
   loadDirectory: (dir?: string) => Promise<FileItem[]>;
+
+  // DNS Revocation Global Notification Modal
+  dnsRevocationAlert: {
+    id: number;
+    subdomain: string;
+    full_domain: string;
+    reason: string;
+    serverUuid?: string;
+  } | null;
+  setDnsRevocationAlert: React.Dispatch<
+    React.SetStateAction<{
+      id: number;
+      subdomain: string;
+      full_domain: string;
+      reason: string;
+      serverUuid?: string;
+    } | null>
+  >;
+  dismissDnsRevocationAlert: () => Promise<void>;
 
   // System Version
   systemVersion: string;
@@ -861,6 +882,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch {}
   }, []);
 
+  // Global DNS Revocation Alert State
+  const [dnsRevocationAlert, setDnsRevocationAlert] = useState<{
+    id: number;
+    subdomain: string;
+    full_domain: string;
+    reason: string;
+    serverUuid?: string;
+  } | null>(null);
+
+  const dismissDnsRevocationAlert = useCallback(async () => {
+    if (!dnsRevocationAlert) return;
+    const { id, serverUuid } = dnsRevocationAlert;
+    if (serverUuid && id > 0) {
+      try {
+        await api.dns.dismissNotification(serverUuid, id);
+      } catch (e) {
+        console.warn('Failed to dismiss revocation notification:', e);
+      }
+    }
+    setDnsRevocationAlert(null);
+  }, [dnsRevocationAlert]);
+
   // Background Effect
   const [backgroundEffect, setBackgroundEffectState] = useState<BackgroundEffect>(() => {
     try {
@@ -933,6 +976,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isCreateServerOpen, setIsCreateServerOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   // Keyboard shortcut CMD+K / Ctrl+K
   useEffect(() => {
@@ -1687,6 +1731,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
         }
       } catch {}
+
+      // 4b. Check for pending DNS revocation notifications
+      try {
+        const notifRes = await api.dns.getNotifications(serverUuid);
+        if (isCurrent && notifRes?.notifications && notifRes.notifications.length > 0) {
+          const revNotif = notifRes.notifications.find((n: any) => n.type === 'dns_revoked' && !n.is_dismissed);
+          if (revNotif) {
+            setDnsRevocationAlert({
+              id: revNotif.id,
+              subdomain: revNotif.subdomain || '',
+              full_domain: revNotif.full_domain || '',
+              reason: revNotif.reason || '',
+              serverUuid,
+            });
+          }
+        }
+      } catch {}
     }
 
     loadServerContext();
@@ -1711,6 +1772,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               setTerminalLogs((prev) => [...prev, line]);
             } else if (data.event === 'dns:revoked' && Array.isArray(data.args) && data.args.length > 0) {
               const info = typeof data.args[0] === 'string' ? JSON.parse(data.args[0]) : (data.args[0] || {});
+              setDnsRevocationAlert({
+                id: info.id || 0,
+                subdomain: info.subdomain || '',
+                full_domain: info.full_domain || '',
+                reason: info.reason || '',
+                serverUuid,
+              });
               addToast({
                 title: info.title || 'Domain von Administrator entfernt',
                 description: info.message || `Subdomain '${info.subdomain || info.full_domain}' wurde widerrufen: ${info.reason || ''}`,
@@ -3359,6 +3427,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsCommandPaletteOpen,
         isCreateServerOpen,
         setIsCreateServerOpen,
+        isImportModalOpen,
+        setIsImportModalOpen,
         createServer,
         updateAdminNode,
         updateServerAdminSettings,
@@ -3393,6 +3463,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         refreshStats,
         refreshDatabases,
         loadDirectory,
+        dnsRevocationAlert,
+        setDnsRevocationAlert,
+        dismissDnsRevocationAlert,
         systemVersion,
         toasts,
         addToast,

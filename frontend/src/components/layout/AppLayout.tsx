@@ -7,6 +7,8 @@ import { ToastContainer } from '../common/Toast';
 import { UserSettingsModal } from '../settings/UserSettingsModal';
 import { CommandPalette } from '../common/CommandPalette';
 import { CreateServerModal } from '../servers/CreateServerModal';
+import { PterodactylImportModal } from '../servers/PterodactylImportModal';
+import { DnsRevocationModal } from '../common/DnsRevocationModal';
 import { useApp } from '../../context/AppContext';
 
 interface AppLayoutProps {
@@ -21,11 +23,17 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       {/* Toast Notifications */}
       <ToastContainer />
 
+      {/* Global DNS Revocation Popup Modal */}
+      <DnsRevocationModal />
+
       {/* Global Command Palette (CMD+K / Ctrl+K) */}
       <CommandPalette />
 
       {/* Global Create Server Modal */}
       <CreateServerModal />
+
+      {/* Global Pterodactyl & Pelican Import Modal */}
+      <PterodactylImportModal />
 
       {/* Desktop & Mobile Persistent Sidebar */}
       <Sidebar />

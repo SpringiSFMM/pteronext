@@ -101,6 +101,7 @@ func SetupRouter(
 	automationCtrl := controllers.NewAutomationController(db)
 	migrationCtrl := controllers.NewMigrationController(db)
 	reverseProxyCtrl := controllers.NewReverseProxyController(db)
+	importerCtrl := controllers.NewImporterController(db, wingsClient)
 
 	// Webhook notification endpoint for DNS Relay Micro-Service (no user session cookie required)
 	router.POST("/api/servers/:uuid/dns/notify", dnsCtrl.HandleRelayRevocationNotification)
@@ -435,6 +436,15 @@ func SetupRouter(
 			adminIntegrationsGroup.POST("/discord", discordCtrl.SaveDiscordConfig)
 			adminIntegrationsGroup.GET("/cloudflare", dnsCtrl.GetCloudflareConfig)
 			adminIntegrationsGroup.POST("/cloudflare", dnsCtrl.SaveCloudflareConfig)
+		}
+
+		// Pterodactyl & Pelican Importer (1-Click Migration)
+		adminImporterGroup := apiGroup.Group("/admin/importer")
+		adminImporterGroup.Use(middleware.RequireAdmin())
+		{
+			adminImporterGroup.POST("/test", importerCtrl.TestConnection)
+			adminImporterGroup.POST("/execute", importerCtrl.ExecuteImport)
+			adminImporterGroup.POST("/upload-json", importerCtrl.ImportEggOrJSON)
 		}
 
 		// Admin System Updates (1-Click Install)

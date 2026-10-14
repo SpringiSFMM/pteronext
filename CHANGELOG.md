@@ -2,6 +2,15 @@
 This file is a running track of new features and fixes to each version of the panel released starting with `v0.4.0`.
 
 This project follows [Semantic Versioning](http://semver.org) guidelines.
+
+## v2.9.0
+### Added
+* **1-Click Pterodactyl & Pelican Project Importer**: Seamlessly import existing game servers, projects, hardware quotas (RAM, CPU, Disk, Swap, IO), Docker images, and startup parameters directly from Pterodactyl or Pelican panels via Application API or Client API.
+* **Egg & Manifest JSON Drag-and-Drop**: Offline import support for official Pterodactyl Egg templates, Pelican Blueprints, and custom server manifest exports.
+* **Automated Cloudflare Email Routing & Deliverability**: Full automated integration with Cloudflare DNS API for SPF, DMARC, and MX records, guaranteeing high deliverability for PteroNext Webmail Hub.
+* **Enhanced Two-Factor Authentication Resilience**: TOTP verification window drift tolerance (+/- 30s) prevents clock desync lockouts, paired with emergency password fallback deactivation.
+* **Dual Server High-Availability Sync**: Synchronized core configurations across primary production node and secondary backup cluster.
+
 ## v2.8.8
 ### Added
 * **Global Version Synchronization**: Unified version display to v2.8.8 dynamically across sidebar, header navbar, footer, dashboard and changelog with automated GitHub release sync.

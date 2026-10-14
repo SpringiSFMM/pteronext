@@ -94,14 +94,44 @@ func (dc *DNSController) ListServerDomains(c *gin.Context) {
 	}
 
 	var domains []models.ServerCustomDomain
-	dc.db.Where("server_uuid = ?", server.UUID).Find(&domains)
+	dc.db.Where("server_uuid = ? AND is_active = ? AND status = 'active'", server.UUID, true).Find(&domains)
+
+	// Format domains so frontend can access both hostname/full_domain and port/target_port
+	type DomainOutput struct {
+		ID         uint   `json:"id"`
+		ServerUUID string `json:"server_uuid"`
+		Subdomain  string `json:"subdomain"`
+		FullDomain string `json:"full_domain"`
+		Hostname   string `json:"hostname"`
+		TargetIP   string `json:"target_ip"`
+		Port       int    `json:"port"`
+		TargetPort int    `json:"target_port"`
+		IsActive   bool   `json:"is_active"`
+		Status     string `json:"status"`
+	}
+
+	formattedDomains := make([]DomainOutput, 0, len(domains))
+	for _, d := range domains {
+		formattedDomains = append(formattedDomains, DomainOutput{
+			ID:         d.ID,
+			ServerUUID: d.ServerUUID,
+			Subdomain:  d.Subdomain,
+			FullDomain: d.FullDomain,
+			Hostname:   d.FullDomain,
+			TargetIP:   d.TargetIP,
+			Port:       d.Port,
+			TargetPort: d.Port,
+			IsActive:   d.IsActive,
+			Status:     d.Status,
+		})
+	}
 
 	// Fetch base domain from settings
 	var baseSetting models.SystemSetting
 	dc.db.Where("key = 'cloudflare_base_domain'").First(&baseSetting)
 	baseDomain := baseSetting.Value
 	if baseDomain == "" {
-		baseDomain = "springisfm.de"
+		baseDomain = "pteronext.com"
 	}
 
 	targetIP := "217.20.120.126"
@@ -116,10 +146,12 @@ func (dc *DNSController) ListServerDomains(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"domains":     domains,
-		"base_domain": baseDomain,
-		"server_ip":   targetIP,
-		"server_port": serverPort,
+		"domains":               formattedDomains,
+		"base_domain":           baseDomain,
+		"default_domain":        baseDomain,
+		"cloudflare_configured": true,
+		"server_ip":             targetIP,
+		"server_port":           serverPort,
 	})
 }
 
@@ -155,19 +187,21 @@ func (dc *DNSController) CreateServerDomain(c *gin.Context) {
 	cleanSub := strings.ToLower(strings.TrimSpace(chosenSub))
 	cleanSub = strings.ReplaceAll(cleanSub, " ", "")
 
-
 	subdomainRegex := regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
 	if !subdomainRegex.MatchString(cleanSub) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Ungültiger Subdomain-Name. Nur Kleinbuchstaben, Ziffern und Bindestriche erlaubt (z.B. 'play', 'mc-pvp')."})
 		return
 	}
 
-	// Prevent duplicate subdomain usage across servers
+	// Prevent duplicate subdomain usage across active servers
 	var existing models.ServerCustomDomain
-	if err := dc.db.Where("subdomain = ?", cleanSub).First(&existing).Error; err == nil {
+	if err := dc.db.Where("LOWER(subdomain) = ? AND is_active = ? AND status = 'active'", cleanSub, true).First(&existing).Error; err == nil {
 		c.JSON(http.StatusConflict, gin.H{"error": fmt.Sprintf("Die Subdomain '%s' ist bereits durch einen Server belegt.", cleanSub)})
 		return
 	}
+
+	// Purge any stale/inactive or revoked entries in panel database so it is cleanly reusable
+	dc.db.Where("LOWER(subdomain) = ? AND (is_active = ? OR status != 'active')", cleanSub, false).Delete(&models.ServerCustomDomain{})
 
 	// 1. Fetch Cloudflare and Relay settings
 	var settings []models.SystemSetting
@@ -232,14 +266,22 @@ func (dc *DNSController) CreateServerDomain(c *gin.Context) {
 			defer relayResp.Body.Close()
 			if relayResp.StatusCode == http.StatusOK {
 				var rBody struct {
-					Success    bool   `json:"success"`
-					FullDomain string `json:"full_domain"`
-					Message    string `json:"message"`
+					Success     bool   `json:"success"`
+					FullDomain  string `json:"full_domain"`
+					Message     string `json:"message"`
+					RecordIDA   string `json:"record_id_a"`
+					RecordIDSRV string `json:"record_id_srv"`
 				}
 				if err := json.NewDecoder(relayResp.Body).Decode(&rBody); err == nil && rBody.Success {
 					relaySuccess = true
 					if rBody.FullDomain != "" {
 						fullDomain = rBody.FullDomain
+					}
+					if rBody.RecordIDA != "" {
+						recordIDA = rBody.RecordIDA
+					}
+					if rBody.RecordIDSRV != "" {
+						recordIDSRV = rBody.RecordIDSRV
 					}
 				}
 			} else if relayResp.StatusCode == http.StatusForbidden {
@@ -425,7 +467,8 @@ func (dc *DNSController) HandleRelayRevocationNotification(c *gin.Context) {
 
 	// 1. Unconditionally DELETE the domain from the panel database!
 	// (Addressing: "Die domain in dem Panel wird nicht gelöscht")
-	dc.db.Where("server_uuid = ? AND (subdomain = ? OR full_domain = ?)", serverUUID, cleanSub, cleanFull).
+	dc.db.Where("LOWER(subdomain) = ? OR LOWER(full_domain) = ? OR (server_uuid = ? AND (LOWER(subdomain) = ? OR LOWER(full_domain) = ?))",
+		cleanSub, cleanFull, serverUUID, cleanSub, cleanFull).
 		Delete(&models.ServerCustomDomain{})
 
 	// 2. Create persistent notification popup record so panel operator is notified!

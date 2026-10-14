@@ -7,6 +7,7 @@ import {
   Search,
   Filter,
   Plus,
+  Download,
   LayoutGrid,
   List as ListIcon,
   Globe,
@@ -25,6 +26,7 @@ export const ServerListView: React.FC = () => {
     selectServerAndNavigate,
     addToast,
     setIsCreateServerOpen,
+    setIsImportModalOpen,
   } = useApp();
 
   const [statusFilter, setStatusFilter] = useState<ServerStatus | 'all'>('all');
@@ -99,6 +101,14 @@ export const ServerListView: React.FC = () => {
               <ListIcon className="w-3.5 h-3.5" />
             </button>
           </div>
+
+          <button
+            onClick={() => setIsImportModalOpen(true)}
+            className="btn btn-secondary px-3.5 py-2 text-xs font-semibold shadow-sm flex items-center gap-1.5 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10"
+          >
+            <Download className="w-4 h-4 text-indigo-400" />
+            <span>Import Project</span>
+          </button>
 
           <button
             onClick={() => setIsCreateServerOpen(true)}
