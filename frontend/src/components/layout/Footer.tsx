@@ -58,7 +58,7 @@ export const Footer: React.FC = () => {
             title="System Changelog ansehen"
           >
             <Sparkles className="w-3 h-3 text-[var(--theme-accent)]" />
-            <span>{systemVersion || 'v2.8.8'} Release</span>
+            <span>{systemVersion || 'v2.9.0'} Release</span>
           </button>
 
           <button

@@ -243,6 +243,8 @@ type eggPayload struct {
 	NestID          *uint               `json:"nest_id"`
 	Name            *string             `json:"name"`
 	Description     *string             `json:"description"`
+	Category        *string             `json:"category"`
+	Features        models.StringSlice  `json:"features"`
 	DockerImages    models.DockerImages `json:"docker_images"`
 	StartupCommand  *string             `json:"startup_command"`
 	ConfigStop      *string             `json:"config_stop"`
@@ -258,6 +260,8 @@ func (n *NestController) CreateEgg(c *gin.Context) {
 		NestID          uint                `json:"nest_id" binding:"required"`
 		Name            string              `json:"name" binding:"required"`
 		Description     string              `json:"description"`
+		Category        string              `json:"category"`
+		Features        models.StringSlice  `json:"features"`
 		DockerImages    models.DockerImages `json:"docker_images"`
 		StartupCommand  string              `json:"startup_command"`
 		ConfigStop      string              `json:"config_stop"`
@@ -295,6 +299,8 @@ func (n *NestController) CreateEgg(c *gin.Context) {
 		NestID:          payload.NestID,
 		Name:            payload.Name,
 		Description:     payload.Description,
+		Category:        payload.Category,
+		Features:        payload.Features,
 		DockerImages:    payload.DockerImages,
 		StartupCommand:  payload.StartupCommand,
 		ConfigStop:      payload.ConfigStop,
@@ -342,6 +348,12 @@ func (n *NestController) UpdateEgg(c *gin.Context) {
 	}
 	if payload.Description != nil {
 		updates["description"] = *payload.Description
+	}
+	if payload.Category != nil {
+		updates["category"] = *payload.Category
+	}
+	if payload.Features != nil {
+		updates["features"] = payload.Features
 	}
 	if payload.DockerImages != nil && len(payload.DockerImages) > 0 {
 		updates["docker_images"] = payload.DockerImages

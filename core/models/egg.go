@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -211,6 +212,69 @@ func (v *EggVariables) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+// StringSlice represents a slice of strings stored as a JSON array string in database.
+type StringSlice []string
+
+func (s StringSlice) Value() (driver.Value, error) {
+	if s == nil {
+		return "[]", nil
+	}
+	b, err := json.Marshal(s)
+	return string(b), err
+}
+
+func (s *StringSlice) Scan(src interface{}) error {
+	if src == nil {
+		*s = []string{}
+		return nil
+	}
+	var data []byte
+	switch v := src.(type) {
+	case string:
+		data = []byte(v)
+	case []byte:
+		data = v
+	default:
+		return fmt.Errorf("unsupported type for StringSlice: %T", src)
+	}
+	if len(data) == 0 {
+		*s = []string{}
+		return nil
+	}
+	return json.Unmarshal(data, s)
+}
+
+func (s *StringSlice) UnmarshalJSON(b []byte) error {
+	if len(b) == 0 || string(b) == "null" {
+		*s = []string{}
+		return nil
+	}
+	if b[0] == '"' {
+		var str string
+		if err := json.Unmarshal(b, &str); err != nil {
+			return err
+		}
+		if str == "" || str == "[]" {
+			*s = []string{}
+			return nil
+		}
+		var list []string
+		if err := json.Unmarshal([]byte(str), &list); err != nil {
+			*s = []string{str}
+			return nil
+		}
+		*s = list
+		return nil
+	}
+	var list []string
+	if err := json.Unmarshal(b, &list); err != nil {
+		*s = []string{}
+		return nil
+	}
+	*s = list
+	return nil
+}
+
 // Egg represents a server configuration template providing scripts, startup commands, docker images, and variables.
 type Egg struct {
 	ID              uint           `gorm:"primaryKey" json:"id"`
@@ -218,6 +282,8 @@ type Egg struct {
 	Nest            *Nest          `gorm:"foreignKey:NestID" json:"nest,omitempty"`
 	Name            string         `gorm:"type:varchar(191);not null" json:"name"`
 	Description     string         `gorm:"type:text" json:"description"`
+	Category        string         `gorm:"type:varchar(50)" json:"category"`
+	Features        StringSlice    `gorm:"type:text" json:"features"`
 	DockerImages    DockerImages   `gorm:"type:text" json:"docker_images"`
 	StartupCommand  string         `gorm:"type:text;not null" json:"startup_command"`
 	ConfigFiles     JSONMap        `gorm:"type:text" json:"config_files"`
@@ -232,6 +298,78 @@ type Egg struct {
 	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
+// GetCategory returns the category of the egg, inferring from name if empty.
+func (e *Egg) GetCategory() string {
+	if e == nil {
+		return "game"
+	}
+	if e.Category != "" {
+		return e.Category
+	}
+	lower := strings.ToLower(e.Name)
+	if strings.Contains(lower, "minecraft") || strings.Contains(lower, "paper") || strings.Contains(lower, "purpur") || strings.Contains(lower, "spigot") || strings.Contains(lower, "bungeecord") || strings.Contains(lower, "velocity") || strings.Contains(lower, "forge") || strings.Contains(lower, "fabric") {
+		return "minecraft"
+	}
+	if strings.Contains(lower, "bot") || strings.Contains(lower, "discord") {
+		return "bot"
+	}
+	if strings.Contains(lower, "node") || strings.Contains(lower, "python") || strings.Contains(lower, "php") || strings.Contains(lower, "web") || strings.Contains(lower, "html") || strings.Contains(lower, "nginx") {
+		return "web"
+	}
+	if strings.Contains(lower, "database") || strings.Contains(lower, "mysql") || strings.Contains(lower, "postgres") || strings.Contains(lower, "redis") || strings.Contains(lower, "mongo") {
+		return "database"
+	}
+	if strings.Contains(lower, "voice") || strings.Contains(lower, "ts3") || strings.Contains(lower, "teamspeak") || strings.Contains(lower, "mumble") {
+		return "voice"
+	}
+	return "game"
+}
+
+// GetFeatures returns the features enabled for this egg, falling back to defaults by category.
+func (e *Egg) GetFeatures() []string {
+	if e == nil {
+		return []string{}
+	}
+	if len(e.Features) > 0 {
+		return e.Features
+	}
+	cat := e.GetCategory()
+	switch cat {
+	case "minecraft":
+		return []string{"canvas_world", "player_manager"}
+	case "web":
+		return []string{"env_vault", "git_deploy", "web_domains"}
+	case "bot":
+		return []string{"env_vault", "git_deploy"}
+	case "database":
+		return []string{"env_vault"}
+	default:
+		return []string{"player_manager"}
+	}
+}
+
+// BeforeCreate hook sets default Category and Features if missing.
+func (e *Egg) BeforeCreate(tx *gorm.DB) error {
+	if e.Category == "" {
+		e.Category = e.GetCategory()
+	}
+	if len(e.Features) == 0 {
+		e.Features = e.GetFeatures()
+	}
+	return nil
+}
+
+// AfterFind hook sets default Category and Features if missing.
+func (e *Egg) AfterFind(tx *gorm.DB) error {
+	if e.Category == "" {
+		e.Category = e.GetCategory()
+	}
+	if len(e.Features) == 0 {
+		e.Features = e.GetFeatures()
+	}
+	return nil
+}
+
 // PTDLEggImport provides a deserialization model for Pterodactyl export formats (PTDL_v1, PTDL_v2).
 type PTDLEggImport struct {
 	Meta struct {
@@ -240,6 +378,8 @@ type PTDLEggImport struct {
 	NestID          uint              `json:"nest_id,omitempty"`
 	Name            string            `json:"name"`
 	Description     string            `json:"description"`
+	Category        string            `json:"category"`
+	Features        StringSlice       `json:"features"`
 	DockerImages    DockerImages      `json:"docker_images"`
 	Images          []string          `json:"images"`
 	Image           string            `json:"image"`
@@ -272,6 +412,15 @@ func (p *PTDLEggImport) ToEgg() *Egg {
 		NestID:      p.NestID,
 		Name:        p.Name,
 		Description: p.Description,
+		Category:    p.Category,
+		Features:    p.Features,
+	}
+
+	if egg.Category == "" {
+		egg.Category = egg.GetCategory()
+	}
+	if len(egg.Features) == 0 {
+		egg.Features = egg.GetFeatures()
 	}
 
 	// Startup command

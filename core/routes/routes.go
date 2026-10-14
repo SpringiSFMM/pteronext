@@ -314,6 +314,13 @@ func SetupRouter(
 			serverAccess.GET("/sftp-keys", sftpKeyCtrl.ListKeys)
 			serverAccess.POST("/sftp-keys", sftpKeyCtrl.CreateKey)
 			serverAccess.DELETE("/sftp-keys/:id", sftpKeyCtrl.DeleteKey)
+
+			// Developer Suite (.env Secret Vault, Git Auto-Deploy Webhook, Package Manager)
+			developerCtrl := controllers.NewDeveloperController(db, fileService, wingsClient)
+			serverAccess.GET("/env", developerCtrl.GetEnv)
+			serverAccess.POST("/env", developerCtrl.SaveEnv)
+			serverAccess.POST("/deploy/webhook", developerCtrl.DeployWebhook)
+			serverAccess.POST("/deploy/run-pkg", developerCtrl.RunPkg)
 		}
 
 		// Node management (Admin only)

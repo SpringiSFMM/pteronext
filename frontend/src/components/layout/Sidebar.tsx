@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   LayoutDashboard,
@@ -31,8 +31,22 @@ import {
   PanelLeftOpen,
   Gauge,
   Compass,
+  KeyRound,
+  GitBranch,
+  Gamepad2,
+  PhoneCall,
+  Globe,
+  Bot,
 } from 'lucide-react';
-import { ServerDetailTab } from '../../types';
+import {
+  ServerDetailTab,
+  isMinecraft,
+  isBot,
+  isWeb,
+  isSteamGame,
+  isVoice,
+  getServerWorkloadType,
+} from '../../types';
 import { StatusBadge } from '../common/StatusBadge';
 import { useTranslation } from '../../i18n/useTranslation';
 
@@ -45,7 +59,7 @@ const GLOBAL_SECTIONS = [
       { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, hint: '⌘1' },
       { id: 'servers', label: 'Servers', icon: ServerIcon, hint: '' },
       { id: 'activity', label: 'Activity / Audit', icon: Activity, hint: '' },
-      { id: 'changelog', label: 'Changelog & Updates', icon: Sparkles, hint: 'v2.8.8' },
+      { id: 'changelog', label: 'Changelog & Updates', icon: Sparkles, hint: 'v2.9.0' },
     ],
   },
   {
@@ -68,49 +82,6 @@ interface ServerTabCategory {
   label: string;
   tabs: { id: ServerDetailTab; label: string; icon: React.ElementType }[];
 }
-
-const SERVER_CATEGORIES: ServerTabCategory[] = [
-  {
-    id: 'core',
-    label: 'Operations & Core',
-    tabs: [
-      { id: 'console', label: 'Console', icon: Terminal },
-      { id: 'diagnostics', label: 'Performance & Radar', icon: Gauge },
-      { id: 'files', label: 'File Manager', icon: FolderTree },
-      { id: 'backups', label: 'Backups', icon: Archive },
-    ],
-  },
-  {
-    id: 'community',
-    label: 'Community & Network',
-    tabs: [
-      { id: 'players', label: 'Players & Community', icon: Radio },
-      { id: 'network', label: 'Ports & Network', icon: Network },
-      { id: 'webhooks', label: 'Webhooks & Alerts', icon: Webhook },
-    ],
-  },
-  {
-    id: 'services',
-    label: 'Services & Extensions',
-    tabs: [
-      { id: 'plugin-store', label: 'Plugins & Mods', icon: Package },
-      { id: 'game-config', label: 'Game Config', icon: Sliders },
-      { id: 'sidecars', label: 'Redis & DB Sidecars', icon: Zap },
-      { id: 'databases', label: 'Databases', icon: Database },
-      { id: 'schedules', label: 'Schedules', icon: Calendar },
-    ],
-  },
-  {
-    id: 'security',
-    label: 'Security & Team',
-    tabs: [
-      { id: 'security', label: 'Security & Scanner', icon: ShieldAlert },
-      { id: 'users', label: 'Users & RBAC', icon: Users },
-      { id: 'audit', label: 'Server Audit Logs', icon: History },
-      { id: 'settings', label: 'Settings', icon: Settings },
-    ],
-  },
-];
 
 export const Sidebar: React.FC = () => {
   const {
@@ -150,11 +121,17 @@ export const Sidebar: React.FC = () => {
     }));
   };
 
+  const isMC = isMinecraft(selectedServer);
+  const isBotApp = isBot(selectedServer);
+  const isWebApp = isWeb(selectedServer);
+  const isSteam = isSteamGame(selectedServer);
+  const isVoiceApp = isVoice(selectedServer);
+
   const getCategoryLabel = (id: string, defaultLabel: string) => {
     switch (id) {
       case 'core': return t('cat_operations_core');
-      case 'community': return t('cat_community_network');
-      case 'services': return t('cat_services_extensions');
+      case 'community': return isMC ? t('cat_community_network') : isSteam ? 'Game & Network' : isVoiceApp ? 'Voice & Network' : 'Deployment & Network';
+      case 'services': return isMC ? t('cat_services_extensions') : isSteam ? 'Game Services' : isVoiceApp ? 'Voice Services' : 'Services & Backend';
       case 'security': return t('cat_security_team');
       case 'platform': return t('cat_platform');
       case 'admin': return t('cat_administration');
@@ -180,6 +157,12 @@ export const Sidebar: React.FC = () => {
       case 'users': return t('tab_users');
       case 'audit': return t('tab_audit');
       case 'settings': return t('tab_settings');
+      case 'env-vault': return t('tab_env_vault');
+      case 'git-deploy': return t('tab_git_deploy');
+      case 'steam-query': return 'Steam A2S Query';
+      case 'voice-dashboard': return 'Voice Dashboard';
+      case 'web-suite': return 'Web Domains & SSL';
+      case 'bot-suite': return 'Bot Suite & Shield';
       default: return defaultLabel;
     }
   };
@@ -201,6 +184,286 @@ export const Sidebar: React.FC = () => {
   };
 
   const isServerMode = activeView === 'server-detail' && !!selectedServer;
+
+  // Context-aware auto-fallback if selectedServer is not Minecraft and tab is MC-specific
+  useEffect(() => {
+    if (isServerMode && selectedServer && !isMC) {
+      if (['players', 'plugin-store'].includes(activeServerTab)) {
+        if (isSteam) {
+          selectServerAndNavigate(selectedServer, 'steam-query');
+        } else if (isVoiceApp) {
+          selectServerAndNavigate(selectedServer, 'voice-dashboard');
+        } else if (isWebApp) {
+          selectServerAndNavigate(selectedServer, 'web-suite');
+        } else if (isBotApp) {
+          selectServerAndNavigate(selectedServer, 'bot-suite');
+        } else {
+          selectServerAndNavigate(selectedServer, 'console');
+        }
+      }
+    }
+  }, [selectedServer, activeServerTab, isServerMode, isMC, isSteam, isVoiceApp, isWebApp, isBotApp, selectServerAndNavigate]);
+
+  const serverCategories: ServerTabCategory[] = useMemo(() => {
+    if (!selectedServer) return [];
+
+    if (isMC) {
+      // Minecraft Server Category Layout
+      return [
+        {
+          id: 'core',
+          label: 'Operations & Core',
+          tabs: [
+            { id: 'console', label: 'Console', icon: Terminal },
+            { id: 'diagnostics', label: 'Performance & Radar', icon: Gauge },
+            { id: 'files', label: 'File Manager', icon: FolderTree },
+            { id: 'env-vault', label: '.env & Secrets', icon: KeyRound },
+            { id: 'backups', label: 'Backups', icon: Archive },
+          ],
+        },
+        {
+          id: 'community',
+          label: 'Community & Network',
+          tabs: [
+            { id: 'players', label: 'Players & Community', icon: Radio },
+            { id: 'network', label: 'Ports & Network', icon: Network },
+            { id: 'webhooks', label: 'Webhooks & Alerts', icon: Webhook },
+          ],
+        },
+        {
+          id: 'services',
+          label: 'Services & Extensions',
+          tabs: [
+            { id: 'plugin-store', label: 'Plugins & Mods', icon: Package },
+            { id: 'game-config', label: 'Game Config', icon: Sliders },
+            { id: 'sidecars', label: 'Redis & DB Sidecars', icon: Zap },
+            { id: 'databases', label: 'Databases', icon: Database },
+            { id: 'schedules', label: 'Schedules', icon: Calendar },
+          ],
+        },
+        {
+          id: 'security',
+          label: 'Security & Team',
+          tabs: [
+            { id: 'security', label: 'Security & Scanner', icon: ShieldAlert },
+            { id: 'users', label: 'Users & RBAC', icon: Users },
+            { id: 'audit', label: 'Server Audit Logs', icon: History },
+            { id: 'settings', label: 'Settings', icon: Settings },
+          ],
+        },
+      ];
+    }
+
+    if (isSteam) {
+      // Steam Games Category Layout (Rust, CS2, Valheim, Palworld, ARK)
+      return [
+        {
+          id: 'core',
+          label: 'Operations & Core',
+          tabs: [
+            { id: 'console', label: 'Console', icon: Terminal },
+            { id: 'steam-query', label: 'Steam A2S Query', icon: Gamepad2 },
+            { id: 'files', label: 'File Manager', icon: FolderTree },
+            { id: 'backups', label: 'Backups', icon: Archive },
+          ],
+        },
+        {
+          id: 'community',
+          label: 'Game & Network',
+          tabs: [
+            { id: 'game-config', label: 'Server Convars & Config', icon: Sliders },
+            { id: 'network', label: 'Ports & Network', icon: Network },
+            { id: 'webhooks', label: 'Webhooks & Alerts', icon: Webhook },
+          ],
+        },
+        {
+          id: 'services',
+          label: 'Game Services',
+          tabs: [
+            { id: 'schedules', label: 'Auto-Wipes & Schedules', icon: Calendar },
+            { id: 'databases', label: 'Databases', icon: Database },
+          ],
+        },
+        {
+          id: 'security',
+          label: 'Security & Team',
+          tabs: [
+            { id: 'security', label: 'Security & Scanner', icon: ShieldAlert },
+            { id: 'users', label: 'Users & RBAC', icon: Users },
+            { id: 'audit', label: 'Server Audit Logs', icon: History },
+            { id: 'settings', label: 'Settings', icon: Settings },
+          ],
+        },
+      ];
+    }
+
+    if (isVoiceApp) {
+      // Voice Server Category Layout (TeamSpeak, Mumble)
+      return [
+        {
+          id: 'core',
+          label: 'Operations & Core',
+          tabs: [
+            { id: 'console', label: 'Console', icon: Terminal },
+            { id: 'voice-dashboard', label: 'Voice Dashboard', icon: PhoneCall },
+            { id: 'files', label: 'File Manager', icon: FolderTree },
+            { id: 'backups', label: 'Backups', icon: Archive },
+          ],
+        },
+        {
+          id: 'community',
+          label: 'Voice & Network',
+          tabs: [
+            { id: 'network', label: 'Ports & Network', icon: Network },
+            { id: 'webhooks', label: 'Webhooks & Alerts', icon: Webhook },
+          ],
+        },
+        {
+          id: 'security',
+          label: 'Security & Team',
+          tabs: [
+            { id: 'security', label: 'Security & Scanner', icon: ShieldAlert },
+            { id: 'users', label: 'Users & RBAC', icon: Users },
+            { id: 'audit', label: 'Server Audit Logs', icon: History },
+            { id: 'settings', label: 'Settings', icon: Settings },
+          ],
+        },
+      ];
+    }
+
+    if (isBotApp) {
+      // Developer Discord Bots Category Layout
+      return [
+        {
+          id: 'core',
+          label: 'Operations & Core',
+          tabs: [
+            { id: 'console', label: 'Console', icon: Terminal },
+            { id: 'env-vault', label: '.env Secret Vault', icon: KeyRound },
+            { id: 'git-deploy', label: 'Git Auto-Deploy', icon: GitBranch },
+            { id: 'bot-suite', label: 'Bot Shield & Deps', icon: Bot },
+            { id: 'files', label: 'File Manager', icon: FolderTree },
+            { id: 'backups', label: 'Backups', icon: Archive },
+          ],
+        },
+        {
+          id: 'community',
+          label: 'Deployment & Network',
+          tabs: [
+            { id: 'network', label: 'Ports & Network', icon: Network },
+            { id: 'webhooks', label: 'Webhooks & Alerts', icon: Webhook },
+          ],
+        },
+        {
+          id: 'services',
+          label: 'Services & Backend',
+          tabs: [
+            { id: 'sidecars', label: 'Redis & DB Sidecars', icon: Zap },
+            { id: 'databases', label: 'Databases', icon: Database },
+            { id: 'schedules', label: 'Schedules', icon: Calendar },
+          ],
+        },
+        {
+          id: 'security',
+          label: 'Security & Team',
+          tabs: [
+            { id: 'security', label: 'Security & Scanner', icon: ShieldAlert },
+            { id: 'users', label: 'Users & RBAC', icon: Users },
+            { id: 'audit', label: 'Server Audit Logs', icon: History },
+            { id: 'settings', label: 'Settings', icon: Settings },
+          ],
+        },
+      ];
+    }
+
+    if (isWebApp) {
+      // Modern Web & API Category Layout
+      return [
+        {
+          id: 'core',
+          label: 'Operations & Core',
+          tabs: [
+            { id: 'console', label: 'Console', icon: Terminal },
+            { id: 'web-suite', label: 'Web Domains & SSL', icon: Globe },
+            { id: 'env-vault', label: '.env & Secrets', icon: KeyRound },
+            { id: 'git-deploy', label: 'Git Auto-Deploy', icon: GitBranch },
+            { id: 'files', label: 'File Manager', icon: FolderTree },
+            { id: 'backups', label: 'Backups', icon: Archive },
+          ],
+        },
+        {
+          id: 'community',
+          label: 'Deployment & Network',
+          tabs: [
+            { id: 'network', label: 'Ports & Network', icon: Network },
+            { id: 'webhooks', label: 'Webhooks & Alerts', icon: Webhook },
+          ],
+        },
+        {
+          id: 'services',
+          label: 'Services & Backend',
+          tabs: [
+            { id: 'sidecars', label: 'Redis & DB Sidecars', icon: Zap },
+            { id: 'databases', label: 'Databases', icon: Database },
+            { id: 'schedules', label: 'Schedules', icon: Calendar },
+          ],
+        },
+        {
+          id: 'security',
+          label: 'Security & Team',
+          tabs: [
+            { id: 'security', label: 'Security & Scanner', icon: ShieldAlert },
+            { id: 'users', label: 'Users & RBAC', icon: Users },
+            { id: 'audit', label: 'Server Audit Logs', icon: History },
+            { id: 'settings', label: 'Settings', icon: Settings },
+          ],
+        },
+      ];
+    }
+
+    // Context-aware Generic Non-Minecraft:
+    return [
+      {
+        id: 'core',
+        label: 'Operations & Core',
+        tabs: [
+          { id: 'console', label: 'Console', icon: Terminal },
+          { id: 'diagnostics', label: 'Performance & Radar', icon: Gauge },
+          { id: 'files', label: 'File Manager', icon: FolderTree },
+          { id: 'env-vault', label: '.env & Secrets', icon: KeyRound },
+          { id: 'backups', label: 'Backups', icon: Archive },
+        ],
+      },
+      {
+        id: 'community',
+        label: 'Deployment & Network',
+        tabs: [
+          { id: 'git-deploy', label: 'Git Auto-Deploy', icon: GitBranch },
+          { id: 'network', label: 'Ports & Network', icon: Network },
+          { id: 'webhooks', label: 'Webhooks & Alerts', icon: Webhook },
+        ],
+      },
+      {
+        id: 'services',
+        label: 'Services & Backend',
+        tabs: [
+          { id: 'sidecars', label: 'Redis & DB Sidecars', icon: Zap },
+          { id: 'databases', label: 'Databases', icon: Database },
+          { id: 'schedules', label: 'Schedules', icon: Calendar },
+        ],
+      },
+      {
+        id: 'security',
+        label: 'Security & Team',
+        tabs: [
+          { id: 'security', label: 'Security & Scanner', icon: ShieldAlert },
+          { id: 'users', label: 'Users & RBAC', icon: Users },
+          { id: 'audit', label: 'Server Audit Logs', icon: History },
+          { id: 'settings', label: 'Settings', icon: Settings },
+        ],
+      },
+    ];
+  }, [selectedServer, isMC, isSteam, isVoiceApp, isBotApp, isWebApp]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -330,9 +593,26 @@ export const Sidebar: React.FC = () => {
                 </span>
                 <StatusBadge status={selectedServer!.status} size="sm" showLabel={false} />
               </div>
-              <p className="mt-0.5 text-[11px] font-mono text-slate-500 truncate">
-                {selectedServer!.node} · {selectedServer!.egg}
-              </p>
+              <div className="flex items-center gap-1.5 mt-1 overflow-hidden">
+                <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded border shrink-0 ${
+                  isMC
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                    : isSteam
+                    ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
+                    : isVoiceApp
+                    ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                    : isBotApp
+                    ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+                    : isWebApp
+                    ? 'bg-sky-500/10 text-sky-400 border-sky-500/20'
+                    : 'bg-slate-800 text-slate-300 border-slate-700'
+                }`}>
+                  {isMC ? 'Minecraft' : isSteam ? 'Steam' : isVoiceApp ? 'Voice' : isBotApp ? 'Bot' : isWebApp ? 'Web' : 'App'}
+                </span>
+                <p className="text-[11px] font-mono text-slate-500 truncate">
+                  {selectedServer!.node} · {selectedServer!.egg}
+                </p>
+              </div>
             </div>
           </div>
         )
@@ -363,7 +643,7 @@ export const Sidebar: React.FC = () => {
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500 font-mono leading-none mt-0.5">
-                  Control Panel {systemVersion || 'v2.8.8'}
+                  Control Panel {systemVersion || 'v2.9.0'}
                 </p>
               </div>
             </div>
@@ -394,7 +674,7 @@ export const Sidebar: React.FC = () => {
         {isServerMode ? (
           /* Server Workspace: Grouped with expandable accordions */
           <div className="space-y-3">
-            {SERVER_CATEGORIES.map((category) => {
+            {serverCategories.map((category) => {
               const visibleTabs = category.tabs.filter((t) => canAccessServerTab(t.id));
               if (visibleTabs.length === 0) return null;
 
@@ -625,7 +905,7 @@ export const Sidebar: React.FC = () => {
                               </div>
                               {(item.hint || (item.id as string) === 'changelog') && (
                                 <span className="text-[10px] font-mono text-slate-500">
-                                  {(item.id as string) === 'changelog' ? (systemVersion || 'v2.8.8') : item.hint}
+                                  {(item.id as string) === 'changelog' ? (systemVersion || 'v2.9.0') : item.hint}
                                 </span>
                               )}
                               {isActive && !item.hint && (

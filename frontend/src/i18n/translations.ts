@@ -47,6 +47,8 @@ export interface Translations {
   tab_settings: string;
   tab_diagnostics: string;
   tab_automation: string;
+  tab_env_vault: string;
+  tab_git_deploy: string;
 
   // File Manager Zip & Unpack
   files_compress: string;
@@ -257,6 +259,8 @@ export const translations: Record<Language, Translations> = {
     tab_settings: 'Einstellungen',
     tab_diagnostics: 'Performance & Radar',
     tab_automation: 'Automation & Chains',
+    tab_env_vault: '.env & Secrets',
+    tab_git_deploy: 'Git Auto-Deploy',
 
     // File Manager Zip & Unpack
     files_compress: 'Zip / Komprimieren',
@@ -466,6 +470,8 @@ export const translations: Record<Language, Translations> = {
     tab_settings: 'Settings',
     tab_diagnostics: 'Performance & Radar',
     tab_automation: 'Automation & Chains',
+    tab_env_vault: '.env & Secrets',
+    tab_git_deploy: 'Git Auto-Deploy',
 
     // File Manager Zip & Unpack
     files_compress: 'Zip / Compress',

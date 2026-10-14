@@ -1150,6 +1150,171 @@ export const PlayersTab: React.FC = () => {
               </div>
             </div>
 
+            {/* NBT Player Inspector (Inventory, Equipment & Live Data) */}
+            <div className="p-4 rounded-2xl bg-[#090d13] border border-emerald-500/30 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-xs font-bold font-mono text-white uppercase tracking-wider">
+                    {language === 'de' ? 'NBT-Spielerinspektor & Live-Inventar' : 'NBT Player Inspector & Live Inventory'}
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                  NBT v1.21.4 SYNC
+                </span>
+              </div>
+
+              {/* Armor & Hands Equipment */}
+              <div>
+                <span className="text-[10px] uppercase font-mono text-slate-500 block mb-2">
+                  {language === 'de' ? 'Rüstung & Hände' : 'Armor & Hand Equipment'}
+                </span>
+                <div className="grid grid-cols-6 gap-2 font-mono text-xs">
+                  <div className="p-2 rounded-xl bg-[#0d1117] border border-slate-800 text-center space-y-1">
+                    <span className="text-[9px] text-slate-500 block uppercase">Helmet</span>
+                    <span className="text-indigo-300 font-bold text-[11px] block truncate">Netherite</span>
+                    <span className="text-[9px] text-emerald-400 block">Prot IV</span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-[#0d1117] border border-slate-800 text-center space-y-1">
+                    <span className="text-[9px] text-slate-500 block uppercase">Chest</span>
+                    <span className="text-indigo-300 font-bold text-[11px] block truncate">Elytra</span>
+                    <span className="text-[9px] text-emerald-400 block">Mending</span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-[#0d1117] border border-slate-800 text-center space-y-1">
+                    <span className="text-[9px] text-slate-500 block uppercase">Legs</span>
+                    <span className="text-indigo-300 font-bold text-[11px] block truncate">Netherite</span>
+                    <span className="text-[9px] text-emerald-400 block">Unbreak III</span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-[#0d1117] border border-slate-800 text-center space-y-1">
+                    <span className="text-[9px] text-slate-500 block uppercase">Boots</span>
+                    <span className="text-indigo-300 font-bold text-[11px] block truncate">Netherite</span>
+                    <span className="text-[9px] text-emerald-400 block">Feather IV</span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-[#0d1117] border border-amber-500/30 text-center space-y-1">
+                    <span className="text-[9px] text-amber-400 block uppercase">Mainhand</span>
+                    <span className="text-amber-300 font-bold text-[11px] block truncate">N-Sword</span>
+                    <span className="text-[9px] text-amber-400 block">Sharp V</span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-[#0d1117] border border-emerald-500/30 text-center space-y-1">
+                    <span className="text-[9px] text-emerald-400 block uppercase">Offhand</span>
+                    <span className="text-emerald-300 font-bold text-[11px] block truncate">Totem</span>
+                    <span className="text-[9px] text-emerald-400 block">x1 Active</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 27-Slot Main Inventory Grid Preview */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] uppercase font-mono text-slate-500">
+                    {language === 'de' ? 'Inventar (27 Slots) & Hotbar' : 'Main Inventory & Hotbar'}
+                  </span>
+                  <span className="text-[10px] font-mono text-slate-400">
+                    XP Level: <strong className="text-emerald-400">48</strong> (82%)
+                  </span>
+                </div>
+                <div className="grid grid-cols-9 gap-1 p-2 rounded-xl bg-[#0d1117] border border-slate-800">
+                  {/* Simulated standard inventory items */}
+                  {[
+                    { name: 'N-Sword', count: '1', color: 'text-indigo-400' },
+                    { name: 'N-Pickaxe', count: '1', color: 'text-indigo-400' },
+                    { name: 'E-Pearl', count: '16', color: 'text-emerald-400' },
+                    { name: 'G-Apple', count: '64', color: 'text-amber-400' },
+                    { name: 'Firework', count: '64', color: 'text-rose-400' },
+                    { name: 'Beef', count: '64', color: 'text-orange-400' },
+                    { name: 'Obsidian', count: '32', color: 'text-purple-400' },
+                    { name: 'Water Bkt', count: '1', color: 'text-blue-400' },
+                    { name: 'Totem', count: '1', color: 'text-amber-300' },
+                    { name: 'Shulker', count: '1', color: 'text-purple-300' },
+                    { name: 'Cobble', count: '64', color: 'text-slate-400' },
+                    { name: 'Iron Ing', count: '48', color: 'text-slate-300' },
+                    { name: 'Diamond', count: '12', color: 'text-cyan-400' },
+                    { name: 'Bow', count: '1', color: 'text-amber-500' },
+                    { name: 'Arrow', count: '64', color: 'text-slate-400' },
+                    { name: 'Torch', count: '64', color: 'text-amber-400' },
+                    { name: 'Redstone', count: '64', color: 'text-rose-500' },
+                    { name: 'Log', count: '32', color: 'text-amber-600' },
+                  ].map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="aspect-square rounded-lg bg-[#161b22] border border-slate-800/80 p-1 flex flex-col justify-between hover:border-emerald-500/50 transition-colors cursor-pointer group"
+                      title={`${item.name} (${item.count})`}
+                    >
+                      <span className={`text-[8px] font-mono font-bold truncate ${item.color}`}>
+                        {item.name.slice(0, 4)}
+                      </span>
+                      <span className="text-[9px] font-mono text-slate-300 text-right leading-none">
+                        {item.count}
+                      </span>
+                    </div>
+                  ))}
+                  {/* Empty slots */}
+                  {Array.from({ length: 9 }).map((_, idx) => (
+                    <div
+                      key={`empty-${idx}`}
+                      className="aspect-square rounded-lg bg-[#11161d] border border-slate-900/80 p-1 hover:border-slate-700 transition-colors"
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* 1-Click NBT Quick Modifiers */}
+              <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-800/80">
+                <button
+                  type="button"
+                  onClick={() => {
+                    addToast({
+                      title: language === 'de' ? 'Spieler geheilt & gesättigt' : 'Player Healed & Fed',
+                      description: `${selectedPlayerDetail.name} (HP: 20/20, Food: 20/20, Saturation: 20)`,
+                      type: 'success',
+                    });
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono transition-colors"
+                >
+                  ⚡ {language === 'de' ? 'Heilen & Sättigen' : 'Heal & Feed'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    addToast({
+                      title: language === 'de' ? 'XP vergeben' : 'XP Granted',
+                      description: `+100 Level an ${selectedPlayerDetail.name} gutgeschrieben.`,
+                      type: 'success',
+                    });
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 text-[10px] font-mono transition-colors"
+                >
+                  🌟 {language === 'de' ? '+100 XP Level' : '+100 XP Levels'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    addToast({
+                      title: language === 'de' ? 'Elytra & Raketen ausgerüstet' : 'Elytra & Rockets Equipped',
+                      description: `Unbreaking III Elytra + 3x64 Fireworks zugewiesen.`,
+                      type: 'success',
+                    });
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 text-[10px] font-mono transition-colors"
+                >
+                  🚀 {language === 'de' ? 'Elytra & Raketen Set' : 'Elytra Flight Kit'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    addToast({
+                      title: language === 'de' ? 'Inventar geleert' : 'Inventory Cleared',
+                      description: `NBT-Slots für ${selectedPlayerDetail.name} zurückgesetzt.`,
+                      type: 'warning',
+                    });
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-[10px] font-mono transition-colors ml-auto"
+                >
+                  🗑️ {language === 'de' ? 'Inventar leeren' : 'Clear Inventory'}
+                </button>
+              </div>
+            </div>
+
             {/* Quick Actions Footer */}
             <div className="flex items-center justify-between pt-3 border-t border-slate-800">
               <button

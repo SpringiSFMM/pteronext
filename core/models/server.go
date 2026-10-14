@@ -53,10 +53,27 @@ type Server struct {
 	SleepModeEnabled    bool             `gorm:"default:false" json:"sleep_mode_enabled"`
 	SleepTimeoutMinutes int              `gorm:"default:15" json:"sleep_timeout_minutes"`
 	IsSleeping          bool             `gorm:"default:false" json:"is_sleeping"`
+	EggCategory         string           `gorm:"type:varchar(50)" json:"egg_category"`
+	NestSlug            string           `gorm:"type:varchar(191)" json:"nest_slug"`
 	InstalledAt         *time.Time       `json:"installed_at"`
 	CreatedAt           time.Time        `json:"created_at"`
 	UpdatedAt           time.Time        `json:"updated_at"`
 	DeletedAt           gorm.DeletedAt   `gorm:"index" json:"-"`
+}
+
+// AfterFind hook populates EggCategory and NestSlug from relations if available.
+func (s *Server) AfterFind(tx *gorm.DB) error {
+	if s.Egg != nil {
+		if s.Egg.Category != "" {
+			s.EggCategory = s.Egg.Category
+		} else {
+			s.EggCategory = s.Egg.GetCategory()
+		}
+	}
+	if s.Nest != nil && s.Nest.Slug != "" {
+		s.NestSlug = s.Nest.Slug
+	}
+	return nil
 }
 
 // BeforeCreate hook assigns a UUID and short identifier.

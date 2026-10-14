@@ -81,6 +81,8 @@ func RequireServerAccess(db *gorm.DB, requiredAction string) gin.HandlerFunc {
 			Preload("Allocations").
 			Preload("Variables").
 			Preload("Owner").
+			Preload("Nest").
+			Preload("Egg").
 			Where("uuid = ? OR identifier = ?", serverIdentifier, serverIdentifier).
 			First(&server).Error
 

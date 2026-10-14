@@ -145,7 +145,7 @@ func (ic *ImporterController) TestConnection(c *gin.Context) {
 	bodyBytes, _ := io.ReadAll(resp.Body)
 
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
-		// Attempt Client API in case it's a Client API Key (ptlc_ / pelc_)
+		// Attempt Client API in case it's a Client API Key (ptlc_ / pelc_ / hydc_)
 		clientTestURL := fmt.Sprintf("%s/api/client", baseURL)
 		cReq, _ := http.NewRequest("GET", clientTestURL, nil)
 		cReq.Header.Set("Authorization", "Bearer "+apiKey)
@@ -157,7 +157,7 @@ func (ic *ImporterController) TestConnection(c *gin.Context) {
 			if err := json.NewDecoder(cResp.Body).Decode(&cList); err == nil {
 				c.JSON(http.StatusOK, gin.H{
 					"success":      true,
-					"platform":     "Pterodactyl / Pelican (Client API)",
+					"platform":     "Pterodactyl / Pelican / Hydrodactyl (Client API)",
 					"api_type":     "client",
 					"server_count": len(cList.Data),
 					"servers":      cList.Data,
@@ -168,7 +168,7 @@ func (ic *ImporterController) TestConnection(c *gin.Context) {
 		}
 
 		c.JSON(http.StatusUnauthorized, gin.H{
-			"error": "Authentifizierung fehlgeschlagen (401/403). Bitte überprüfe deinen Application-API-Key (ptla_... oder pela_...).",
+			"error": "Authentifizierung fehlgeschlagen (401/403). Bitte überprüfe deinen Application-API-Key (ptla_..., pela_... oder hyd_...).",
 		})
 		return
 	}
@@ -182,15 +182,18 @@ func (ic *ImporterController) TestConnection(c *gin.Context) {
 
 	var serverList PterodactylServerListResponse
 	if err := json.Unmarshal(bodyBytes, &serverList); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Antwort konnte nicht als Pterodactyl/Pelican JSON geparst werden."})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Antwort konnte nicht als Pterodactyl/Pelican/Hydrodactyl JSON geparst werden."})
 		return
 	}
 
-	// Detect if Pelican or Pterodactyl by server headers or environment
-	platformName := "Pterodactyl / Pelican"
-	if strings.Contains(strings.ToLower(string(bodyBytes)), "pelican") || strings.HasPrefix(apiKey, "pela_") {
+	// Detect if Hydrodactyl, Pelican or Pterodactyl by server headers or environment
+	bodyLower := strings.ToLower(string(bodyBytes))
+	platformName := "Pterodactyl / Pelican / Hydrodactyl"
+	if strings.Contains(bodyLower, "hydrodactyl") || strings.HasPrefix(apiKey, "hyd_") || strings.HasPrefix(apiKey, "hydro_") || strings.HasPrefix(apiKey, "hydla_") || strings.HasPrefix(apiKey, "hydlc_") {
+		platformName = "Hydrodactyl Panel"
+	} else if strings.Contains(bodyLower, "pelican") || strings.HasPrefix(apiKey, "pela_") || strings.HasPrefix(apiKey, "pelc_") {
 		platformName = "Pelican Panel"
-	} else if strings.HasPrefix(apiKey, "ptla_") {
+	} else if strings.Contains(bodyLower, "pterodactyl") || strings.HasPrefix(apiKey, "ptla_") || strings.HasPrefix(apiKey, "ptlc_") {
 		platformName = "Pterodactyl Panel"
 	}
 
@@ -416,7 +419,7 @@ func (ic *ImporterController) ExecuteImport(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"message": fmt.Sprintf("Server '%s' erfolgreich von Pterodactyl/Pelican importiert!", newServer.Name),
+		"message": fmt.Sprintf("Server '%s' erfolgreich von Pterodactyl/Pelican/Hydrodactyl importiert!", newServer.Name),
 		"server": gin.H{
 			"id":         newServer.ID,
 			"uuid":       newServer.UUID,
@@ -471,7 +474,7 @@ func (ic *ImporterController) ImportEggOrJSON(c *gin.Context) {
 			"name":    name,
 			"description": desc,
 			"startup": startup,
-			"message": fmt.Sprintf("Pterodactyl/Pelican Egg '%s' erfolgreich verifiziert und registriert.", name),
+			"message": fmt.Sprintf("Pterodactyl / Pelican / Hydrodactyl Egg '%s' erfolgreich verifiziert und registriert.", name),
 		})
 		return
 	}

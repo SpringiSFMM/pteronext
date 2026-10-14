@@ -17,6 +17,12 @@ import { PluginStoreTab } from './tabs/PluginStoreTab';
 import { BackupsTab } from './tabs/BackupsTab';
 import { WebhooksTab } from './tabs/WebhooksTab';
 import { DiagnosticsTab } from './tabs/DiagnosticsTab';
+import { EnvVaultTab } from './tabs/EnvVaultTab';
+import { GitDeployTab } from './tabs/GitDeployTab';
+import { SteamQueryTab } from './tabs/SteamQueryTab';
+import { VoiceDashboardTab } from './tabs/VoiceDashboardTab';
+import { WebSuiteTab } from './tabs/WebSuiteTab';
+import { BotSuiteTab } from './tabs/BotSuiteTab';
 
 export const ServerDetailView: React.FC = () => {
   const { activeServerTab, selectedServer, canAccessServerTab } = useApp();
@@ -69,6 +75,12 @@ export const ServerDetailView: React.FC = () => {
           {activeServerTab === 'webhooks' && <WebhooksTab key={`webhooks-${serverKey}`} />}
           {activeServerTab === 'diagnostics' && <DiagnosticsTab key={`diagnostics-${serverKey}`} />}
           {activeServerTab === 'settings' && <SettingsTab key={`settings-${serverKey}`} />}
+          {activeServerTab === 'env-vault' && <EnvVaultTab key={`env-vault-${serverKey}`} />}
+          {activeServerTab === 'git-deploy' && <GitDeployTab key={`git-deploy-${serverKey}`} />}
+          {activeServerTab === 'steam-query' && <SteamQueryTab key={`steam-query-${serverKey}`} />}
+          {activeServerTab === 'voice-dashboard' && <VoiceDashboardTab key={`voice-dashboard-${serverKey}`} />}
+          {activeServerTab === 'web-suite' && <WebSuiteTab key={`web-suite-${serverKey}`} />}
+          {activeServerTab === 'bot-suite' && <BotSuiteTab key={`bot-suite-${serverKey}`} />}
         </div>
       )}
     </div>

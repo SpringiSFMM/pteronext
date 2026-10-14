@@ -40,7 +40,8 @@ export interface Server {
   nodeLocation: string;
   allocation: string;
   egg: string;
-  category: 'Gaming' | 'Database' | 'Applications' | 'Infrastructure';
+  nest?: string;
+  category: 'Gaming' | 'Database' | 'Applications' | 'Infrastructure' | string;
   status: ServerStatus;
   stats: ServerStats;
   cpuLimit?: number;
@@ -282,7 +283,13 @@ export type ServerDetailTab =
   | 'plugin-store'
   | 'webhooks'
   | 'diagnostics'
-  | 'settings';
+  | 'settings'
+  | 'env-vault'
+  | 'git-deploy'
+  | 'steam-query'
+  | 'voice-dashboard'
+  | 'web-suite'
+  | 'bot-suite';
 
 export type ColorTheme =
   | 'zinc'
@@ -420,4 +427,187 @@ export const COLOR_THEMES: ColorThemeOption[] = [
     badge: 'Terminal CRT',
   },
 ];
+ 
+/**
+ * Context-aware workload detection helpers
+ */
+export function isMinecraft(server?: Server | null): boolean {
+  if (!server) return false;
+  const egg = (server.egg || '').toLowerCase();
+  const name = (server.name || '').toLowerCase();
+  const nest = (server.nest || '').toLowerCase();
+  const dockerImage = (server.dockerImage || '').toLowerCase();
+  const desc = (server.description || '').toLowerCase();
+
+  // Discord bots or generic bots are never Minecraft servers
+  if (
+    egg.includes('discord') ||
+    name.includes('discord') ||
+    nest.includes('discord') ||
+    dockerImage.includes('discord') ||
+    (egg.includes('bot') && !egg.includes('mine')) ||
+    (name.includes('bot') && !name.includes('mine'))
+  ) {
+    return false;
+  }
+
+  return (
+    egg.includes('minecraft') ||
+    egg.includes('paper') ||
+    egg.includes('spigot') ||
+    egg.includes('purpur') ||
+    egg.includes('bungeecord') ||
+    egg.includes('velocity') ||
+    egg.includes('forge') ||
+    egg.includes('fabric') ||
+    egg.includes('bedrock') ||
+    egg.includes('sponge') ||
+    (egg.includes('java') && !egg.includes('bot')) ||
+    name.includes('minecraft') ||
+    name.includes('paper') ||
+    nest.includes('minecraft') ||
+    (dockerImage.includes('pterodactyl:java') && !egg.includes('bot') && !name.includes('bot')) ||
+    (dockerImage.includes('yolks:java') && !egg.includes('bot') && !name.includes('bot')) ||
+    desc.includes('minecraft')
+  );
+}
+
+export function isBot(server?: Server | null): boolean {
+  if (!server) return false;
+  if (isMinecraft(server)) return false;
+  const egg = (server.egg || '').toLowerCase();
+  const name = (server.name || '').toLowerCase();
+  const nest = (server.nest || '').toLowerCase();
+  const dockerImage = (server.dockerImage || '').toLowerCase();
+  const desc = (server.description || '').toLowerCase();
+
+  return (
+    egg.includes('bot') ||
+    egg.includes('discord') ||
+    egg.includes('telegram') ||
+    nest.includes('bot') ||
+    name.includes('bot') ||
+    desc.includes('bot') ||
+    dockerImage.includes('discord') ||
+    (server.category === 'Applications' && (name.includes('bot') || egg.includes('bot')))
+  );
+}
+
+export function isWeb(server?: Server | null): boolean {
+  if (!server) return false;
+  if (isMinecraft(server)) return false;
+  const egg = (server.egg || '').toLowerCase();
+  const name = (server.name || '').toLowerCase();
+  const nest = (server.nest || '').toLowerCase();
+  const dockerImage = (server.dockerImage || '').toLowerCase();
+
+  return (
+    egg.includes('web') ||
+    egg.includes('node') ||
+    egg.includes('python') ||
+    egg.includes('php') ||
+    egg.includes('react') ||
+    egg.includes('vue') ||
+    egg.includes('next') ||
+    egg.includes('fastapi') ||
+    egg.includes('django') ||
+    egg.includes('flask') ||
+    egg.includes('express') ||
+    egg.includes('nginx') ||
+    egg.includes('golang') ||
+    egg.includes('rust') ||
+    nest.includes('web') ||
+    dockerImage.includes('node') ||
+    dockerImage.includes('python') ||
+    dockerImage.includes('php') ||
+    dockerImage.includes('nginx') ||
+    server.category === 'Applications'
+  );
+}
+
+export function isSteamGame(server?: Server | null): boolean {
+  if (!server) return false;
+  if (isMinecraft(server)) return false;
+  const egg = (server.egg || '').toLowerCase();
+  const name = (server.name || '').toLowerCase();
+  const nest = (server.nest || '').toLowerCase();
+  const dockerImage = (server.dockerImage || '').toLowerCase();
+  const desc = (server.description || '').toLowerCase();
+
+  return (
+    egg.includes('rust') ||
+    egg.includes('cs2') ||
+    egg.includes('counter-strike') ||
+    egg.includes('csgo') ||
+    egg.includes('valheim') ||
+    egg.includes('palworld') ||
+    egg.includes('ark') ||
+    egg.includes('terraria') ||
+    egg.includes('tf2') ||
+    egg.includes('gmod') ||
+    egg.includes('garry') ||
+    egg.includes('dayz') ||
+    egg.includes('zomboid') ||
+    egg.includes('source') ||
+    egg.includes('steam') ||
+    nest.includes('steam') ||
+    nest.includes('source') ||
+    name.includes('rust') ||
+    name.includes('cs2') ||
+    name.includes('valheim') ||
+    name.includes('palworld') ||
+    dockerImage.includes('steamcmd') ||
+    desc.includes('steam')
+  );
+}
+
+export function isVoice(server?: Server | null): boolean {
+  if (!server) return false;
+  if (isMinecraft(server)) return false;
+  const egg = (server.egg || '').toLowerCase();
+  const name = (server.name || '').toLowerCase();
+  const nest = (server.nest || '').toLowerCase();
+  const desc = (server.description || '').toLowerCase();
+
+  return (
+    egg.includes('teamspeak') ||
+    egg.includes('ts3') ||
+    egg.includes('mumble') ||
+    egg.includes('murmur') ||
+    egg.includes('voice') ||
+    nest.includes('voice') ||
+    name.includes('teamspeak') ||
+    name.includes('ts3') ||
+    name.includes('mumble') ||
+    desc.includes('teamspeak') ||
+    desc.includes('mumble')
+  );
+}
+
+// Aliases for compatibility
+export const isMinecraftServer = isMinecraft;
+export const isBotServer = isBot;
+export const isWebServer = isWeb;
+export const isSteamGameServer = isSteamGame;
+export const isVoiceServer = isVoice;
+
+export function getServerWorkloadType(
+  server?: Server | null
+): 'minecraft' | 'bot' | 'web' | 'steam-game' | 'voice' | 'database' | 'generic' {
+  if (!server) return 'generic';
+  if (isMinecraft(server)) return 'minecraft';
+  if (isVoice(server)) return 'voice';
+  if (isSteamGame(server)) return 'steam-game';
+  if (isBot(server)) return 'bot';
+  if (isWeb(server)) return 'web';
+  if (
+    server.category === 'Database' ||
+    (server.egg && server.egg.toLowerCase().includes('sql')) ||
+    (server.egg && server.egg.toLowerCase().includes('redis'))
+  ) {
+    return 'database';
+  }
+  return 'generic';
+}
+
 

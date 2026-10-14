@@ -9,10 +9,12 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
 
+	"github.com/pteronext/panel-core/cli"
 	"github.com/pteronext/panel-core/config"
 	"github.com/pteronext/panel-core/database"
 	"github.com/pteronext/panel-core/models"
@@ -33,6 +35,24 @@ const banner = `
 `
 
 func main() {
+	// Subcommand dispatcher (supports 'pteronext update [options]' and 'pteronext version')
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "update", "-update", "--update":
+			cfg := config.Load()
+			if err := cli.RunUpdate(os.Args[1:], cfg.DBPath); err != nil {
+				if err == flag.ErrHelp {
+					os.Exit(0)
+				}
+				log.Fatalf("[FATAL] Update fehlgeschlagen: %v", err)
+			}
+			os.Exit(0)
+		case "version", "-v", "--version":
+			fmt.Printf("PteroNext Panel Core Backend %s (%s/%s)\n", cli.CurrentVersion, runtime.GOOS, runtime.GOARCH)
+			os.Exit(0)
+		}
+	}
+
 	// Parse CLI flags
 	portFlag := flag.Int("port", 0, "HTTP server port (default from env or 8080)")
 	hostFlag := flag.String("host", "", "HTTP server bind address (default 0.0.0.0)")
@@ -41,7 +61,51 @@ func main() {
 	secretFlag := flag.String("jwt-secret", "", "JWT secret string")
 	skipSeedFlag := flag.Bool("no-seed", false, "Skip seeding default data")
 	reset2FAFlag := flag.String("reset-2fa", "", "Emergency reset 2FA for a given username or email")
+	updateFlag := flag.Bool("update", false, "Panel sicher aktualisieren (Zero Data Loss: automatischer DB-Snapshot, keine Server-/DB-Veränderung)")
+	versionFlag := flag.Bool("version", false, "PteroNext Versionsinformation anzeigen")
+
+	flag.Usage = func() {
+		fmt.Printf("PteroNext Panel Core %s (%s/%s)\n\n", cli.CurrentVersion, runtime.GOOS, runtime.GOARCH)
+		fmt.Println("Verwendung:")
+		fmt.Println("  pteronext [Optionen]               Startet den Web- & API-Server")
+		fmt.Println("  pteronext update [Optionen]        Aktualisiert das Panel sicher ohne Datenverlust")
+		fmt.Println("  pteronext -update [Optionen]       (Alternative Syntax für das CLI-Update)")
+		fmt.Println("  pteronext -reset-2fa <user/email>  Setzt 2FA im Notfall für einen Benutzer zurück")
+		fmt.Println("  pteronext -version                 Zeigt die installierte Version an")
+		fmt.Println()
+		fmt.Println("Optionen für 'pteronext update':")
+		fmt.Println("  --check        Nur auf Updates prüfen, keine Änderungen vornehmen")
+		fmt.Println("  --force        Update auch installieren, wenn Version bereits aktuell ist")
+		fmt.Println("  --dry-run      Trockenlauf: Zeigt Aktionen ohne Dateiveränderungen")
+		fmt.Println("  --db <pfad>    Pfad zur pteronext.db für den Sicherheits-Snapshot")
+		fmt.Println("  --no-restart   Dienst nach dem Update nicht automatisch neu starten")
+		fmt.Println()
+		fmt.Println("Server-Optionen:")
+		flag.PrintDefaults()
+	}
+
 	flag.Parse()
+
+	// Handle flag-based update invocation (-update)
+	if *updateFlag {
+		cfg := config.Load()
+		if *dbFlag != "" {
+			cfg.DBPath = *dbFlag
+		}
+		if err := cli.RunUpdate(os.Args[1:], cfg.DBPath); err != nil {
+			if err == flag.ErrHelp {
+				os.Exit(0)
+			}
+			log.Fatalf("[FATAL] Update fehlgeschlagen: %v", err)
+		}
+		os.Exit(0)
+	}
+
+	// Handle version flag (-version)
+	if *versionFlag {
+		fmt.Printf("PteroNext Panel Core Backend %s (%s/%s)\n", cli.CurrentVersion, runtime.GOOS, runtime.GOARCH)
+		os.Exit(0)
+	}
 
 	fmt.Print(banner)
 

@@ -55,23 +55,42 @@ export interface CurrentUser {
 // Data Mappers: Backend REST Models -> Frontend Interfaces
 // -------------------------------------------------------------
 function mapBackendServerToFrontend(bServer: BackendServer): Server {
-  const eggName = bServer.image?.includes('java')
-    ? 'PaperMC / Java'
+  const egg = bServer.egg;
+  const eggNameFromBackend = egg?.name;
+  const eggCategory = bServer.egg_category || egg?.category;
+  const nestName = bServer.nest?.name || bServer.nest_slug;
+
+  const eggName = eggNameFromBackend || (
+    bServer.image?.includes('discord') || bServer.name?.toLowerCase().includes('discord') || bServer.name?.toLowerCase().includes('bot')
+    ? 'Discord Bot'
+    : bServer.image?.includes('nodejs') || bServer.image?.includes('node')
+    ? 'Node.js'
     : bServer.image?.includes('python')
     ? 'Python App'
-    : bServer.image?.includes('nodejs')
-    ? 'Node.js'
     : bServer.image?.includes('redis')
     ? 'Redis Cache'
+    : bServer.image?.includes('java')
+    ? 'PaperMC / Java'
     : bServer.name?.toLowerCase().includes('minecraft')
     ? 'Minecraft'
-    : 'Container';
+    : 'Container'
+  );
 
   let category: 'Gaming' | 'Database' | 'Applications' | 'Infrastructure' = 'Applications';
-  const lowerName = `${bServer.name} ${bServer.image || ''}`.toLowerCase();
+  const lowerName = `${bServer.name} ${bServer.image || ''} ${eggNameFromBackend || ''} ${eggCategory || ''} ${nestName || ''}`.toLowerCase();
   if (
+    lowerName.includes('bot') ||
+    lowerName.includes('discord')
+  ) {
+    category = 'Applications';
+  } else if (
     lowerName.includes('mine') ||
     lowerName.includes('paper') ||
+    lowerName.includes('purpur') ||
+    lowerName.includes('spigot') ||
+    lowerName.includes('forge') ||
+    lowerName.includes('fabric') ||
+    lowerName.includes('bedrock') ||
     lowerName.includes('game') ||
     lowerName.includes('valheim') ||
     lowerName.includes('rust')
@@ -107,7 +126,7 @@ function mapBackendServerToFrontend(bServer: BackendServer): Server {
     allocHost = rawIp;
   }
 
-  const allocPort = bServer.allocation?.port || 25565;
+  const allocPort = bServer.allocation?.port || (category === 'Gaming' ? 25565 : 3000);
   const status: ServerStatus = bServer.suspended ? 'stopped' : 'running';
 
   return {
@@ -119,6 +138,7 @@ function mapBackendServerToFrontend(bServer: BackendServer): Server {
     nodeLocation: bServer.node?.fqdn || 'Frankfurt, DE',
     allocation: `${allocHost}:${allocPort}`,
     egg: eggName,
+    nest: bServer.nest?.name || bServer.nest_slug || undefined,
     category,
     status,
     stats: {
@@ -131,8 +151,8 @@ function mapBackendServerToFrontend(bServer: BackendServer): Server {
       networkTx: 0,
       uptime: 0,
     },
-    dockerImage: bServer.image || 'ghcr.io/pterodactyl/yolks:java_17',
-    startup: bServer.startup || 'java -jar server.jar',
+    dockerImage: bServer.image || (category === 'Gaming' ? 'ghcr.io/pterodactyl/yolks:java_21' : 'ghcr.io/pterodactyl/yolks:nodejs_20'),
+    startup: bServer.startup || (category === 'Gaming' ? 'java -jar server.jar' : 'node index.js'),
     cpuLimit: bServer.cpu || 200,
     swapLimit: bServer.swap || 0,
     ioLimit: bServer.io || 500,
@@ -506,6 +526,8 @@ interface AppContextType {
 
   // System Version
   systemVersion: string;
+  setSystemVersion: (version: string) => void;
+  checkSystemVersion: () => Promise<void>;
 
   // Toasts
   toasts: ToastMessage[];
@@ -702,22 +724,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
-  const [systemVersion, setSystemVersion] = useState<string>('v2.8.8');
+  const [systemVersion, setSystemVersion] = useState<string>('v2.9.0');
+
+  const checkSystemVersion = useCallback(async () => {
+    try {
+      const res = await api.updates.check();
+      if (res?.current_version) {
+        setSystemVersion(res.current_version);
+      }
+    } catch {}
+  }, []);
 
   useEffect(() => {
-    let mounted = true;
-    api.updates
-      .check()
-      .then((res) => {
-        if (mounted && res?.current_version) {
-          setSystemVersion(res.current_version);
-        }
-      })
-      .catch(() => {});
-    return () => {
-      mounted = false;
-    };
-  }, []);
+    checkSystemVersion();
+  }, [checkSystemVersion]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [nodes, setNodes] = useState<NodeInfo[]>([]);
@@ -762,6 +782,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       'users': ['user.read', 'user.list'],
       'audit': ['audit.read', 'audit.list'],
       'settings': ['settings.view', 'settings.edit', 'startup.read'],
+      'env-vault': ['file.read', 'file.write', 'startup.read'],
+      'git-deploy': ['control.console', 'startup.read', 'file.write'],
+      'steam-query': ['console.view', 'control.console'],
+      'voice-dashboard': ['console.view', 'control.console'],
+      'web-suite': ['allocation.read', 'settings.view'],
+      'bot-suite': ['file.read', 'file.write', 'control.console'],
     };
 
     const needed = TAB_PERMISSIONS_MAP[tabId];
@@ -1912,7 +1938,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           );
         }
       } catch {}
+
+      // Check for revoked domains notification periodically
+      try {
+        const notifRes = await api.dns.getNotifications(serverUuid);
+        if (isCurrent && notifRes?.notifications && notifRes.notifications.length > 0) {
+          const revNotif = notifRes.notifications.find((n: any) => n.type === 'dns_revoked' && !n.is_dismissed);
+          if (revNotif) {
+            setDnsRevocationAlert((currentAlert) => {
+              if (currentAlert && currentAlert.id === revNotif.id) return currentAlert;
+              return {
+                id: revNotif.id,
+                subdomain: revNotif.subdomain || '',
+                full_domain: revNotif.full_domain || '',
+                reason: revNotif.reason || '',
+                serverUuid,
+              };
+            });
+            window.dispatchEvent(new CustomEvent('pteronext:dns_revoked', { detail: revNotif }));
+          }
+        }
+      } catch {}
     }, 4000);
+
 
     return () => {
       isCurrent = false;
@@ -3002,6 +3050,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await refreshServers();
       if (createdUuid) {
         setTerminalLogs([]);
+        // Ensure newly created servers start with completely clean git deploy settings and empty history
+        try {
+          localStorage.removeItem(`pteronext_git_history_${createdUuid}`);
+          localStorage.removeItem(`pteronext_git_secret_${createdUuid}`);
+          localStorage.removeItem(`pteronext_git_branch_${createdUuid}`);
+          localStorage.removeItem(`pteronext_git_autorestart_${createdUuid}`);
+          localStorage.removeItem(`pteronext_git_installdeps_${createdUuid}`);
+          localStorage.removeItem(`pteronext_git_runbuild_${createdUuid}`);
+          localStorage.removeItem(`pteronext_git_buildcmd_${createdUuid}`);
+          // Cleanup legacy un-scoped or corrupt keys
+          localStorage.removeItem('pteronext_git_history');
+          localStorage.removeItem('pteronext_git_history_');
+          localStorage.removeItem('pteronext_git_history_undefined');
+          localStorage.removeItem('pteronext_git_history_null');
+        } catch {}
         localStorage.setItem('pteronext_selected_server', createdUuid);
         localStorage.setItem('pteronext_active_view', 'server-detail');
         setActiveViewState('server-detail');
@@ -3146,6 +3209,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         try {
           localStorage.removeItem(`pteronext_files_${targetUuid}`);
+          localStorage.removeItem(`pteronext_git_history_${targetUuid}`);
+          localStorage.removeItem(`pteronext_git_secret_${targetUuid}`);
+          localStorage.removeItem(`pteronext_git_branch_${targetUuid}`);
+          localStorage.removeItem(`pteronext_git_autorestart_${targetUuid}`);
+          localStorage.removeItem(`pteronext_git_installdeps_${targetUuid}`);
+          localStorage.removeItem(`pteronext_git_runbuild_${targetUuid}`);
+          localStorage.removeItem(`pteronext_git_buildcmd_${targetUuid}`);
           if (localStorage.getItem('pteronext_selected_server') === targetUuid) {
             localStorage.removeItem('pteronext_selected_server');
           }
@@ -3467,6 +3537,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setDnsRevocationAlert,
         dismissDnsRevocationAlert,
         systemVersion,
+        setSystemVersion,
+        checkSystemVersion,
         toasts,
         addToast,
         removeToast,

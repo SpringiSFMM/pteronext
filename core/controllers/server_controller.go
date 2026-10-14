@@ -75,6 +75,15 @@ func (s *ServerController) ListServers(c *gin.Context) {
 		return
 	}
 
+	for i := range servers {
+		if servers[i].Egg != nil {
+			servers[i].EggCategory = servers[i].Egg.GetCategory()
+		}
+		if servers[i].Nest != nil {
+			servers[i].NestSlug = servers[i].Nest.Slug
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"data": servers,
 	})
@@ -84,6 +93,13 @@ func (s *ServerController) ListServers(c *gin.Context) {
 func (s *ServerController) GetServer(c *gin.Context) {
 	server, _ := middleware.GetRequestServer(c)
 	resolvedStartup := s.serverService.ResolveStartupCommand(server)
+
+	if server.Egg != nil {
+		server.EggCategory = server.Egg.GetCategory()
+	}
+	if server.Nest != nil {
+		server.NestSlug = server.Nest.Slug
+	}
 
 	user, _ := middleware.GetRequestUser(c)
 	var perms []string
@@ -113,6 +129,8 @@ func (s *ServerController) GetServer(c *gin.Context) {
 		"resolved_startup": resolvedStartup,
 		"permissions":      perms,
 		"role":             roleName,
+		"egg_category":     server.EggCategory,
+		"nest_slug":        server.NestSlug,
 	})
 }
 

@@ -49,7 +49,7 @@ func NewFileService(db *gorm.DB, dataDir string) *FileService {
 // GetServerBaseDir safely resolves and initializes the filesystem volume for a server.
 func (f *FileService) GetServerBaseDir(serverUUID string) (string, error) {
 	var server models.Server
-	if err := f.db.Preload("Node").Where("uuid = ?", serverUUID).First(&server).Error; err != nil {
+	if err := f.db.Preload("Node").Preload("Egg").Preload("Nest").Where("uuid = ?", serverUUID).First(&server).Error; err != nil {
 		return "", fmt.Errorf("server not found: %w", err)
 	}
 
@@ -89,7 +89,7 @@ func (f *FileService) GetServerBaseDir(serverUUID string) (string, error) {
 	}
 
 	// Seed default server files ONLY once upon initial server creation/first setup
-	f.ensureDefaultFilesOnce(baseDir)
+	f.ensureDefaultFilesOnce(&server, baseDir)
 
 	return baseDir, nil
 }
@@ -134,8 +134,171 @@ func copyPath(src, dst string) error {
 	return err
 }
 
-func (f *FileService) ensureDefaultFilesOnce(baseDir string) {
+// isMinecraftServer determines if the server is a Minecraft server based on its egg, nest, image, and metadata.
+func isMinecraftServer(server *models.Server) bool {
+	if server == nil {
+		return false
+	}
+
+	// Explicit Discord bots or generic bots are never Minecraft
+	if isDiscordOrBotServer(server) {
+		return false
+	}
+
+	if strings.EqualFold(server.EggCategory, "minecraft") || strings.EqualFold(server.NestSlug, "minecraft") {
+		return true
+	}
+
+	if server.Egg != nil {
+		if strings.EqualFold(server.Egg.Category, "minecraft") || server.Egg.GetCategory() == "minecraft" {
+			return true
+		}
+		eggName := strings.ToLower(server.Egg.Name)
+		for _, kw := range []string{"minecraft", "paper", "spigot", "purpur", "forge", "fabric", "bedrock", "bungeecord", "velocity", "waterfall", "sponge"} {
+			if strings.Contains(eggName, kw) {
+				return true
+			}
+		}
+	}
+
+	if server.Nest != nil {
+		nestStr := strings.ToLower(server.Nest.Name + " " + server.Nest.Slug)
+		if strings.Contains(nestStr, "minecraft") {
+			return true
+		}
+	}
+
+	img := strings.ToLower(server.Image)
+	for _, kw := range []string{"minecraft", "paper", "spigot", "purpur", "forge", "fabric", "bedrock", "bungeecord", "velocity", "waterfall", "sponge"} {
+		if strings.Contains(img, kw) {
+			return true
+		}
+	}
+
+	name := strings.ToLower(server.Name)
+	if strings.Contains(name, "minecraft") || strings.Contains(name, "papermc") {
+		return true
+	}
+
+	return false
+}
+
+// isDiscordOrBotServer determines if the server is a Discord bot or generic bot.
+func isDiscordOrBotServer(server *models.Server) bool {
+	if server == nil {
+		return false
+	}
+	if strings.EqualFold(server.EggCategory, "bot") || strings.EqualFold(server.NestSlug, "bot") || strings.EqualFold(server.NestSlug, "bots") {
+		return true
+	}
+	if server.Egg != nil {
+		eggName := strings.ToLower(server.Egg.Name)
+		if strings.Contains(eggName, "discord") || strings.Contains(eggName, "bot") {
+			return true
+		}
+		if server.Egg.GetCategory() == "bot" {
+			return true
+		}
+	}
+	if server.Nest != nil {
+		nestStr := strings.ToLower(server.Nest.Name + " " + server.Nest.Slug)
+		if strings.Contains(nestStr, "bot") || strings.Contains(nestStr, "discord") {
+			return true
+		}
+	}
+	img := strings.ToLower(server.Image)
+	if strings.Contains(img, "discord") || strings.Contains(img, "bot") {
+		return true
+	}
+	name := strings.ToLower(server.Name)
+	if strings.Contains(name, "discord") || strings.Contains(name, "bot") {
+		return true
+	}
+	return false
+}
+
+// isPythonServer determines if the server is a Python application.
+func isPythonServer(server *models.Server) bool {
+	if server == nil {
+		return false
+	}
+	img := strings.ToLower(server.Image)
+	if strings.Contains(img, "python") || strings.Contains(img, "py") {
+		return true
+	}
+	if server.Egg != nil {
+		eggName := strings.ToLower(server.Egg.Name)
+		if strings.Contains(eggName, "python") || strings.Contains(eggName, "django") || strings.Contains(eggName, "flask") || strings.Contains(eggName, "fastapi") {
+			return true
+		}
+	}
+	startup := strings.ToLower(server.Startup)
+	if strings.Contains(startup, "python") || strings.Contains(startup, "pip") {
+		return true
+	}
+	return false
+}
+
+// isNodeServer determines if the server is a Node.js application.
+func isNodeServer(server *models.Server) bool {
+	if server == nil {
+		return false
+	}
+	img := strings.ToLower(server.Image)
+	if strings.Contains(img, "node") || strings.Contains(img, "js") {
+		return true
+	}
+	if server.Egg != nil {
+		eggName := strings.ToLower(server.Egg.Name)
+		if strings.Contains(eggName, "node") || strings.Contains(eggName, "javascript") || strings.Contains(eggName, "typescript") {
+			return true
+		}
+	}
+	startup := strings.ToLower(server.Startup)
+	if strings.Contains(startup, "node ") || strings.Contains(startup, "npm ") || strings.Contains(startup, "yarn ") {
+		return true
+	}
+	return false
+}
+
+// cleanMistakenMinecraftFiles removes accidentally generated default Minecraft files from non-Minecraft servers.
+func cleanMistakenMinecraftFiles(baseDir string) {
+	propsPath := filepath.Join(baseDir, "server.properties")
+	eulaPath := filepath.Join(baseDir, "eula.txt")
+
+	propsData, propsErr := os.ReadFile(propsPath)
+	eulaData, eulaErr := os.ReadFile(eulaPath)
+
+	if propsErr == nil && strings.Contains(string(propsData), "A PteroNext Minecraft Server") {
+		_ = os.Remove(propsPath)
+	}
+	if eulaErr == nil && strings.Contains(string(eulaData), "https://aka.ms/MinecraftEULA") {
+		_ = os.Remove(eulaPath)
+	}
+
+	opsPath := filepath.Join(baseDir, "ops.json")
+	if data, err := os.ReadFile(opsPath); err == nil && strings.TrimSpace(string(data)) == "[]" {
+		_ = os.Remove(opsPath)
+	}
+	wlPath := filepath.Join(baseDir, "whitelist.json")
+	if data, err := os.ReadFile(wlPath); err == nil && strings.TrimSpace(string(data)) == "[]" {
+		_ = os.Remove(wlPath)
+	}
+
+	pluginsDir := filepath.Join(baseDir, "plugins")
+	if pEntries, err := os.ReadDir(pluginsDir); err == nil && len(pEntries) == 0 {
+		_ = os.Remove(pluginsDir)
+	}
+}
+
+func (f *FileService) ensureDefaultFilesOnce(server *models.Server, baseDir string) {
 	markerFile := filepath.Join(baseDir, ".pteronext_initialized")
+
+	// If this is NOT a Minecraft server, purge any erroneously seeded default Minecraft files
+	if !isMinecraftServer(server) {
+		cleanMistakenMinecraftFiles(baseDir)
+	}
+
 	if _, err := os.Stat(markerFile); err == nil {
 		// Server has already been initialized, NEVER recreate deleted files!
 		return
@@ -145,14 +308,26 @@ func (f *FileService) ensureDefaultFilesOnce(baseDir string) {
 	if err != nil {
 		return
 	}
-	// If directory already has files from an existing install, simply mark it initialized
-	if len(entries) > 0 {
+
+	// Filter out the marker file itself and system hidden files when checking if directory is empty
+	nonEmpty := false
+	for _, entry := range entries {
+		if entry.Name() != ".pteronext_initialized" && entry.Name() != ".DS_Store" {
+			nonEmpty = true
+			break
+		}
+	}
+
+	// If directory already has files from an existing install or upload, mark it initialized
+	if nonEmpty {
 		_ = os.WriteFile(markerFile, []byte(time.Now().Format(time.RFC3339)), 0644)
 		return
 	}
 
-	// Seed server.properties
-	serverProps := `# Minecraft server properties
+	// Seed files according to server workload type
+	if isMinecraftServer(server) {
+		// Seed server.properties
+		serverProps := `# Minecraft server properties
 motd=A PteroNext Minecraft Server
 server-port=25565
 max-players=20
@@ -163,21 +338,91 @@ gamemode=survival
 view-distance=10
 simulation-distance=8
 `
-	_ = os.WriteFile(filepath.Join(baseDir, "server.properties"), []byte(serverProps), 0644)
+		_ = os.WriteFile(filepath.Join(baseDir, "server.properties"), []byte(serverProps), 0644)
 
-	// Seed eula.txt
-	eula := `# By changing the setting below to TRUE you are indicating your agreement to our EULA (https://aka.ms/MinecraftEULA).
+		// Seed eula.txt
+		eula := `# By changing the setting below to TRUE you are indicating your agreement to our EULA (https://aka.ms/MinecraftEULA).
 eula=true
 `
-	_ = os.WriteFile(filepath.Join(baseDir, "eula.txt"), []byte(eula), 0644)
+		_ = os.WriteFile(filepath.Join(baseDir, "eula.txt"), []byte(eula), 0644)
 
-	// Seed ops.json and whitelist.json
-	_ = os.WriteFile(filepath.Join(baseDir, "ops.json"), []byte("[]"), 0644)
-	_ = os.WriteFile(filepath.Join(baseDir, "whitelist.json"), []byte("[]"), 0644)
+		// Seed ops.json and whitelist.json
+		_ = os.WriteFile(filepath.Join(baseDir, "ops.json"), []byte("[]"), 0644)
+		_ = os.WriteFile(filepath.Join(baseDir, "whitelist.json"), []byte("[]"), 0644)
 
-	// Seed plugins and logs directories
-	_ = os.MkdirAll(filepath.Join(baseDir, "plugins"), 0755)
-	_ = os.MkdirAll(filepath.Join(baseDir, "logs"), 0755)
+		// Seed plugins and logs directories
+		_ = os.MkdirAll(filepath.Join(baseDir, "plugins"), 0755)
+		_ = os.MkdirAll(filepath.Join(baseDir, "logs"), 0755)
+	} else if isPythonServer(server) {
+		// Seed Python / Python Discord Bot template
+		mainPy := `"""
+Application Entrypoint
+"""
+import os
+
+def main():
+    print("Application starting...")
+
+if __name__ == "__main__":
+    main()
+`
+		_ = os.WriteFile(filepath.Join(baseDir, "main.py"), []byte(mainPy), 0644)
+
+		reqTxt := `# Python dependencies
+# discord.py>=2.3.0
+# python-dotenv>=1.0.0
+`
+		_ = os.WriteFile(filepath.Join(baseDir, "requirements.txt"), []byte(reqTxt), 0644)
+
+		envExample := `# Application Environment Variables
+DISCORD_TOKEN=your_bot_token_here
+APP_ENV=production
+DEBUG=false
+`
+		_ = os.WriteFile(filepath.Join(baseDir, ".env.example"), []byte(envExample), 0644)
+		_ = os.MkdirAll(filepath.Join(baseDir, "logs"), 0755)
+	} else if isDiscordOrBotServer(server) || isNodeServer(server) {
+		// Seed Node.js / Discord Bot template
+		pkgJSON := `{
+  "name": "discord-bot",
+  "version": "1.0.0",
+  "description": "Discord Bot / Node.js Application",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {}
+}
+`
+		_ = os.WriteFile(filepath.Join(baseDir, "package.json"), []byte(pkgJSON), 0644)
+
+		indexJS := `/**
+ * Main application entrypoint
+ */
+console.log('Application starting...');
+
+// Example Discord.js bot snippet:
+// const { Client, GatewayIntentBits } = require('discord.js');
+// const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+// client.on('ready', () => {
+//   console.log('Bot is ready and logged in as ' + client.user.tag);
+// });
+// client.login(process.env.DISCORD_TOKEN);
+`
+		_ = os.WriteFile(filepath.Join(baseDir, "index.js"), []byte(indexJS), 0644)
+
+		envExample := `# Discord Bot & Node.js Environment Variables
+DISCORD_TOKEN=your_bot_token_here
+CLIENT_ID=your_client_id_here
+PORT=3000
+NODE_ENV=production
+`
+		_ = os.WriteFile(filepath.Join(baseDir, ".env.example"), []byte(envExample), 0644)
+		_ = os.MkdirAll(filepath.Join(baseDir, "logs"), 0755)
+	}
+
+	// Always write initialization marker so files aren't recreated if deleted by the user
+	_ = os.WriteFile(markerFile, []byte(time.Now().Format(time.RFC3339)), 0644)
 }
 
 // resolveSafePath verifies against directory traversal
@@ -199,8 +444,12 @@ func isEditableFile(name string) bool {
 		".properties": true, ".conf": true, ".cfg": true, ".ini": true,
 		".log": true, ".sh": true, ".bash": true, ".xml": true,
 		".toml": true, ".md": true, ".env": true, ".lua": true,
+		".js": true, ".mjs": true, ".cjs": true, ".ts": true,
+		".jsx": true, ".tsx": true, ".py": true, ".pyw": true,
+		".sql": true, ".example": true, ".gitignore": true,
 	}
-	return editableExts[ext] || name == "eula.txt" || name == "server.properties"
+	base := strings.ToLower(name)
+	return editableExts[ext] || base == "eula.txt" || base == "server.properties" || base == "dockerfile" || base == ".env.example" || base == ".gitignore" || base == "procfile"
 }
 
 // ListDirectory lists files and folders inside a server directory.

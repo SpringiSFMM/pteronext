@@ -159,15 +159,60 @@ func (ch *ChangelogController) GetChangelog(c *gin.Context) {
 
 	rawReleases := []ReleaseItem{
 		{
+			Version:       "v2.9.0",
+			Date:          "October 2026",
+			Title:         "1-Click Pterodactyl Importer, Egg Drag&Drop, CLI Updater & Cloudflare DNS",
+			TitleEN:       "1-Click Pterodactyl Importer, Egg Drag&Drop, CLI Updater & Cloudflare DNS",
+			Description:   "Meilenstein-Release v2.9.0: Neuer interaktiver 1-Klick Importer für Pterodactyl & Pelican Instanzen, Offline Drag&Drop für Egg-Templates und Manifeste, sicheres CLI-Update-Kommando (pteronext update) mit automatischem Datenbank-Snapshot ohne Datenverlust, sowie automatisierte Cloudflare DNS E-Mail-Konfiguration.",
+			DescriptionEN: "Milestone release v2.9.0: New interactive 1-click importer for Pterodactyl & Pelican instances, offline drag-and-drop egg template and manifest loader, safe CLI updater (pteronext update) with automated database pre-update snapshot without modifying data/servers, and automated Cloudflare DNS routing.",
+			Tag:           "LATEST STABLE",
+			TagEN:         "LATEST STABLE",
+			IsLatest:      true,
+			Highlights: []string{
+				"PteroNext Safe CLI Updater: 'pteronext update' mit automatischem Datenbank-Snapshot und partiellem Binary/Asset-Austausch",
+				"1-Click Pterodactyl & Pelican Project Importer: Nahtlose Migration aller Server, Quotas, Docker-Images und Startup-Parameter",
+				"Egg & Manifest JSON Drag-and-Drop: Schneller Offline-Import für offizielle Pterodactyl & Pelican Templates",
+				"Automatisierte Cloudflare DNS E-Mail-Routing & MX/SPF/DMARC Konfiguration",
+				"Erhöhte 2FA-Resilienz mit Notfall-Deaktivierung im Fehlerfall",
+			},
+			HighlightsEN: []string{
+				"PteroNext Safe CLI Updater: 'pteronext update' with automated DB snapshot and safe binary/asset rollout",
+				"1-Click Pterodactyl & Pelican Project Importer: Seamless migration of servers, hardware quotas, Docker images, and startup parameters",
+				"Egg & Manifest JSON Drag-and-Drop: Rapid offline import for official Pterodactyl & Pelican templates",
+				"Automated Cloudflare DNS Email Routing & Deliverability Records (MX, SPF, DMARC)",
+				"Enhanced Two-Factor Authentication resilience with clock drift tolerance and emergency CLI reset",
+			},
+			Features: []string{
+				"CLI-Befehl 'pteronext update' für sichere Vor-Ort-Updates",
+				"1-Klick Migration von Pterodactyl / Pelican Instanzen",
+				"Drag & Drop Importer für Egg-JSON-Dateien",
+				"Cloudflare DNS Automatismus für Webmail",
+			},
+			FeaturesEN: []string{
+				"CLI command 'pteronext update' for safe updates",
+				"1-Click migration from Pterodactyl / Pelican instances",
+				"Drag & Drop importer for egg JSON manifests",
+				"Cloudflare DNS automation for webmail",
+			},
+			Security: []string{
+				"Garantierter Erhalt aller Server-Volumes, DBs und Konfigurationen beim CLI-Update",
+				"Automatischer Zeitstempel-Snapshot der SQLite-Datenbank vor jedem Update",
+			},
+			SecurityEN: []string{
+				"Guaranteed zero data loss policy during CLI updates",
+				"Automated timestamped DB snapshot prior to any update",
+			},
+		},
+		{
 			Version:       "v2.8.8",
 			Date:          "October 2026",
 			Title:         "Semgrep-Sicherheits-Hardening, DOMPurify XSS-Schutz, TLS 1.2+ & Dokumentation",
 			TitleEN:       "Semgrep Security Hardening, DOMPurify Console XSS Hardening, TLS 1.2+ & Documentation",
 			Description:   "Umfangreiches Sicherheits- und Stabilitäts-Release: Behebung aller von Semgrep identifizierten Sicherheitslücken, Härtung der Web-Konsole gegen XSS mittels DOMPurify, Erzwingung von modernem TLS 1.2+ für alle SSL-Endpunkte, systemweite Synchronisierung der Versionsanzeige auf v2.8.8 über alle Komponenten (Sidebar, Footer, Navbar, Dashboard & Changelog) sowie Hinzufügen einer 5.400+ Zeilen umfassenden Enterprise-Dokumentation (DOCUMENTATION.md).",
 			DescriptionEN: "Comprehensive security and stability release: Remediation of all Semgrep-identified vulnerabilities, hardening the server web console against XSS via DOMPurify, enforcement of modern TLS 1.2+ across SSL endpoints, synchronized v2.8.8 version display across all components (Sidebar, Footer, Navbar, Dashboard & Changelog), and addition of a 5,400+ line enterprise architecture and deployment manual (DOCUMENTATION.md).",
-			Tag:           "LATEST STABLE",
-			TagEN:         "LATEST STABLE",
-			IsLatest:      true,
+			Tag:           "STABLE",
+			TagEN:         "STABLE",
+			IsLatest:      false,
 			Highlights: []string{
 				"Semgrep Security Hardening: Vollständige Bereinigung aller gemeldeten Schwachstellen in Controller- und Backend-Services",
 				"DOMPurify XSS-Schutz: Web-Konsole filtert Terminal- und Log-Ausgaben gegen Cross-Site-Scripting ab",
@@ -888,7 +933,7 @@ func (ch *ChangelogController) GetChangelog(c *gin.Context) {
 	for _, r := range rawReleases {
 		curatedMap[r.Version] = true
 	}
-	topVersion := "v2.8.8"
+	topVersion := "v2.9.0"
 	if len(rawReleases) > 0 {
 		topVersion = rawReleases[0].Version
 	}
@@ -951,10 +996,8 @@ func (ch *ChangelogController) GetChangelog(c *gin.Context) {
 		releases[i] = item
 	}
 
-	currentVer := "v2.8.8"
-	if len(releases) > 0 && releases[0].Version != "" {
-		currentVer = releases[0].Version
-	}
+	currentVer := GetInstalledVersion()
+
 
 	c.JSON(http.StatusOK, gin.H{
 		"current_version": currentVer,

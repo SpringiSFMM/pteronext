@@ -95,6 +95,9 @@ export const CreateServerModal: React.FC = () => {
 
       if (success) {
         setIsCreateServerOpen(false);
+        setName('');
+        setDescription('');
+        setStep(1);
       }
     } finally {
       setIsSubmitting(false);

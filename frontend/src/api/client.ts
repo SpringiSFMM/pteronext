@@ -188,6 +188,12 @@ export interface BackendServer {
   node?: BackendNode;
   allocation_id: number;
   allocation?: BackendAllocation;
+  egg_id?: number;
+  egg?: BackendEgg;
+  nest_id?: number;
+  nest?: BackendNest;
+  egg_category?: string;
+  nest_slug?: string;
   memory: number;
   swap: number;
   disk: number;
@@ -295,6 +301,7 @@ export interface BackendEgg {
   nest?: BackendNest;
   name: string;
   description: string;
+  category?: string;
   docker_images: Record<string, string>;
   startup_command: string;
   config_files?: Record<string, any>;

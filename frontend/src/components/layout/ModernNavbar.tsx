@@ -28,6 +28,8 @@ export const ModernNavbar: React.FC = () => {
     selectedServer,
     activeView,
     activeServerTab,
+    systemVersion,
+    setSystemVersion,
   } = useApp();
 
   const { language } = useTranslation();
@@ -36,8 +38,8 @@ export const ModernNavbar: React.FC = () => {
     latest_version: string;
     update_available: boolean;
   }>({
-    current_version: 'v2.8.8',
-    latest_version: 'v2.8.8',
+    current_version: systemVersion || 'v2.9.0',
+    latest_version: systemVersion || 'v2.9.0',
     update_available: false,
   });
   const [checkingUpdate, setCheckingUpdate] = useState(false);
@@ -48,11 +50,16 @@ export const ModernNavbar: React.FC = () => {
       try {
         const res = await api.updates.check();
         if (mounted && res) {
+          const cur = res.current_version || 'v2.9.0';
+          const lat = res.latest_version || res.current_version || 'v2.9.0';
           setVersionInfo({
-            current_version: res.current_version || 'v2.8.8',
-            latest_version: res.latest_version || res.current_version || 'v2.8.8',
+            current_version: cur,
+            latest_version: lat,
             update_available: Boolean(res.update_available),
           });
+          if (res.current_version && setSystemVersion) {
+            setSystemVersion(res.current_version);
+          }
         }
       } catch (err) {
         // Fallback gracefully
@@ -62,18 +69,23 @@ export const ModernNavbar: React.FC = () => {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [setSystemVersion]);
 
   const handleManualCheck = async () => {
     setCheckingUpdate(true);
     try {
       const res = await api.updates.check();
       if (res) {
+        const cur = res.current_version || 'v2.9.0';
+        const lat = res.latest_version || res.current_version || 'v2.9.0';
         setVersionInfo({
-          current_version: res.current_version || 'v2.8.8',
-          latest_version: res.latest_version || res.current_version || 'v2.8.8',
+          current_version: cur,
+          latest_version: lat,
           update_available: Boolean(res.update_available),
         });
+        if (res.current_version && setSystemVersion) {
+          setSystemVersion(res.current_version);
+        }
       }
     } finally {
       setTimeout(() => setCheckingUpdate(false), 500);

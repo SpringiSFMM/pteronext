@@ -19,9 +19,44 @@ type SystemUpdateController struct {
 	githubRepo     string
 }
 
+// GetInstalledVersion dynamically resolves the installed panel version from
+// the PTERONEXT_VERSION environment variable or a VERSION file, falling back to "v2.9.0".
+func GetInstalledVersion() string {
+	// 1. Environment variable override
+	if envVer := strings.TrimSpace(os.Getenv("PTERONEXT_VERSION")); envVer != "" {
+		if !strings.HasPrefix(envVer, "v") {
+			envVer = "v" + envVer
+		}
+		return envVer
+	}
+
+	// 2. Candidate VERSION file paths
+	candidates := []string{
+		"VERSION",
+		"../VERSION",
+		"/var/lib/pteronext/VERSION",
+		"/opt/pteronext/VERSION",
+		"/root/panel/VERSION",
+	}
+	for _, path := range candidates {
+		if data, err := os.ReadFile(path); err == nil {
+			ver := strings.TrimSpace(string(data))
+			if ver != "" {
+				if !strings.HasPrefix(ver, "v") {
+					ver = "v" + ver
+				}
+				return ver
+			}
+		}
+	}
+
+	// 3. Fallback to latest stable release
+	return "v2.9.0"
+}
+
 func NewSystemUpdateController() *SystemUpdateController {
 	return &SystemUpdateController{
-		currentVersion: "v2.8.8",
+		currentVersion: GetInstalledVersion(),
 		githubRepo:     "SpringiSFMM/pteronext",
 	}
 }
@@ -37,6 +72,22 @@ type GitHubCommit struct {
 	} `json:"commit"`
 }
 
+func parseVersionPart(s string) int {
+	var numStr strings.Builder
+	for _, ch := range s {
+		if ch >= '0' && ch <= '9' {
+			numStr.WriteRune(ch)
+		} else {
+			break
+		}
+	}
+	if numStr.Len() == 0 {
+		return 0
+	}
+	n, _ := strconv.Atoi(numStr.String())
+	return n
+}
+
 func isVersionGreater(v1, v2 string) bool {
 	v1Clean := strings.TrimPrefix(v1, "v")
 	v2Clean := strings.TrimPrefix(v2, "v")
@@ -44,8 +95,8 @@ func isVersionGreater(v1, v2 string) bool {
 	parts2 := strings.Split(v2Clean, ".")
 
 	for i := 0; i < len(parts1) && i < len(parts2); i++ {
-		n1, _ := strconv.Atoi(parts1[i])
-		n2, _ := strconv.Atoi(parts2[i])
+		n1 := parseVersionPart(parts1[i])
+		n2 := parseVersionPart(parts2[i])
 		if n1 > n2 {
 			return true
 		}
@@ -59,6 +110,8 @@ func isVersionGreater(v1, v2 string) bool {
 // CheckUpdate queries GitHub repository to check for latest commits/releases
 func (s *SystemUpdateController) CheckUpdate(c *gin.Context) {
 	client := &http.Client{Timeout: 6 * time.Second}
+	currentVer := GetInstalledVersion()
+	s.currentVersion = currentVer
 
 	// 1. Fetch latest commit
 	commitReq, _ := http.NewRequest("GET", fmt.Sprintf("https://api.github.com/repos/%s/commits/main", s.githubRepo), nil)
@@ -101,23 +154,29 @@ func (s *SystemUpdateController) CheckUpdate(c *gin.Context) {
 		}
 	}
 
-	if latestTag == "" {
-		latestTag = s.currentVersion
-	}
-
+	// Determine if an update is available (latestTag > currentVer)
 	updateAvailable := false
-	if latestTag != "" && latestTag != s.currentVersion {
-		updateAvailable = isVersionGreater(latestTag, s.currentVersion)
+	displayVersion := currentVer
+
+	if latestTag != "" {
+		if isVersionGreater(latestTag, currentVer) {
+			updateAvailable = true
+			displayVersion = latestTag
+		} else {
+			// Current installed version is >= latestTag -> System is up to date
+			updateAvailable = false
+			displayVersion = currentVer
+		}
 	}
 
-	displayLatest := latestTag
+	displayLatest := displayVersion
 	if shortSHA != "" {
-		displayLatest = fmt.Sprintf("%s (%s)", latestTag, shortSHA)
+		displayLatest = fmt.Sprintf("%s (%s)", displayVersion, shortSHA)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"update_available": updateAvailable,
-		"current_version":  s.currentVersion,
+		"current_version":  currentVer,
 		"latest_version":   displayLatest,
 		"commit_sha":       shortSHA,
 		"commit_message":   commit.Commit.Message,
@@ -163,6 +222,7 @@ func (s *SystemUpdateController) InstallUpdate(c *gin.Context) {
 		_ = exec.Command("systemctl", "restart", "pteronext").Start()
 	}()
 
+	s.currentVersion = GetInstalledVersion()
 	msg := fmt.Sprintf("1-Klick Update eingeleitet. Datenbank wurde sicher gesichert (%d Backups angelegt). Dienst startet in wenigen Sekunden neu...", len(backedUp))
 	c.JSON(http.StatusOK, gin.H{
 		"success":       true,

@@ -57,7 +57,8 @@ export const ChangelogView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedReleases, setExpandedReleases] = useState<Record<string, boolean>>({
-    'v2.8.8': true,
+    'v2.9.0': true,
+    'v2.8.8': false,
     'v2.8.7': false,
     'v2.8.6': false,
     'v2.8.5': false,
@@ -183,12 +184,53 @@ export const ChangelogView: React.FC = () => {
 
   const defaultReleases: Release[] = [
     {
+      version: 'v2.9.0',
+      title: language === 'de'
+        ? '1-Click Pterodactyl Importer, Egg Drag&Drop, CLI Updater & Cloudflare DNS'
+        : '1-Click Pterodactyl Importer, Egg Drag&Drop, CLI Updater & Cloudflare DNS',
+      date: 'October 2026',
+      tag: 'LATEST STABLE',
+      features: language === 'de'
+        ? [
+            'Systemweite Versions-Synchronisation auf v2.9.0 mit dynamischer Erkennung aus VERSION / Environment',
+            'PteroNext Safe CLI Updater (pteronext update) mit automatischem SQLite-Backup ohne Datenverlust',
+            '1-Click Pterodactyl & Pelican Importer zur nahtlosen Migration aller Server und Quotas',
+            'Offline Drag&Drop Import für Egg-Templates und Manifeste',
+            'Automatisierte Cloudflare DNS E-Mail-Routing & MX/SPF/DMARC Konfiguration',
+          ]
+        : [
+            'System-wide version synchronization to v2.9.0 with dynamic detection from VERSION / environment',
+            'PteroNext safe CLI updater (pteronext update) with automated SQLite backup without data loss',
+            '1-Click Pterodactyl & Pelican importer for seamless migration of servers and quotas',
+            'Offline drag-and-drop import for egg templates and manifests',
+            'Automated Cloudflare DNS email routing & MX/SPF/DMARC configuration',
+          ],
+      security: language === 'de'
+        ? [
+            'Automatische Zensur (Masking) sensibler Tokens, Passwörter und API-Keys in Konsolen-Logs',
+            'Datenbank-Snapshot vor jedem Update zur Vermeidung jeglicher Datenverluste',
+          ]
+        : [
+            'Automatic redaction and masking of sensitive credentials in console logs',
+            'Pre-update automated database snapshots guaranteeing zero data loss',
+          ],
+      improvements: language === 'de'
+        ? [
+            'Verbesserte Update-Prüfung: Korrekte Statusanzeige wenn installierte Version >= GitHub-Stand ist',
+            'Robuste Versionsvergleichslogik über alle Systemmodule',
+          ]
+        : [
+            'Improved update checker: Correct status reporting when installed version is >= GitHub tag',
+            'Robust semver comparison logic across all system components',
+          ],
+    },
+    {
       version: 'v2.8.8',
       title: language === 'de'
         ? 'Semgrep-Sicherheits-Hardening, DOMPurify XSS-Schutz, TLS 1.2+ & Dokumentation'
         : 'Semgrep Security Hardening, DOMPurify Console XSS Hardening, TLS 1.2+ & Documentation',
       date: 'October 2026',
-      tag: 'LATEST STABLE',
+      tag: 'STABLE',
       features: language === 'de'
         ? [
             'Systemweite Versions-Synchronisation auf v2.8.8 in Navbar, Sidebar, Footer, Dashboard und Changelog mit automatischem GitHub-Abgleich',
@@ -594,7 +636,7 @@ export const ChangelogView: React.FC = () => {
                     : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                 }`}
               >
-                {updateStatus?.latest_version || updateStatus?.current_version || 'v2.8.8'}{' '}
+                {updateStatus?.latest_version || updateStatus?.current_version || 'v2.9.0'}{' '}
                 {updateStatus?.update_available
                   ? language === 'de'
                     ? 'UPDATE VERFÜGBAR'
@@ -669,7 +711,7 @@ export const ChangelogView: React.FC = () => {
       {/* Release Timeline (Collapsible Accordions) */}
       <div className="space-y-4">
         {paginatedReleases.map((release) => {
-          const isExpanded = expandedReleases[release.version] ?? (release.version === (displayReleases[0]?.version || 'v2.8.8'));
+          const isExpanded = expandedReleases[release.version] ?? (release.version === (displayReleases[0]?.version || 'v2.9.0'));
           const featureItems =
             release.features && release.features.length > 0
               ? release.features
@@ -695,8 +737,10 @@ export const ChangelogView: React.FC = () => {
                 <div className="flex items-center gap-3.5 min-w-0">
                   <span
                     className={`text-sm font-mono font-bold px-3 py-1 rounded-xl transition-colors ${
-                      release.version === (displayReleases[0]?.version || 'v2.8.8')
+                      release.version === (displayReleases[0]?.version || 'v2.9.0')
                         ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                        : release.version === 'v2.8.8'
+                        ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30'
                         : release.version === 'v2.8.7'
                         ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30'
                         : release.version === 'v2.8.6'
@@ -728,8 +772,10 @@ export const ChangelogView: React.FC = () => {
                   {release.tag && (
                     <span
                       className={`text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
-                        release.version === (displayReleases[0]?.version || 'v2.8.8')
+                        release.version === (displayReleases[0]?.version || 'v2.9.0')
                           ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                          : release.version === 'v2.8.8'
+                          ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
                           : release.version === 'v2.8.7'
                           ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
                           : release.tag.includes('MAJOR')
