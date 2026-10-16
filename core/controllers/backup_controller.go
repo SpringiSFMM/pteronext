@@ -39,19 +39,87 @@ func (b *BackupController) CreateBackup(c *gin.Context) {
 		IsLocked        bool     `json:"is_locked"`
 		EncryptPassword string   `json:"encrypt_password"`
 		IgnoredFiles    []string `json:"ignored_files"`
+		MaxBackups      int      `json:"max_backups"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	backup, err := b.backupService.CreateBackup(uuid, req.Name, req.EncryptPassword, req.IsLocked, req.IgnoredFiles)
+	backup, err := b.backupService.CreateBackup(uuid, req.Name, req.EncryptPassword, req.IsLocked, req.IgnoredFiles, req.MaxBackups)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"data": backup, "message": "Backup created successfully."})
+}
+
+// RotateBackups handles POST /api/servers/:uuid/backups/rotate
+func (b *BackupController) RotateBackups(c *gin.Context) {
+	uuid := c.Param("uuid")
+
+	var req struct {
+		MaxBackups int `json:"max_backups"`
+	}
+	_ = c.ShouldBindJSON(&req)
+
+	limit := req.MaxBackups
+	if limit <= 0 {
+		// Fallback to configured server limit
+		var err error
+		limit, err = b.backupService.GetBackupLimit(uuid)
+		if err != nil || limit <= 0 {
+			limit = 5 // Reasonable default retention
+		}
+	}
+
+	deleted, err := b.backupService.RotateBackups(uuid, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"deleted": deleted,
+		"limit":   limit,
+		"message": fmt.Sprintf("%d ungesperrte Backups automatisch bereinigt (Limit: %d).", deleted, limit),
+	})
+}
+
+// GetConfig handles GET /api/servers/:uuid/backups/config
+func (b *BackupController) GetConfig(c *gin.Context) {
+	uuid := c.Param("uuid")
+	limit, err := b.backupService.GetBackupLimit(uuid)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"backup_limit": limit})
+}
+
+// UpdateConfig handles POST /api/servers/:uuid/backups/config
+func (b *BackupController) UpdateConfig(c *gin.Context) {
+	uuid := c.Param("uuid")
+	var req struct {
+		BackupLimit int `json:"backup_limit"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+		return
+	}
+
+	if err := b.backupService.SetBackupLimit(uuid, req.BackupLimit); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":      true,
+		"backup_limit": req.BackupLimit,
+		"message":      "Backup-Aufbewahrungslimit erfolgreich gespeichert.",
+	})
 }
 
 // DeleteBackup handles DELETE /api/servers/:uuid/backups/:id

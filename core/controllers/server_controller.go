@@ -707,28 +707,47 @@ func (s *ServerController) PowerAction(c *gin.Context) {
 	}, c.ClientIP())
 
 	if s.webhookService != nil {
-		eventMap := map[string]string{
-			"start":   "server.start",
-			"stop":    "server.stop",
-			"restart": "server.restart",
-			"kill":    "server.crash",
-		}
-		evt := eventMap[req.Action]
-		if evt == "" {
-			evt = "server.power"
-		}
 		nodeName := "Wings Node"
 		if server.Node != nil && server.Node.Name != "" {
 			nodeName = server.Node.Name
 		}
-		title := fmt.Sprintf("Power-Aktion: %s", strings.ToUpper(req.Action))
-		desc := fmt.Sprintf("Server **%s** hat das Signal `%s` erhalten (ausgelöst durch Benutzer `%s`).", server.Name, req.Action, user.Username)
 		fields := map[string]string{
 			"Aktion":    req.Action,
 			"Benutzer":  user.Username,
 			"Node Host": nodeName,
 		}
-		s.webhookService.TriggerEvent(server.UUID, evt, title, desc, fields, fmt.Sprintf("https://panel.springisfm.de/server/%s", server.UUID))
+
+		if req.Action == "restart" {
+			s.webhookService.TriggerEvent(
+				server.UUID,
+				"server.stop",
+				fmt.Sprintf("Power-Aktion: RESTART (Stop) - %s", server.Name),
+				fmt.Sprintf("Server **%s** wird für einen Neustart gestoppt (ausgelöst durch `%s`).", server.Name, user.Username),
+				fields,
+				fmt.Sprintf("https://panel.springisfm.de/server/%s", server.UUID),
+			)
+			s.webhookService.TriggerEvent(
+				server.UUID,
+				"server.start",
+				fmt.Sprintf("Power-Aktion: RESTART (Start) - %s", server.Name),
+				fmt.Sprintf("Server **%s** startet nach Restart neu (ausgelöst durch `%s`).", server.Name, user.Username),
+				fields,
+				fmt.Sprintf("https://panel.springisfm.de/server/%s", server.UUID),
+			)
+		} else {
+			eventMap := map[string]string{
+				"start": "server.start",
+				"stop":  "server.stop",
+				"kill":  "server.crash",
+			}
+			evt := eventMap[req.Action]
+			if evt == "" {
+				evt = "server.power"
+			}
+			title := fmt.Sprintf("Power-Aktion: %s", strings.ToUpper(req.Action))
+			desc := fmt.Sprintf("Server **%s** hat das Signal `%s` erhalten (ausgelöst durch Benutzer `%s`).", server.Name, req.Action, user.Username)
+			s.webhookService.TriggerEvent(server.UUID, evt, title, desc, fields, fmt.Sprintf("https://panel.springisfm.de/server/%s", server.UUID))
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{

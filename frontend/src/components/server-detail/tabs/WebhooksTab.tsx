@@ -15,6 +15,9 @@ import {
   X,
   CheckCircle2,
   Sparkles,
+  Play,
+  Square,
+  AlertOctagon,
 } from 'lucide-react';
 import { DeleteConfirmModal } from '../../common/DeleteConfirmModal';
 
@@ -31,8 +34,29 @@ interface WebhookItem {
 
 const AVAILABLE_EVENTS = [
   {
+    id: 'server.start',
+    label: 'Server gestartet / Online (Power ON)',
+    description: 'Wird sofort ausgelöst, wenn der Server hochfährt und betriebsbereit ist.',
+    icon: Play,
+    color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
+  },
+  {
+    id: 'server.stop',
+    label: 'Server gestoppt / Offline (Power OFF)',
+    description: 'Wird ausgelöst, wenn der Serverprozess regulär beendet oder heruntergefahren wird.',
+    icon: Square,
+    color: 'text-slate-400 bg-slate-500/10 border-slate-500/20',
+  },
+  {
+    id: 'server.oom',
+    label: 'Out of Memory (OOM Killer)',
+    description: 'Schlägt sofort Alarm, wenn das RAM-Limit überschritten und der Container vom Linux-Kernel gestoppt wird.',
+    icon: AlertOctagon,
+    color: 'text-rose-400 bg-rose-500/10 border-rose-500/20',
+  },
+  {
     id: 'server.crash',
-    label: 'Server Crash / Unexpected Stop',
+    label: 'Server Crash / Unerwarteter Stopp',
     description: 'Triggers immediately when the container process exits abnormally with a non-zero exit code.',
     icon: AlertTriangle,
     color: 'text-red-400 bg-red-500/10 border-red-500/20',
@@ -70,6 +94,9 @@ export const WebhooksTab: React.FC = () => {
   const [url, setUrl] = useState('');
   const [platform, setPlatform] = useState<'discord' | 'slack'>('discord');
   const [selectedEvents, setSelectedEvents] = useState<string[]>([
+    'server.start',
+    'server.stop',
+    'server.oom',
     'server.crash',
     'server.high_cpu',
     'backup.completed',

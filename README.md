@@ -1,9 +1,10 @@
 # PteroNext — Next-Generation Cloud-Native Game Server Platform
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v2.7.3-indigo?style=for-the-badge" alt="Version 2.7.3">
+  <img src="https://img.shields.io/badge/version-v2.9.1-indigo?style=for-the-badge" alt="Version 2.9.1">
   <img src="https://img.shields.io/badge/architecture-Single%20Binary%20Go%20%2B%20React-emerald?style=for-the-badge" alt="Go + React Single Binary">
-  <img src="https://img.shields.io/badge/author-Springi--SFM-violet?style=for-the-badge" alt="Author Springi-SFM">
+  <a href="https://buymeacoffee.com/springisfm"><img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Support-amber?style=for-the-badge&logo=buy-me-a-coffee&logoColor=white" alt="Buy Me A Coffee"></a>
+  <a href="https://discord.gg/UJ28Umsx25"><img src="https://img.shields.io/badge/Discord-Community-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord Community"></a>
   <img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="License MIT">
 </p>
 
@@ -102,6 +103,13 @@
 | **RAM** | 512 MB (Panel Core) | 1 GB+ (Panel Core) |
 | **Storage** | 500 MB Free Disk | NVMe SSD Storage |
 | **OS** | Linux (Kernel 5.4+) | Debian 12 / Ubuntu 22.04 LTS |
+
+---
+
+## ☕ Support PteroNext & Community
+
+- **Buy Me a Coffee:** Support ongoing independent development and cluster hosting via [Buy Me a Coffee (springisfm)](https://buymeacoffee.com/springisfm).
+- **Discord Community:** Join our official community for live support, setup guides, and feedback: [discord.gg/UJ28Umsx25](https://discord.gg/UJ28Umsx25).
 
 ---
 

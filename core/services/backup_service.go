@@ -110,10 +110,27 @@ func decryptArchive(data []byte, password string) ([]byte, error) {
 }
 
 // CreateBackup generates a fast, optionally encrypted snapshot archive of the server volume.
-func (b *BackupService) CreateBackup(serverUUID, name, encryptPassword string, isLocked bool, ignored []string) (*models.Backup, error) {
+// If maxBackups or server.BackupLimit is set, automatic backup rotation is triggered:
+// The oldest unlocked backups are removed to stay within the limit. Backups with is_locked=true are NEVER deleted!
+func (b *BackupService) CreateBackup(serverUUID, name, encryptPassword string, isLocked bool, ignored []string, maxBackups ...int) (*models.Backup, error) {
 	var server models.Server
 	if err := b.db.Where("uuid = ?", serverUUID).First(&server).Error; err != nil {
 		return nil, fmt.Errorf("server not found: %w", err)
+	}
+
+	// Automatic Backup Rotation before snapshot creation if limit configured
+	limit := 0
+	if len(maxBackups) > 0 && maxBackups[0] > 0 {
+		limit = maxBackups[0]
+	} else if server.BackupLimit > 0 {
+		limit = server.BackupLimit
+	}
+	if limit > 0 {
+		targetBefore := limit - 1
+		if targetBefore < 1 {
+			targetBefore = 1
+		}
+		_, _ = b.RotateBackups(serverUUID, targetBefore)
 	}
 
 	baseDir, err := b.fileService.GetServerBaseDir(serverUUID)
@@ -235,6 +252,11 @@ func (b *BackupService) CreateBackup(serverUUID, name, encryptPassword string, i
 		return nil, err
 	}
 
+	// Automatic Backup Rotation after snapshot creation to ensure limit is not exceeded
+	if limit > 0 {
+		_, _ = b.RotateBackups(serverUUID, limit)
+	}
+
 	// Trigger automation webhook
 	if b.webhook != nil {
 		sizeMB := fmt.Sprintf("%.2f MB", float64(len(finalBytes))/(1024*1024))
@@ -253,6 +275,66 @@ func (b *BackupService) CreateBackup(serverUUID, name, encryptPassword string, i
 	}
 
 	return &backupRecord, nil
+}
+
+// RotateBackups enforces backup retention by automatically deleting the oldest unlocked backups.
+// Crucial: Backups with is_locked = true (Sicherheits-Lock) are NEVER deleted automatically!
+func (b *BackupService) RotateBackups(serverUUID string, maxBackups int) (int, error) {
+	if maxBackups <= 0 {
+		return 0, nil
+	}
+	var server models.Server
+	if err := b.db.Where("uuid = ?", serverUUID).First(&server).Error; err != nil {
+		return 0, fmt.Errorf("server not found: %w", err)
+	}
+
+	var backups []models.Backup
+	if err := b.db.Where("server_id = ?", server.ID).Order("created_at asc").Find(&backups).Error; err != nil {
+		return 0, err
+	}
+
+	if len(backups) <= maxBackups {
+		return 0, nil
+	}
+
+	toDeleteCount := len(backups) - maxBackups
+	deleted := 0
+
+	for _, bkp := range backups {
+		if deleted >= toDeleteCount {
+			break
+		}
+		// Security lock protection: NEVER delete locked backups!
+		if bkp.IsLocked {
+			continue
+		}
+
+		filePath := b.GetBackupFilePath(&bkp, serverUUID)
+		_ = os.Remove(filePath)
+		if err := b.db.Delete(&bkp).Error; err == nil {
+			deleted++
+		}
+	}
+
+	return deleted, nil
+}
+
+// GetBackupLimit returns the configured backup limit for a server.
+func (b *BackupService) GetBackupLimit(serverUUID string) (int, error) {
+	var server models.Server
+	if err := b.db.Where("uuid = ?", serverUUID).First(&server).Error; err != nil {
+		return 0, err
+	}
+	return server.BackupLimit, nil
+}
+
+// SetBackupLimit updates the configured backup limit for a server.
+func (b *BackupService) SetBackupLimit(serverUUID string, limit int) error {
+	var server models.Server
+	if err := b.db.Where("uuid = ?", serverUUID).First(&server).Error; err != nil {
+		return err
+	}
+	return b.db.Model(&server).Update("backup_limit", limit).Error
 }
 
 // ListBackups returns all backups for a server.

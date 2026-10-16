@@ -45,6 +45,7 @@ type Server struct {
 	IO           int64            `gorm:"default:500" json:"io"`
 	Threads      string           `gorm:"type:varchar(100)" json:"threads"`
 	OOMDisabled  bool             `gorm:"default:true" json:"oom_disabled"`
+	BackupLimit  int              `gorm:"column:backup_limit;default:0" json:"backup_limit"`
 	Startup      string           `gorm:"type:text;not null" json:"startup"`
 	Image        string           `gorm:"type:varchar(255);not null" json:"image"`
 	SkipScripts  bool             `gorm:"default:false" json:"skip_scripts"`

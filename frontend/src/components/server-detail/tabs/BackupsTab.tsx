@@ -19,6 +19,9 @@ import {
   CheckCircle,
   AlertTriangle,
   RefreshCw,
+  RotateCw,
+  Settings,
+  ShieldAlert,
   Eye,
   X,
   FileArchive,
@@ -69,11 +72,27 @@ export const BackupsTab: React.FC = () => {
   const [inspectSearch, setInspectSearch] = useState('');
   const [restoringPath, setRestoringPath] = useState<string | null>(null);
 
+  // Backup-Rotation Automatik State
+  const [backupLimit, setBackupLimit] = useState<number>(selectedServer?.backupsLimit ?? 5);
+  const [autoRotate, setAutoRotate] = useState(true);
+  const [isRotating, setIsRotating] = useState(false);
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const [editLimit, setEditLimit] = useState<number>(selectedServer?.backupsLimit ?? 5);
+  const [isSavingConfig, setIsSavingConfig] = useState(false);
+
   const fetchBackups = useCallback(async () => {
     if (!selectedServer?.uuid) return;
     try {
       const res = await api.backups.list(selectedServer.uuid);
       setBackups(res.data || []);
+
+      try {
+        const cfg = await api.backups.getConfig(selectedServer.uuid);
+        if (cfg && typeof cfg.backup_limit === 'number' && cfg.backup_limit > 0) {
+          setBackupLimit(cfg.backup_limit);
+          setEditLimit(cfg.backup_limit);
+        }
+      } catch {}
     } catch (err: any) {
       console.error('Failed to load backups:', err);
       addToast({
@@ -94,6 +113,58 @@ export const BackupsTab: React.FC = () => {
   const handleRefresh = () => {
     setRefreshing(true);
     fetchBackups();
+  };
+
+  const handleRotateNow = async () => {
+    if (!selectedServer?.uuid) return;
+    setIsRotating(true);
+    try {
+      const res = await api.backups.rotate(selectedServer.uuid, backupLimit);
+      addToast({
+        title: language === 'de' ? 'Rotation abgeschlossen' : 'Rotation Completed',
+        description:
+          language === 'de'
+            ? `${res.deleted} ältere, ungesperrte Backups automatisch entfernt (Aufbewahrung: max ${backupLimit}).`
+            : `Removed ${res.deleted} older unlocked backups (Retention limit: ${backupLimit}).`,
+        type: res.deleted > 0 ? 'success' : 'info',
+      });
+      fetchBackups();
+    } catch (err: any) {
+      addToast({
+        title: 'Rotation Error',
+        description: err?.message || 'Failed rotating backups',
+        type: 'error',
+      });
+    } finally {
+      setIsRotating(false);
+    }
+  };
+
+  const handleSaveConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedServer?.uuid) return;
+    setIsSavingConfig(true);
+    try {
+      await api.backups.updateConfig(selectedServer.uuid, editLimit);
+      setBackupLimit(editLimit);
+      addToast({
+        title: language === 'de' ? 'Aufbewahrung gespeichert' : 'Retention Saved',
+        description:
+          language === 'de'
+            ? `Automatische Rotation auf maximal ${editLimit} Backups festgelegt.`
+            : `Auto-rotation set to keep max ${editLimit} backups.`,
+        type: 'success',
+      });
+      setIsConfigOpen(false);
+    } catch (err: any) {
+      addToast({
+        title: 'Error',
+        description: err?.message || 'Could not save retention setting',
+        type: 'error',
+      });
+    } finally {
+      setIsSavingConfig(false);
+    }
   };
 
   const handleCreateBackup = async (e: React.FormEvent) => {
@@ -124,6 +195,7 @@ export const BackupsTab: React.FC = () => {
         is_locked: isLocked,
         encrypt_password: encryptEnabled ? encryptPassword : '',
         ignored_files: ignoredList,
+        max_backups: autoRotate ? backupLimit : 0,
       });
 
       addToast({
@@ -324,11 +396,43 @@ export const BackupsTab: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Backup-Rotation Status & Config Badge */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0d1117] border border-[#30363d] text-xs">
+            <RotateCw className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="text-slate-300">
+              {language === 'de' ? 'Auto-Rotation:' : 'Auto-Rotation:'}
+            </span>
+            <span className="font-semibold text-white font-mono">
+              max {backupLimit}
+            </span>
+            <button
+              onClick={() => {
+                setEditLimit(backupLimit);
+                setIsConfigOpen(true);
+              }}
+              className="p-1 text-slate-400 hover:text-white hover:bg-[#21262d] rounded-lg transition-colors cursor-pointer ml-1"
+              title={language === 'de' ? 'Aufbewahrungslimit konfigurieren' : 'Configure retention limit'}
+            >
+              <Settings className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Manual Rotate Now Button */}
+          <button
+            onClick={handleRotateNow}
+            disabled={isRotating || backups.length === 0}
+            className="flex items-center gap-1.5 px-3 py-2 bg-[#21262d] hover:bg-[#30363d] text-slate-200 hover:text-white border border-[#30363d] rounded-xl text-xs font-medium transition-all disabled:opacity-40 cursor-pointer"
+            title={language === 'de' ? 'Älteste ungesperrte Backups über Limit sofort bereinigen' : 'Prune oldest unlocked backups exceeding retention limit'}
+          >
+            <RotateCw className={`w-3.5 h-3.5 text-sky-400 ${isRotating ? 'animate-spin' : ''}`} />
+            <span>{language === 'de' ? 'Jetzt rotieren' : 'Rotate Now'}</span>
+          </button>
+
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="p-2.5 bg-[#0d1117] hover:bg-[#21262d] text-slate-300 hover:text-white border border-[#30363d] rounded-xl transition-all disabled:opacity-50"
+            className="p-2.5 bg-[#0d1117] hover:bg-[#21262d] text-slate-300 hover:text-white border border-[#30363d] rounded-xl transition-all disabled:opacity-50 cursor-pointer"
             title="Refresh backups list"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-emerald-400' : ''}`} />
@@ -584,8 +688,12 @@ export const BackupsTab: React.FC = () => {
               {/* Lock toggle */}
               <div className="flex items-center justify-between py-1">
                 <div>
-                  <span className="text-xs font-medium text-white">Lock Backup</span>
-                  <p className="text-[11px] text-slate-400">Prevents automatic pruning or accidental deletion</p>
+                  <span className="text-xs font-medium text-white">{language === 'de' ? 'Sicherheits-Lock aktivieren' : 'Lock Backup'}</span>
+                  <p className="text-[11px] text-slate-400">
+                    {language === 'de'
+                      ? 'Schützt dauerhaft: Immun gegen automatische Rotation & versehentliches Löschen.'
+                      : 'Prevents automatic pruning or accidental deletion.'}
+                  </p>
                 </div>
                 <input
                   type="checkbox"
@@ -595,13 +703,36 @@ export const BackupsTab: React.FC = () => {
                 />
               </div>
 
+              {/* Auto-Rotation Toggle */}
+              <div className="p-3 bg-[#0d1117] border border-[#30363d] rounded-xl space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <RotateCw className="w-4 h-4 text-emerald-400" />
+                    <span className="text-xs font-medium text-white">
+                      {language === 'de' ? 'Backup-Rotations-Automatik' : 'Automatic Backup Rotation'}
+                    </span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={autoRotate}
+                    onChange={(e) => setAutoRotate(e.target.checked)}
+                    className="rounded bg-[#161b22] border-[#30363d] text-emerald-500 focus:ring-0 w-4 h-4 cursor-pointer"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  {language === 'de'
+                    ? `Begrenzt die Anzahl aufbewahrter Backups auf maximal ${backupLimit}. Älteste ungesperrte Backups werden bei Überschreitung automatisch bereinigt. Gesperrte Backups (is_locked=true) bleiben immer unberührt.`
+                    : `Retains up to ${backupLimit} snapshots. Oldest unlocked backups will be pruned automatically upon exceeding this limit. Locked backups are never deleted.`}
+                </p>
+              </div>
+
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#30363d]">
                 <button
                   type="button"
                   onClick={() => setIsCreateOpen(false)}
-                  className="px-4 py-2 text-xs text-slate-400 hover:text-white font-medium rounded-xl hover:bg-[#21262d] transition-colors"
+                  className="px-4 py-2 text-xs text-slate-400 hover:text-white font-medium rounded-xl hover:bg-[#21262d] transition-colors cursor-pointer"
                 >
-                  Cancel
+                  {language === 'de' ? 'Abbrechen' : 'Cancel'}
                 </button>
                 <button
                   type="submit"
@@ -611,10 +742,98 @@ export const BackupsTab: React.FC = () => {
                   {isSubmitting ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      Archiving...
+                      {language === 'de' ? 'Erstelle Snapshot...' : 'Archiving...'}
                     </>
                   ) : (
-                    'Start Backup'
+                    language === 'de' ? 'Backup starten' : 'Start Backup'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ROTATION CONFIG MODAL */}
+      {isConfigOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-[#161b22] border border-[#30363d] rounded-2xl w-full max-w-md p-6 space-y-5 shadow-2xl animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-[#30363d] pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-emerald-500/10 rounded-xl text-emerald-400">
+                  <RotateCw className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-white">
+                    {language === 'de' ? 'Backup-Rotations-Automatik' : 'Automatic Backup Rotation'}
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {language === 'de' ? 'Aufbewahrungs- & Bereinigungs-Regeln' : 'Retention & Pruning Policy'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsConfigOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#21262d] transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveConfig} className="space-y-4">
+              <div>
+                <label className="block text-xs font-mono uppercase text-slate-300 mb-1.5">
+                  {language === 'de' ? 'Maximale Anzahl Backups (Aufbewahrung)' : 'Max Backups Retention Limit'}
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={50}
+                  required
+                  value={editLimit}
+                  onChange={(e) => setEditLimit(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-full bg-[#0d1117] border border-[#30363d] focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none transition-colors font-mono"
+                />
+                <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
+                  {language === 'de'
+                    ? 'Sobald dieses Limit bei der Erstellung neuer Backups erreicht wird, werden die ältesten ungesperrten Backups automatisch entfernt.'
+                    : 'When this limit is reached upon creating snapshots, the oldest unlocked backups are pruned automatically.'}
+                </p>
+              </div>
+
+              {/* Crucial Security Notice */}
+              <div className="p-3.5 bg-purple-500/10 border border-purple-500/20 rounded-xl flex items-start gap-3">
+                <Lock className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
+                <div className="text-xs text-purple-200">
+                  <span className="font-semibold block mb-0.5">
+                    {language === 'de' ? 'Sicherheits-Lock Schutzgarantie' : 'Security Lock Guarantee'}
+                  </span>
+                  {language === 'de'
+                    ? 'Backups mit aktivem Sicherheits-Lock (is_locked = true) sind absolut geschützt und werden durch die Rotations-Automatik NIEMALS automatisch gelöscht.'
+                    : 'Backups with an active security lock (is_locked = true) are permanently protected and will NEVER be pruned by auto-rotation.'}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#30363d]">
+                <button
+                  type="button"
+                  onClick={() => setIsConfigOpen(false)}
+                  className="px-4 py-2 text-xs text-slate-400 hover:text-white font-medium rounded-xl hover:bg-[#21262d] transition-colors cursor-pointer"
+                >
+                  {language === 'de' ? 'Abbrechen' : 'Cancel'}
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingConfig}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs rounded-xl shadow-lg shadow-emerald-900/20 transition-all cursor-pointer"
+                >
+                  {isSavingConfig ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>{language === 'de' ? 'Speichern...' : 'Saving...'}</span>
+                    </>
+                  ) : (
+                    <span>{language === 'de' ? 'Limit anwenden' : 'Apply Retention Limit'}</span>
                   )}
                 </button>
               </div>

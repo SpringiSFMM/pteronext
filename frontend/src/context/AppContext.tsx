@@ -156,6 +156,7 @@ function mapBackendServerToFrontend(bServer: BackendServer): Server {
     cpuLimit: bServer.cpu || 200,
     swapLimit: bServer.swap || 0,
     ioLimit: bServer.io || 500,
+    backupsLimit: bServer.backup_limit !== undefined ? bServer.backup_limit : 5,
     isSuspended: Boolean(bServer.suspended),
     suspended: Boolean(bServer.suspended),
     owner: bServer.owner?.username || 'admin',
@@ -1325,10 +1326,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setActivities(
           auditRes.data.map((a: any) => ({
             id: String(a.id),
-            actor: a.user?.username || a.actor || 'system',
-            action: a.action || 'system action',
+            actor: a.username || a.user?.username || a.actor || 'system',
+            action: a.action || a.event || 'system action',
             target: a.target || a.entity || 'system',
-            timestamp: a.created_at ? new Date(a.created_at).toLocaleTimeString() : 'just now',
+            details: a.details || a.properties || '',
+            ip: a.ip || a.ip_address || '127.0.0.1',
+            rawTimestamp: a.timestamp || a.created_at || '',
+            timestamp: a.timestamp || a.created_at ? new Date(a.timestamp || a.created_at).toLocaleString() : 'just now',
             severity:
               a.severity === 'danger' || a.severity === 'warning' || a.severity === 'success'
                 ? a.severity
@@ -1610,7 +1614,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               actor: a.username || a.user?.username || a.actor || 'system',
               action: (a.action || a.event || 'system action').replace(/[:_]/g, ' '),
               target: a.target || a.entity || 'system',
-              timestamp: a.timestamp ? new Date(a.timestamp).toLocaleTimeString() : (a.created_at ? new Date(a.created_at).toLocaleTimeString() : 'just now'),
+              details: a.details || a.properties || '',
+              ip: a.ip || a.ip_address || '127.0.0.1',
+              rawTimestamp: a.timestamp || a.created_at || '',
+              timestamp: a.timestamp ? new Date(a.timestamp).toLocaleString() : (a.created_at ? new Date(a.created_at).toLocaleString() : 'just now'),
               severity:
                 a.severity === 'danger' || a.severity === 'warning' || a.severity === 'success'
                   ? a.severity

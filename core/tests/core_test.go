@@ -60,6 +60,7 @@ func setupTestEnvironment(t *testing.T) (*ginTestEnv, func()) {
 	webhookService := services.NewWebhookService(db)
 	backupService := services.NewBackupService(db, fileService, webhookService, ".")
 	scannerService := services.NewSecurityScannerService()
+	discordBotService := services.NewDiscordBotService(db, wingsClient)
 
 	router := routes.SetupRouter(
 		cfg,
@@ -74,6 +75,7 @@ func setupTestEnvironment(t *testing.T) (*ginTestEnv, func()) {
 		backupService,
 		webhookService,
 		scannerService,
+		discordBotService,
 	)
 
 	env := &ginTestEnv{

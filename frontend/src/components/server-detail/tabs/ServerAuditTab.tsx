@@ -15,6 +15,8 @@ import {
   CheckCircle,
   AlertCircle,
   Shield,
+  FileCode,
+  Download,
 } from 'lucide-react';
 
 interface AuditLogEntry {
@@ -59,6 +61,67 @@ export const ServerAuditTab: React.FC = () => {
   useEffect(() => {
     fetchAuditLogs();
   }, [selectedServer?.uuid]);
+
+  const exportLogs = (format: 'csv' | 'json', scope: 'filtered' | 'all') => {
+    const list = scope === 'filtered' ? filteredLogs : logs;
+    const records = list.map((entry) => ({
+      timestamp: entry.timestamp,
+      user: entry.username || 'System Daemon',
+      ip_address: entry.ip_address || entry.ip || '127.0.0.1',
+      action: entry.action || entry.event || 'action',
+      description: entry.details || entry.target || entry.properties || '-',
+    }));
+
+    const dateStr = new Date().toISOString().split('T')[0];
+    const srvName = (selectedServer?.name || 'server').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `server-${srvName}-audit-${scope}-${dateStr}.${format}`;
+
+    if (format === 'json') {
+      const blob = new Blob([JSON.stringify(records, null, 2)], {
+        type: 'application/json;charset=utf-8;',
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+    } else {
+      const headers = [
+        language === 'de' ? 'Zeitstempel' : 'Timestamp',
+        language === 'de' ? 'Benutzer' : 'User',
+        language === 'de' ? 'IP-Adresse' : 'IP Address',
+        language === 'de' ? 'Aktion' : 'Action',
+        language === 'de' ? 'Beschreibung' : 'Description',
+      ];
+      const escapeCell = (val: string) => {
+        const str = String(val ?? '');
+        if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+
+      const rows = records.map((r) =>
+        [
+          escapeCell(r.timestamp),
+          escapeCell(r.user),
+          escapeCell(r.ip_address),
+          escapeCell(r.action),
+          escapeCell(r.description),
+        ].join(',')
+      );
+
+      const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+  };
 
   const getActionIcon = (actionStr: string) => {
     const act = (actionStr || '').toLowerCase();
@@ -112,9 +175,29 @@ export const ServerAuditTab: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2.5">
+          {/* Quick CSV Export */}
+          <button
+            onClick={() => exportLogs('csv', searchQuery || filterAction !== 'all' ? 'filtered' : 'all')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 text-xs font-medium transition-colors cursor-pointer"
+            title={language === 'de' ? 'Als CSV exportieren' : 'Export as CSV'}
+          >
+            <FileText className="w-3.5 h-3.5 text-emerald-400" />
+            <span>CSV</span>
+          </button>
+
+          {/* Quick JSON Export */}
+          <button
+            onClick={() => exportLogs('json', searchQuery || filterAction !== 'all' ? 'filtered' : 'all')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 text-xs font-medium transition-colors cursor-pointer"
+            title={language === 'de' ? 'Als JSON exportieren' : 'Export as JSON'}
+          >
+            <FileCode className="w-3.5 h-3.5 text-sky-400" />
+            <span>JSON</span>
+          </button>
+
           <button
             onClick={fetchAuditLogs}
-            className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors"
+            className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer"
             title={language === 'de' ? 'Protokolle aktualisieren' : 'Refresh Audit Logs'}
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />

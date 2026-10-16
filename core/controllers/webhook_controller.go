@@ -64,7 +64,7 @@ func (w *WebhookController) CreateWebhook(c *gin.Context) {
 		req.Platform = "discord"
 	}
 	if len(req.Events) == 0 {
-		req.Events = []string{"server.crash", "backup.completed", "server.high_cpu"}
+		req.Events = []string{"server.start", "server.stop", "server.oom", "server.crash", "backup.completed", "server.high_cpu"}
 	}
 
 	eventsJSON, _ := json.Marshal(req.Events)

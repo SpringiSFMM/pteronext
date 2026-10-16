@@ -79,9 +79,13 @@ func (w *WebhookService) TriggerEvent(serverUUID, eventName, title, description 
 		}
 
 		now := time.Now()
-		color := 0x10b981 // Emerald (default success)
-		if strings.Contains(eventName, "crash") || strings.Contains(eventName, "fail") || strings.Contains(eventName, "stop") {
+		color := 0x10b981 // Emerald (default success / server.start)
+		if strings.Contains(eventName, "oom") {
+			color = 0xf43f5e // Rose / Magenta for OOM
+		} else if strings.Contains(eventName, "crash") || strings.Contains(eventName, "fail") {
 			color = 0xef4444 // Red
+		} else if strings.Contains(eventName, "stop") {
+			color = 0x64748b // Slate / Grey for stop
 		} else if strings.Contains(eventName, "cpu") || strings.Contains(eventName, "warn") {
 			color = 0xf59e0b // Amber
 		}

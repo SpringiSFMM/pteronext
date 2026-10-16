@@ -201,6 +201,7 @@ export interface BackendServer {
   io: number;
   threads?: string;
   oom_disabled?: boolean;
+  backup_limit?: number;
   startup: string;
   image: string;
   skip_scripts?: boolean;
@@ -895,11 +896,38 @@ export const api = {
         is_locked?: boolean;
         encrypt_password?: string;
         ignored_files?: string[];
+        max_backups?: number;
       }
-    ): Promise<{ data: any; message: string }> => {
+    ): Promise<{ data: any; message: string; rotated_count?: number }> => {
       return request(`/api/servers/${serverUuid}/backups`, {
         method: 'POST',
         body: JSON.stringify(payload),
+      });
+    },
+
+    rotate: async (
+      serverUuid: string,
+      maxBackups?: number
+    ): Promise<{ success: boolean; deleted: number; message: string }> => {
+      return request(`/api/servers/${serverUuid}/backups/rotate`, {
+        method: 'POST',
+        body: JSON.stringify({ max_backups: maxBackups }),
+      });
+    },
+
+    getConfig: async (
+      serverUuid: string
+    ): Promise<{ backup_limit: number }> => {
+      return request<{ backup_limit: number }>(`/api/servers/${serverUuid}/backups/config`);
+    },
+
+    updateConfig: async (
+      serverUuid: string,
+      backupLimit: number
+    ): Promise<{ success: boolean; backup_limit: number; message?: string }> => {
+      return request(`/api/servers/${serverUuid}/backups/config`, {
+        method: 'POST',
+        body: JSON.stringify({ backup_limit: backupLimit }),
       });
     },
 

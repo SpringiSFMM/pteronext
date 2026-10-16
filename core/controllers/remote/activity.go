@@ -2,7 +2,9 @@ package remote
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -28,15 +30,21 @@ type WingsActivityPayload struct {
 
 // ActivityRemoteController handles daemon activity events.
 type ActivityRemoteController struct {
-	db           *gorm.DB
-	auditService *services.AuditService
+	db             *gorm.DB
+	auditService   *services.AuditService
+	webhookService *services.WebhookService
 }
 
 // NewActivityRemoteController creates a new ActivityRemoteController.
-func NewActivityRemoteController(db *gorm.DB, auditService *services.AuditService) *ActivityRemoteController {
+func NewActivityRemoteController(db *gorm.DB, auditService *services.AuditService, webhookService ...*services.WebhookService) *ActivityRemoteController {
+	var wh *services.WebhookService
+	if len(webhookService) > 0 {
+		wh = webhookService[0]
+	}
 	return &ActivityRemoteController{
-		db:           db,
-		auditService: auditService,
+		db:             db,
+		auditService:   auditService,
+		webhookService: wh,
 	}
 }
 
@@ -123,6 +131,48 @@ func (c *ActivityRemoteController) PostActivity(ctx *gin.Context) {
 			IP:         ip,
 			Timestamp:  t,
 		})
+
+		// Trigger webhook events for daemon signals (server.start, server.stop, server.oom, server.crash)
+		if c.webhookService != nil {
+			evLower := strings.ToLower(datum.Event)
+			if strings.Contains(evLower, "oom") {
+				c.webhookService.TriggerEvent(
+					datum.Server,
+					"server.oom",
+					"💥 Out of Memory (OOM Killer)",
+					fmt.Sprintf("Daemon signal: Container for server %s was terminated by Linux kernel OOM killer.", datum.Server),
+					map[string]string{"Event": datum.Event, "Node": node.Name},
+					fmt.Sprintf("https://panel.springisfm.de/server/%s", datum.Server),
+				)
+			} else if strings.Contains(evLower, "crash") || strings.Contains(evLower, "killed") {
+				c.webhookService.TriggerEvent(
+					datum.Server,
+					"server.crash",
+					"⚠️ Server Crash / Unexpected Exit",
+					fmt.Sprintf("Daemon signal: Container for server %s exited unexpectedly (%s).", datum.Server, datum.Event),
+					map[string]string{"Event": datum.Event, "Node": node.Name},
+					fmt.Sprintf("https://panel.springisfm.de/server/%s", datum.Server),
+				)
+			} else if strings.Contains(evLower, "power.start") || strings.Contains(evLower, "daemon.start") {
+				c.webhookService.TriggerEvent(
+					datum.Server,
+					"server.start",
+					"🚀 Server Started",
+					fmt.Sprintf("Daemon signal: Container for server %s has started and is running.", datum.Server),
+					map[string]string{"Event": datum.Event, "Node": node.Name},
+					fmt.Sprintf("https://panel.springisfm.de/server/%s", datum.Server),
+				)
+			} else if strings.Contains(evLower, "power.stop") || strings.Contains(evLower, "daemon.stop") {
+				c.webhookService.TriggerEvent(
+					datum.Server,
+					"server.stop",
+					"🛑 Server Stopped",
+					fmt.Sprintf("Daemon signal: Container for server %s has stopped.", datum.Server),
+					map[string]string{"Event": datum.Event, "Node": node.Name},
+					fmt.Sprintf("https://panel.springisfm.de/server/%s", datum.Server),
+				)
+			}
+		}
 	}
 
 	if err := c.auditService.LogBatch(logs); err != nil {

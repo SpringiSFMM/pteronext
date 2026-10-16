@@ -14,14 +14,16 @@ import (
 )
 
 type CrashController struct {
-	db          *gorm.DB
-	wingsClient *services.WingsClient
+	db             *gorm.DB
+	wingsClient    *services.WingsClient
+	webhookService *services.WebhookService
 }
 
-func NewCrashController(db *gorm.DB, wingsClient *services.WingsClient) *CrashController {
+func NewCrashController(db *gorm.DB, wingsClient *services.WingsClient, webhookService *services.WebhookService) *CrashController {
 	return &CrashController{
-		db:          db,
-		wingsClient: wingsClient,
+		db:             db,
+		wingsClient:    wingsClient,
+		webhookService: webhookService,
 	}
 }
 
@@ -59,6 +61,40 @@ func (cc *CrashController) AnalyzeCrash(c *gin.Context) {
 
 	// If no live logs from daemon, fallback to server status or mock diagnostic buffer
 	analysis := cc.analyzeLogContent(logLines, server)
+
+	// Automated Webhook Event triggers
+	if analysis.Crashed && cc.webhookService != nil {
+		if analysis.Category == "oom" {
+			fields := map[string]string{
+				"Fehler":     "Out of Memory (OOM Killer)",
+				"RAM Limit":  fmt.Sprintf("%d MB", server.MemoryMB),
+				"Lösung":     analysis.SuggestedSolution,
+			}
+			cc.webhookService.TriggerEvent(
+				server.UUID,
+				"server.oom",
+				fmt.Sprintf("💥 Out of Memory (OOM): %s", server.Name),
+				fmt.Sprintf("Server **%s** hat das konfigurierte RAM-Limit (%d MB) überschritten und wurde beendet.", server.Name, server.MemoryMB),
+				fields,
+				fmt.Sprintf("https://panel.springisfm.de/server/%s", server.UUID),
+			)
+		} else {
+			fields := map[string]string{
+				"Kategorie": analysis.Category,
+				"Fehler":    analysis.DetectedError,
+				"Lösung":    analysis.SuggestedSolution,
+			}
+			cc.webhookService.TriggerEvent(
+				server.UUID,
+				"server.crash",
+				fmt.Sprintf("⚠️ Server Crash: %s", server.Name),
+				fmt.Sprintf("Server **%s** ist abgestürzt: %s", server.Name, analysis.Title),
+				fields,
+				fmt.Sprintf("https://panel.springisfm.de/server/%s", server.UUID),
+			)
+		}
+	}
+
 	c.JSON(http.StatusOK, analysis)
 }
 

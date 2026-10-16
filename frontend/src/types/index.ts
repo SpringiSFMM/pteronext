@@ -219,6 +219,9 @@ export interface ActivityItem {
   action: string;
   target: string;
   severity: 'info' | 'success' | 'warning' | 'danger';
+  ip?: string;
+  details?: string;
+  rawTimestamp?: string;
 }
 
 export interface FileItem {
