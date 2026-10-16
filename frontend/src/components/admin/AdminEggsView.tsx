@@ -25,9 +25,11 @@ import {
   Check,
   ExternalLink,
   ChevronRight,
+  ShoppingCart,
 } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { DeleteConfirmModal } from '../common/DeleteConfirmModal';
+import { AdminMarketplaceModal } from './AdminMarketplaceModal';
 import { useTranslation } from '../../i18n/useTranslation';
 import { AdminEgg } from '../../types';
 
@@ -63,6 +65,8 @@ export const AdminEggsView: React.FC = () => {
   const [selectedNestId, setSelectedNestId] = useState<string>('');
   const [isCreateNestOpen, setIsCreateNestOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isMarketplaceOpen, setIsMarketplaceOpen] = useState(false);
+  const [activeViewTab, setActiveViewTab] = useState<'installed' | 'marketplace'>('installed');
   const [isEggEditorOpen, setIsEggEditorOpen] = useState(false);
   const [editingEgg, setEditingEgg] = useState<AdminEgg | null>(null);
 
@@ -298,7 +302,14 @@ export const AdminEggsView: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 self-start sm:self-auto">
+        <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
+          <button
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-purple-600/25 to-blue-600/20 hover:from-purple-600/35 hover:to-blue-600/30 border border-purple-500/40 hover:border-purple-400 text-xs font-semibold text-purple-200 hover:text-white transition-all shadow-md shadow-purple-900/10 active:scale-95"
+            onClick={() => setIsMarketplaceOpen(true)}
+          >
+            <ShoppingCart className="w-4 h-4 text-purple-400" />
+            <span>🛒 Aus Marketplace importieren</span>
+          </button>
           <button
             className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#161b22] hover:bg-[#21262d] border border-[#30363d] text-xs font-medium text-slate-300 hover:text-white transition-colors"
             onClick={() => setIsCreateNestOpen(true)}
@@ -321,6 +332,31 @@ export const AdminEggsView: React.FC = () => {
             <span>New Egg / Script</span>
           </button>
         </div>
+      </div>
+
+      {/* Navigation Tabs: Installed Eggs vs Ecosystem Marketplace */}
+      <div className="flex items-center gap-2 border-b border-[#30363d] pb-3">
+        <button
+          onClick={() => setActiveViewTab('installed')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+            activeViewTab === 'installed'
+              ? 'bg-[#1c2128] text-white border border-[#484f58] shadow-sm'
+              : 'text-slate-400 hover:text-white hover:bg-[#161b22]'
+          }`}
+        >
+          <Package className="w-4 h-4 text-purple-400" />
+          <span>{language === 'de' ? 'Nests & Lokale Eggs' : 'Nests & Installed Eggs'}</span>
+        </button>
+        <button
+          onClick={() => setIsMarketplaceOpen(true)}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-purple-300 hover:text-white hover:bg-purple-500/10 border border-purple-500/30 transition-all"
+        >
+          <ShoppingCart className="w-4 h-4 text-purple-400" />
+          <span>{language === 'de' ? '🛒 PteroNext Marketplace Store' : '🛒 PteroNext Marketplace Store'}</span>
+          <span className="px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 text-[10px] font-mono">
+            Ecosystem
+          </span>
+        </button>
       </div>
 
       {/* Nest Category Switcher */}
@@ -419,6 +455,13 @@ export const AdminEggsView: React.FC = () => {
                   className="px-3.5 py-1.5 rounded-xl bg-[#21262d] hover:bg-[#30363d] text-slate-300 text-xs font-medium border border-[#30363d]"
                 >
                   Import PTDL
+                </button>
+                <button
+                  onClick={() => setIsMarketplaceOpen(true)}
+                  className="px-3.5 py-1.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 hover:text-white text-xs font-semibold border border-purple-500/40 flex items-center gap-1.5 transition-all"
+                >
+                  <ShoppingCart className="w-3.5 h-3.5 text-purple-400" />
+                  <span>🛒 Aus Marketplace</span>
                 </button>
               </div>
             </div>
@@ -990,6 +1033,13 @@ export const AdminEggsView: React.FC = () => {
             : `Are you sure you want to permanently delete egg "${deleteTarget?.name}"?`
         }
         isDeleting={isDeletingTarget}
+      />
+
+      {/* ── PteroNext Ecosystem Marketplace Modal ── */}
+      <AdminMarketplaceModal
+        isOpen={isMarketplaceOpen}
+        onClose={() => setIsMarketplaceOpen(false)}
+        defaultNestId={selectedNestId}
       />
     </div>
   );

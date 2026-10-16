@@ -5,6 +5,10 @@ This project follows [Semantic Versioning](http://semver.org) guidelines.
 
 ## v2.9.1
 ### Added
+* **Community Egg Marketplace**: 1-Klick-Import geprüfter Eggs direkt aus dem PteroNext Ecosystem Store (`pteronext.com`) mit Kategoriensuche, PTDL-Metadatenprüfung und direkter Zuweisung in Nests.
+* **Audit-Log Export als CSV & JSON**: Vollständiger tabellarischer und strukturierter Export aller administrativen und benutzerbezogenen Audit-Events für Compliance und Monitoring.
+* **Automatische Backup-Rotation mit Lock-Schutz**: Intelligente Archivierung älterer Snapshots unter striktem Schutz passwort- oder manipulationsgeschützter AES-256-GCM Locked Backups.
+* **Erweiterte Webhook-Events**: Neue Event-Trigger für `server.start`, `server.stop` und `server.oom` für externe Monitoring- und Benachrichtigungssysteme.
 * **Discord Bot Management & Operations Suite**: Integrated Discord Bot engine with Discord.js v14 and Discord Components V2, 15 slash commands, interactive verification modal, ticket transcripts, and full server lifecycle power control (`/server-start`, `/server-stop`, `/server-restart`).
 * **FileManager Action Differentiator**: Redesigned distinguishable action icons for code editor (`FileCode` in cyan) and file rename (`Tag` in amber).
 * **Native FileManager Context Menu**: Full right-click context menu across files and directories with Open, Edit, Rename, Copy Path, Download, Extract Archive, and Delete.

@@ -400,6 +400,13 @@ func SetupRouter(
 			nestsAdminGroup.POST("", nestCtrl.CreateNest)
 			nestsAdminGroup.PATCH("/:id", nestCtrl.UpdateNest)
 			nestsAdminGroup.DELETE("/:id", nestCtrl.DeleteNest)
+			nestsAdminGroup.POST("/:nestId/eggs/import", nestCtrl.ImportEgg)
+		}
+
+		adminNestsGroup := apiGroup.Group("/admin/nests")
+		adminNestsGroup.Use(middleware.RequireAdmin())
+		{
+			adminNestsGroup.POST("/:nestId/eggs/import", nestCtrl.ImportEgg)
 		}
 
 		eggsAdminGroup := apiGroup.Group("/eggs")

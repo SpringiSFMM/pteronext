@@ -424,8 +424,18 @@ func (n *NestController) ImportEgg(c *gin.Context) {
 	var rawData []byte
 	var nestID uint
 
-	// Check nest_id from query or form
-	if qID := c.Query("nest_id"); qID != "" {
+	// Check nest_id from path param, query or form
+	if pID := c.Param("nestId"); pID != "" {
+		if val, err := strconv.ParseUint(pID, 10, 32); err == nil {
+			nestID = uint(val)
+		}
+	}
+	if pID := c.Param("id"); pID != "" && nestID == 0 {
+		if val, err := strconv.ParseUint(pID, 10, 32); err == nil {
+			nestID = uint(val)
+		}
+	}
+	if qID := c.Query("nest_id"); qID != "" && nestID == 0 {
 		if val, err := strconv.ParseUint(qID, 10, 32); err == nil {
 			nestID = uint(val)
 		}

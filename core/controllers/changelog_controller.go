@@ -169,6 +169,10 @@ func (ch *ChangelogController) GetChangelog(c *gin.Context) {
 			TagEN:         "LATEST STABLE",
 			IsLatest:      true,
 			Highlights: []string{
+				"Community Egg Marketplace: 1-Klick-Import geprüfter Eggs direkt aus dem PteroNext Store (pteronext.com)",
+				"Audit-Log Export als CSV & JSON",
+				"Automatische Backup-Rotation mit Lock-Schutz",
+				"Erweiterte Webhook-Events (server.start, server.stop, server.oom)",
 				"Discord Bot Operations Suite: Discord.js v14 & Components V2 mit 15 Slash-Commands (/status, /server-start, /server-stop, /server-restart, /verify, /ticket etc.)",
 				"Resilienter Status-Monitor: Echtzeit-Abfrage der Website-API mit 2-Stufen-Retry und intelligentem Cache-Fallback gegen 502/503-Gateway-Aussetzer",
 				"FileManager Kontextmenü & Icon-Trennung: Eindeutige Icons für Code-Editor (Cyan) und Umbenennen (Bernstein) plus volles Rechtsklick-Menü",
@@ -177,6 +181,10 @@ func (ch *ChangelogController) GetChangelog(c *gin.Context) {
 				"Workload-basiertes Dateiseeding: Saubere Node.js/Bot-Templates ohne Minecraft-Dateileichen bei neuen Servern",
 			},
 			HighlightsEN: []string{
+				"Community Egg Marketplace: 1-Click import of verified eggs directly from PteroNext Store (pteronext.com)",
+				"Audit Log Export as CSV & JSON",
+				"Automated Backup Rotation with Lock Protection",
+				"Extended Webhook Events (server.start, server.stop, server.oom)",
 				"Discord Bot Operations Suite: Discord.js v14 & Components V2 with 15 slash commands (/status, /server-start, /server-stop, /server-restart, /verify, /ticket, etc.)",
 				"Resilient Status Monitor: Realtime polling of Homepage status API with 2-stage retry and smart cached fallback against transient 502/503 gateway blips",
 				"FileManager Context Menu & Icon Distinction: Dedicated icons for Code Editor (Cyan) and Rename (Amber) plus full native right-click context menu",
