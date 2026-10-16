@@ -471,6 +471,11 @@ func (f *FileService) ListDirectory(serverUUID, relPath string) ([]FileItem, err
 
 	var items []FileItem
 	for _, entry := range entries {
+		// Hide internal system markers and OS meta files from user filemanager
+		if entry.Name() == ".pteronext_initialized" || entry.Name() == ".DS_Store" {
+			continue
+		}
+
 		info, err := entry.Info()
 		if err != nil {
 			continue

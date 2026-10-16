@@ -21,19 +21,22 @@ import (
 type DiscordController struct {
 	db          *gorm.DB
 	authService *services.AuthService
+	botService  *services.DiscordBotService
 }
 
-func NewDiscordController(db *gorm.DB, authService *services.AuthService) *DiscordController {
-	return &DiscordController{db: db, authService: authService}
+func NewDiscordController(db *gorm.DB, authService *services.AuthService, botService *services.DiscordBotService) *DiscordController {
+	return &DiscordController{db: db, authService: authService, botService: botService}
 }
 
 type DiscordConfigRequest struct {
-	Enabled      bool   `json:"enabled"`
-	ClientID     string `json:"client_id"`
-	ClientSecret string `json:"client_secret"`
-	BotToken     string `json:"bot_token"`
-	GuildID      string `json:"guild_id"`
-	RedirectURI  string `json:"redirect_uri"`
+	Enabled              bool   `json:"enabled"`
+	ClientID             string `json:"client_id"`
+	ClientSecret         string `json:"client_secret"`
+	BotToken             string `json:"bot_token"`
+	GuildID              string `json:"guild_id"`
+	RedirectURI          string `json:"redirect_uri"`
+	SlashCommandsEnabled bool   `json:"slash_commands_enabled"`
+	RoleMappings         string `json:"role_mappings"`
 }
 
 // GetDiscordConfig handles GET /api/admin/integrations/discord (Admin only)
@@ -46,14 +49,24 @@ func (d *DiscordController) GetDiscordConfig(c *gin.Context) {
 		configMap[s.Key] = s.Value
 	}
 
+	botIdent := d.botService.GetBotIdentity()
+	var botTag string
+	if botIdent != nil {
+		botTag = botIdent.BotTag
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"enabled":       configMap["discord_enabled"] == "true",
-		"client_id":     configMap["discord_client_id"],
-		"client_secret": configMap["discord_client_secret"],
-		"bot_token":     configMap["discord_bot_token"],
-		"guild_id":      configMap["discord_guild_id"],
-		"redirect_uri":  configMap["discord_redirect_uri"],
-		"bot_active":    configMap["discord_bot_token"] != "",
+		"enabled":                configMap["discord_enabled"] == "true",
+		"client_id":              configMap["discord_client_id"],
+		"client_secret":          configMap["discord_client_secret"],
+		"bot_token":              configMap["discord_bot_token"],
+		"guild_id":               configMap["discord_guild_id"],
+		"redirect_uri":           configMap["discord_redirect_uri"],
+		"slash_commands_enabled": configMap["discord_slash_commands_enabled"] == "true",
+		"role_mappings":          configMap["discord_role_mappings"],
+		"bot_active":             configMap["discord_bot_token"] != "" && configMap["discord_enabled"] == "true",
+		"bot_running":            d.botService.IsRunning(),
+		"bot_tag":                botTag,
 	})
 }
 
@@ -89,9 +102,108 @@ func (d *DiscordController) SaveDiscordConfig(c *gin.Context) {
 	saveSetting("discord_guild_id", req.GuildID)
 	saveSetting("discord_redirect_uri", req.RedirectURI)
 
+	slashEnabledStr := "false"
+	if req.SlashCommandsEnabled {
+		slashEnabledStr = "true"
+	}
+	saveSetting("discord_slash_commands_enabled", slashEnabledStr)
+	saveSetting("discord_role_mappings", req.RoleMappings)
+
+	// Trigger Discord Bot service reload in background
+	if d.botService != nil {
+		go d.botService.Reload()
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Discord integration settings saved successfully.",
+		"message": "Discord integration and bot settings saved successfully.",
 		"enabled": req.Enabled,
+	})
+}
+
+// TestDiscordConnection handles POST /api/admin/integrations/discord/test (Admin only)
+func (d *DiscordController) TestDiscordConnection(c *gin.Context) {
+	var req struct {
+		BotToken string `json:"bot_token"`
+	}
+	_ = c.ShouldBindJSON(&req)
+
+	token := strings.TrimSpace(req.BotToken)
+	if token == "" {
+		var s models.SystemSetting
+		d.db.Where("key = 'discord_bot_token'").First(&s)
+		token = strings.TrimSpace(s.Value)
+	}
+
+	if token == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Kein Discord Bot-Token angegeben."})
+		return
+	}
+
+	botIdent, err := d.botService.TestConnection(token)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   fmt.Sprintf("Verbindung fehlgeschlagen: %v", err),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":  true,
+		"message":  fmt.Sprintf("Verbindung erfolgreich! Bot: %s", botIdent.BotTag),
+		"bot_user": botIdent,
+	})
+}
+
+// GetDiscordRoles handles GET /api/admin/integrations/discord/roles (Admin only)
+func (d *DiscordController) GetDiscordRoles(c *gin.Context) {
+	var guildSetting, tokenSetting models.SystemSetting
+	d.db.Where("key = 'discord_guild_id'").First(&guildSetting)
+	d.db.Where("key = 'discord_bot_token'").First(&tokenSetting)
+
+	guildID := strings.TrimSpace(guildSetting.Value)
+	token := strings.TrimSpace(tokenSetting.Value)
+
+	if guildID == "" || token == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Guild-ID und Bot-Token müssen konfiguriert sein."})
+		return
+	}
+
+	roles, err := d.botService.GetGuildRoles(guildID, token)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"roles": roles,
+	})
+}
+
+// SyncSlashCommands handles POST /api/admin/integrations/discord/sync-commands (Admin only)
+func (d *DiscordController) SyncSlashCommands(c *gin.Context) {
+	var clientIDSetting, guildSetting, tokenSetting models.SystemSetting
+	d.db.Where("key = 'discord_client_id'").First(&clientIDSetting)
+	d.db.Where("key = 'discord_guild_id'").First(&guildSetting)
+	d.db.Where("key = 'discord_bot_token'").First(&tokenSetting)
+
+	clientID := strings.TrimSpace(clientIDSetting.Value)
+	guildID := strings.TrimSpace(guildSetting.Value)
+	token := strings.TrimSpace(tokenSetting.Value)
+
+	if clientID == "" || guildID == "" || token == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Client-ID, Guild-ID und Bot-Token sind erforderlich, um Slash-Commands zu registrieren."})
+		return
+	}
+
+	if err := d.botService.RegisterSlashCommands(clientID, guildID, token); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Registrierung fehlgeschlagen: %v", err)})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Slash-Commands (/server list, /server status, /server start, /server stop, /server restart, /link, /panel) erfolgreich auf Discord registriert!",
 	})
 }
 
@@ -670,4 +782,35 @@ func (d *DiscordController) UnlinkDiscord(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Discord account unlinked."})
+}
+
+// GetUserByDiscordID handles GET /api/discord/users/:discord_id
+func (d *DiscordController) GetUserByDiscordID(c *gin.Context) {
+	discordID := strings.TrimSpace(c.Param("discord_id"))
+	if discordID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "discord_id parameter required"})
+		return
+	}
+
+	var user models.User
+	if err := d.db.Where("discord_id = ?", discordID).First(&user).Error; err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"linked":  false,
+			"message": "Discord account is not linked to any PteroNext panel account.",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"linked": true,
+		"user": gin.H{
+			"id":               user.ID,
+			"username":         user.Username,
+			"email":            user.Email,
+			"root_admin":       user.RootAdmin,
+			"role":             user.Role,
+			"discord_id":       user.DiscordID,
+			"discord_username": user.DiscordUsername,
+		},
+	})
 }

@@ -28,6 +28,7 @@ func SetupRouter(
 	backupService *services.BackupService,
 	webhookService *services.WebhookService,
 	scannerService *services.SecurityScannerService,
+	discordBotService *services.DiscordBotService,
 ) *gin.Engine {
 	if !cfg.Debug {
 		gin.SetMode(gin.ReleaseMode)
@@ -61,11 +62,12 @@ func SetupRouter(
 	systemUpdateCtrl := controllers.NewSystemUpdateController()
 	router.GET("/api/system/updates/check", systemUpdateCtrl.CheckUpdate)
 
-	discordCtrl := controllers.NewDiscordController(db, authService)
+	discordCtrl := controllers.NewDiscordController(db, authService, discordBotService)
 	router.GET("/api/auth/discord/status", discordCtrl.GetPublicStatus)
 	router.GET("/api/auth/discord/login", discordCtrl.DiscordLogin)
 	router.GET("/api/auth/discord/redirect", discordCtrl.DiscordLogin)
 	router.GET("/api/auth/discord/callback", discordCtrl.DiscordCallback)
+	router.GET("/api/discord/users/:discord_id", discordCtrl.GetUserByDiscordID)
 
 	setupCtrl := controllers.NewSetupController(db, cfg, authService)
 	router.GET("/api/system/setup-status", setupCtrl.GetSetupStatus)
@@ -441,6 +443,9 @@ func SetupRouter(
 		{
 			adminIntegrationsGroup.GET("/discord", discordCtrl.GetDiscordConfig)
 			adminIntegrationsGroup.POST("/discord", discordCtrl.SaveDiscordConfig)
+			adminIntegrationsGroup.POST("/discord/test", discordCtrl.TestDiscordConnection)
+			adminIntegrationsGroup.GET("/discord/roles", discordCtrl.GetDiscordRoles)
+			adminIntegrationsGroup.POST("/discord/sync-commands", discordCtrl.SyncSlashCommands)
 			adminIntegrationsGroup.GET("/cloudflare", dnsCtrl.GetCloudflareConfig)
 			adminIntegrationsGroup.POST("/cloudflare", dnsCtrl.SaveCloudflareConfig)
 		}

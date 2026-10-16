@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useApp } from '../../../context/AppContext';
 import { api } from '../../../api/client';
 import { isBot, isWeb } from '../../../types';
@@ -129,6 +129,9 @@ export const EnvVaultTab: React.FC = () => {
   const [rawText, setRawText] = useState<string>('');
 
   const serverUuid = selectedServer?.uuid || selectedServer?.id || '';
+  const isBotServer = Boolean(isBot(selectedServer));
+  const isWebServer = Boolean(isWeb(selectedServer));
+  const lastLoadedUuidRef = useRef<string>('');
 
   // Load .env from server
   const loadEnvFile = useCallback(async () => {
@@ -141,14 +144,14 @@ export const EnvVaultTab: React.FC = () => {
       const parsed = parseDotEnv(content);
       if (parsed.length === 0) {
         // Fallback default templates for convenient onboarding
-        if (isBot(selectedServer)) {
+        if (isBotServer) {
           setVariables([
             { id: '1', key: 'DISCORD_TOKEN', value: '', isSecret: true, comment: 'Bot authorization token' },
             { id: '2', key: 'CLIENT_ID', value: '', isSecret: false, comment: 'Application Client ID' },
             { id: '3', key: 'BOT_PREFIX', value: '!', isSecret: false, comment: 'Command prefix' },
             { id: '4', key: 'NODE_ENV', value: 'production', isSecret: false },
           ]);
-        } else if (isWeb(selectedServer)) {
+        } else if (isWebServer) {
           setVariables([
             { id: '1', key: 'PORT', value: '3000', isSecret: false, comment: 'Internal web listen port' },
             { id: '2', key: 'NODE_ENV', value: 'production', isSecret: false },
@@ -168,7 +171,7 @@ export const EnvVaultTab: React.FC = () => {
     } catch (err) {
       console.warn('No .env found or failed reading .env; creating new vault buffer', err);
       // Initialize with fresh defaults
-      const defaults: EnvVariable[] = isBot(selectedServer)
+      const defaults: EnvVariable[] = isBotServer
         ? [
             { id: '1', key: 'DISCORD_TOKEN', value: '', isSecret: true, comment: 'Discord Gateway Bot Token' },
             { id: '2', key: 'CLIENT_ID', value: '', isSecret: false },
@@ -184,11 +187,14 @@ export const EnvVaultTab: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [serverUuid, selectedServer]);
+  }, [serverUuid, isBotServer, isWebServer]);
 
   useEffect(() => {
-    loadEnvFile();
-  }, [loadEnvFile]);
+    if (serverUuid && lastLoadedUuidRef.current !== serverUuid) {
+      lastLoadedUuidRef.current = serverUuid;
+      loadEnvFile();
+    }
+  }, [serverUuid, loadEnvFile]);
 
   // Track dirty changes
   const currentSerialized = useMemo(() => serializeDotEnv(variables), [variables]);

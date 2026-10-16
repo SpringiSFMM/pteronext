@@ -3,6 +3,20 @@ This file is a running track of new features and fixes to each version of the pa
 
 This project follows [Semantic Versioning](http://semver.org) guidelines.
 
+## v2.9.1
+### Added
+* **Discord Bot Management & Operations Suite**: Integrated Discord Bot engine with Discord.js v14 and Discord Components V2, 15 slash commands, interactive verification modal, ticket transcripts, and full server lifecycle power control (`/server-start`, `/server-stop`, `/server-restart`).
+* **FileManager Action Differentiator**: Redesigned distinguishable action icons for code editor (`FileCode` in cyan) and file rename (`Tag` in amber).
+* **Native FileManager Context Menu**: Full right-click context menu across files and directories with Open, Edit, Rename, Copy Path, Download, Extract Archive, and Delete.
+* **Server Power Action Kill Priority**: Absolute priority for server Kill signals, cancelling any pending start, stop, or restart sequences immediately and broadcasting instant offline state to UI and Wings.
+* **Dynamic Git Deployment History**: Clean deployment history initialization eliminating dummy mock runs on newly provisioned servers.
+* **Workload-Aware Server File Seeding**: Node.js and Discord bot templates seed proper project files (`index.js`, `package.json`, `.env.example`) instead of Minecraft server configs.
+* **Realtime Website Status Polling**: Resilience engine with 2-stage backoff and cached fallback for the status monitor against transient network/gateway blips.
+
+### Fixed
+* **Environment Vault Infinite Reload**: Resolved dependency loop in `.env & Secrets` tab caused by periodic 1-second server metrics polling.
+* **WebSocket Power Sequence State Desync**: Synchronized Wings power execution with both WebSocket event hub and REST power dispatch.
+
 ## v2.9.0
 ### Added
 * **1-Click Pterodactyl & Pelican Project Importer**: Seamlessly import existing game servers, projects, hardware quotas (RAM, CPU, Disk, Swap, IO), Docker images, and startup parameters directly from Pterodactyl or Pelican panels via Application API or Client API.

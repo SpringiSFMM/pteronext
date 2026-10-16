@@ -36,8 +36,8 @@ type APIKey struct {
 
 // GenerateNewAPIKey creates a new APIKey struct and returns the raw secret token to display once to the user.
 func GenerateNewAPIKey(userID uint, keyType, memo string, expiresAt *time.Time) (*APIKey, string, error) {
-	identifier := generateRandomString(8)
-	secret := generateRandomString(24)
+	identifier := generateRandomString(16)
+	secret := generateRandomString(32)
 	rawKey := fmt.Sprintf("ptl_%s%s", identifier, secret)
 
 	hash := sha256.Sum256([]byte(secret))

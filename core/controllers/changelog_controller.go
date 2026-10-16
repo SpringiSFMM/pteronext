@@ -159,15 +159,70 @@ func (ch *ChangelogController) GetChangelog(c *gin.Context) {
 
 	rawReleases := []ReleaseItem{
 		{
+			Version:       "v2.9.1",
+			Date:          "October 2026",
+			Title:         "Discord Bot Operations Suite, FileManager Context Menus, EnvVault Stability & Power Priority",
+			TitleEN:       "Discord Bot Operations Suite, FileManager Context Menus, EnvVault Stability & Power Priority",
+			Description:   "Wartungs- und Feature-Release v2.9.1: Vollwertige PteroNext Core Management Discord Bot Integration (Discord.js v14 & Components V2) mit 15 Slash-Befehlen, Live-Status-Überwachung über Website-API mit Retry-Resilienz, neu gestaltete Datei-Aktions-Icons und natives Rechtsklick-Kontextmenü im FileManager, Behebung des Endlos-Reloads im .env & Secrets Tab sowie absolute Priorität für Server-Kill-Aktionen.",
+			DescriptionEN: "Maintenance and feature release v2.9.1: Full-featured PteroNext Core Management Discord Bot integration (Discord.js v14 & Components V2) with 15 slash commands, live status sync via homepage API with retry resilience, redesigned distinct action icons and native right-click context menu in FileManager, fixed infinite reload loop in .env & Secrets tab, and absolute priority for server Kill power actions.",
+			Tag:           "LATEST STABLE",
+			TagEN:         "LATEST STABLE",
+			IsLatest:      true,
+			Highlights: []string{
+				"Discord Bot Operations Suite: Discord.js v14 & Components V2 mit 15 Slash-Commands (/status, /server-start, /server-stop, /server-restart, /verify, /ticket etc.)",
+				"Resilienter Status-Monitor: Echtzeit-Abfrage der Website-API mit 2-Stufen-Retry und intelligentem Cache-Fallback gegen 502/503-Gateway-Aussetzer",
+				"FileManager Kontextmenü & Icon-Trennung: Eindeutige Icons für Code-Editor (Cyan) und Umbenennen (Bernstein) plus volles Rechtsklick-Menü",
+				".env Vault Stabilitäts-Fix: Eliminierung von Re-Render-Schleifen beim sekundlichen Server-Stats-Polling",
+				"Power Action Kill-Priorität: Sofortiger Abbruch aller Start/Stop/Restart-Timer und simultanes Senden von WebSocket & REST SIGKILL",
+				"Workload-basiertes Dateiseeding: Saubere Node.js/Bot-Templates ohne Minecraft-Dateileichen bei neuen Servern",
+			},
+			HighlightsEN: []string{
+				"Discord Bot Operations Suite: Discord.js v14 & Components V2 with 15 slash commands (/status, /server-start, /server-stop, /server-restart, /verify, /ticket, etc.)",
+				"Resilient Status Monitor: Realtime polling of Homepage status API with 2-stage retry and smart cached fallback against transient 502/503 gateway blips",
+				"FileManager Context Menu & Icon Distinction: Dedicated icons for Code Editor (Cyan) and Rename (Amber) plus full native right-click context menu",
+				".env Vault Stability Fix: Eliminated infinite reload re-render loop triggered by 1-second server metrics polling",
+				"Power Action Kill Priority: Instant cancellation of any pending start/stop/restart timers and simultaneous WebSocket & REST SIGKILL dispatch",
+				"Workload-Aware File Seeding: Clean Node.js and bot templates without legacy Minecraft file residue on new servers",
+			},
+			Features: []string{
+				"Discord Bot Slash-Commands für Server-Steuerung und Support-Tickets",
+				"Rechtsklick-Kontextmenü für Dateien und Ordner im Datei-Manager",
+				"Automatischer Cache-Fallback bei Status-Abfragen",
+				"Bereinigte Git-Deployment-Historie ohne Dummy-Einträge bei Neuerstellung",
+			},
+			FeaturesEN: []string{
+				"Discord Bot slash commands for server lifecycle operations and support tickets",
+				"Native right-click context menu for files and folders in FileManager",
+				"Automatic cached fallback for live status checks",
+				"Clean Git deployment history eliminating dummy mock entries on server creation",
+			},
+			Security: []string{
+				"Priorisierte Kill-Abschaltung unterbindet unerwünschte Neustart-Schleifen",
+				"Robuste 502/503 Fehlerabschirmung im Discord-Bot-Statusmonitor",
+			},
+			SecurityEN: []string{
+				"Prioritized Kill execution terminates containers immediately and prevents restart loops",
+				"Robust 502/503 error shielding in Discord bot status polling",
+			},
+			Improvements: []string{
+				"Performance-Optimierung der Dokumentations- und Status-APIs",
+				"Erhöhte UX-Klarheit durch getrennte Editor- und Umbenennen-Buttons",
+			},
+			ImprovementsEN: []string{
+				"Performance optimization of Documentation and Status APIs via in-memory caching",
+				"Enhanced UI clarity with separated editor and rename buttons",
+			},
+		},
+		{
 			Version:       "v2.9.0",
 			Date:          "October 2026",
 			Title:         "1-Click Pterodactyl Importer, Egg Drag&Drop, CLI Updater & Cloudflare DNS",
 			TitleEN:       "1-Click Pterodactyl Importer, Egg Drag&Drop, CLI Updater & Cloudflare DNS",
 			Description:   "Meilenstein-Release v2.9.0: Neuer interaktiver 1-Klick Importer für Pterodactyl & Pelican Instanzen, Offline Drag&Drop für Egg-Templates und Manifeste, sicheres CLI-Update-Kommando (pteronext update) mit automatischem Datenbank-Snapshot ohne Datenverlust, sowie automatisierte Cloudflare DNS E-Mail-Konfiguration.",
 			DescriptionEN: "Milestone release v2.9.0: New interactive 1-click importer for Pterodactyl & Pelican instances, offline drag-and-drop egg template and manifest loader, safe CLI updater (pteronext update) with automated database pre-update snapshot without modifying data/servers, and automated Cloudflare DNS routing.",
-			Tag:           "LATEST STABLE",
-			TagEN:         "LATEST STABLE",
-			IsLatest:      true,
+			Tag:           "STABLE",
+			TagEN:         "STABLE",
+			IsLatest:      false,
 			Highlights: []string{
 				"PteroNext Safe CLI Updater: 'pteronext update' mit automatischem Datenbank-Snapshot und partiellem Binary/Asset-Austausch",
 				"1-Click Pterodactyl & Pelican Project Importer: Nahtlose Migration aller Server, Quotas, Docker-Images und Startup-Parameter",

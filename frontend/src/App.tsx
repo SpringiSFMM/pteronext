@@ -15,6 +15,7 @@ import { AdminUsersView } from './components/admin/AdminUsersView';
 import { AdminEggsView } from './components/admin/AdminEggsView';
 import { AdminDatabasesView } from './components/admin/AdminDatabasesView';
 import { AdminServersView } from './components/admin/AdminServersView';
+import { AdminDiscordBotView } from './components/admin/AdminDiscordBotView';
 import { SetupWizardView } from './components/setup/SetupWizardView';
 import { LoginView } from './components/auth/LoginView';
 import { ToastContainer } from './components/common/Toast';
@@ -92,6 +93,7 @@ const MainViewContent: React.FC = () => {
       {isRootAdmin && effectiveView === 'admin-users' && <AdminUsersView />}
       {isRootAdmin && effectiveView === 'admin-eggs' && <AdminEggsView />}
       {isRootAdmin && effectiveView === 'admin-databases' && <AdminDatabasesView />}
+      {isRootAdmin && effectiveView === 'admin-discord-bot' && <AdminDiscordBotView />}
     </AppLayout>
   );
 };

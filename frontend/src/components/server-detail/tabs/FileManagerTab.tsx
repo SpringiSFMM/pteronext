@@ -29,6 +29,7 @@ import {
   Copy,
   Check,
   Lock,
+  Tag,
 } from 'lucide-react';
 import { Modal } from '../../common/Modal';
 import { CodeEditorModal } from './file-manager/CodeEditorModal';
@@ -143,6 +144,36 @@ export const FileManagerTab: React.FC = () => {
 
   // Clipboard copy state for path
   const [isPathCopied, setIsPathCopied] = useState(false);
+
+  // Context Menu state
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    file: FileItem;
+  } | null>(null);
+
+  // Close context menu on outside click or scroll
+  useEffect(() => {
+    const handleCloseContextMenu = () => setContextMenu(null);
+    window.addEventListener('click', handleCloseContextMenu);
+    window.addEventListener('resize', handleCloseContextMenu);
+    window.addEventListener('scroll', handleCloseContextMenu, true);
+    return () => {
+      window.removeEventListener('click', handleCloseContextMenu);
+      window.removeEventListener('resize', handleCloseContextMenu);
+      window.removeEventListener('scroll', handleCloseContextMenu, true);
+    };
+  }, []);
+
+  const handleContextMenu = (e: React.MouseEvent, file: FileItem) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const menuWidth = 210;
+    const menuHeight = 260;
+    const x = Math.min(e.clientX, window.innerWidth - menuWidth - 10);
+    const y = Math.min(e.clientY, window.innerHeight - menuHeight - 10);
+    setContextMenu({ x, y, file });
+  };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -858,6 +889,7 @@ export const FileManagerTab: React.FC = () => {
                     <tr
                       key={file.path}
                       onClick={() => handleItemClick(file)}
+                      onContextMenu={(e) => handleContextMenu(e, file)}
                       className={`cursor-pointer transition-colors group ${
                         isLocked
                           ? 'opacity-50 hover:bg-rose-950/10 cursor-not-allowed'
@@ -937,10 +969,10 @@ export const FileManagerTab: React.FC = () => {
                                 setActiveEditorFile(file);
                                 setIsEditorOpen(true);
                               }}
-                              className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
-                              title="Edit in Code Editor"
+                              className="p-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 hover:text-cyan-300 transition-colors border border-cyan-500/20"
+                              title={language === 'de' ? 'Datei bearbeiten (Code-Editor)' : 'Edit File (Code Editor)'}
                             >
-                              <Edit3 className="w-3.5 h-3.5" />
+                              <FileCode className="w-3.5 h-3.5" />
                             </button>
                           )}
                           {/* Unarchive / Decompress Button */}
@@ -970,23 +1002,23 @@ export const FileManagerTab: React.FC = () => {
                                 handleDownloadFile(file);
                               }}
                               className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
-                              title="Download File"
+                              title={language === 'de' ? 'Herunterladen' : 'Download File'}
                             >
                               <Download className="w-3.5 h-3.5" />
                             </button>
                           )}
 
-                          {/* Rename Button */}
+                          {/* Rename Button (Distinct Tag/Pencil Icon) */}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               setRenameTarget(file);
                               setRenameValue(file.name);
                             }}
-                            className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
-                            title="Rename"
+                            className="p-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 transition-colors border border-amber-500/20"
+                            title={language === 'de' ? 'Umbenennen' : 'Rename'}
                           >
-                            <Edit3 className="w-3.5 h-3.5" />
+                            <Tag className="w-3.5 h-3.5" />
                           </button>
 
                           {/* Delete Button */}
@@ -1460,6 +1492,124 @@ export const FileManagerTab: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Floating Custom Context Menu (Right Click) */}
+      {contextMenu && (
+        <div
+          style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
+          onClick={(e) => e.stopPropagation()}
+          className="fixed z-50 min-w-[210px] py-1.5 rounded-xl bg-[#090d16]/95 backdrop-blur-2xl border border-slate-700/80 shadow-2xl shadow-black/90 text-xs font-medium text-slate-200 animate-in fade-in zoom-in-95 duration-100"
+        >
+          <div className="px-3 py-1.5 text-[11px] font-mono text-slate-400 border-b border-slate-800/80 truncate max-w-[220px]">
+            {contextMenu.file.name}
+          </div>
+
+          {/* Directory Open */}
+          {contextMenu.file.type === 'directory' ? (
+            <button
+              onClick={() => {
+                handleItemClick(contextMenu.file);
+                setContextMenu(null);
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-white/10 text-slate-200 hover:text-white transition-colors"
+            >
+              <FolderOpen className="w-3.5 h-3.5 text-blue-400" />
+              <span>{language === 'de' ? 'Ordner öffnen' : 'Open Directory'}</span>
+            </button>
+          ) : (
+            /* File Edit in Code Editor */
+            (contextMenu.file.editable || isEditableFileType(contextMenu.file.name)) && (
+              <button
+                onClick={() => {
+                  setActiveEditorFile(contextMenu.file);
+                  setIsEditorOpen(true);
+                  setContextMenu(null);
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-white/10 text-cyan-300 hover:text-cyan-200 transition-colors"
+              >
+                <FileCode className="w-3.5 h-3.5 text-cyan-400" />
+                <span>{language === 'de' ? 'Datei bearbeiten' : 'Edit File'}</span>
+              </button>
+            )
+          )}
+
+          {/* Rename */}
+          <button
+            onClick={() => {
+              setRenameTarget(contextMenu.file);
+              setRenameValue(contextMenu.file.name);
+              setContextMenu(null);
+            }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-white/10 text-slate-200 hover:text-white transition-colors"
+          >
+            <Tag className="w-3.5 h-3.5 text-amber-400" />
+            <span>{language === 'de' ? 'Umbenennen' : 'Rename'}</span>
+          </button>
+
+          {/* Copy Path */}
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(contextMenu.file.path);
+              addToast({
+                title: language === 'de' ? 'Kopiert' : 'Copied',
+                description: language === 'de' ? 'Pfad in die Zwischenablage kopiert' : 'Path copied to clipboard',
+                type: 'info',
+              });
+              setContextMenu(null);
+            }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-white/10 text-slate-200 hover:text-white transition-colors"
+          >
+            <Copy className="w-3.5 h-3.5 text-slate-400" />
+            <span>{language === 'de' ? 'Pfad kopieren' : 'Copy Path'}</span>
+          </button>
+
+          {/* Download (if file) */}
+          {contextMenu.file.type !== 'directory' && (
+            <button
+              onClick={() => {
+                handleDownloadFile(contextMenu.file);
+                setContextMenu(null);
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-white/10 text-slate-200 hover:text-white transition-colors"
+            >
+              <Download className="w-3.5 h-3.5 text-slate-400" />
+              <span>{language === 'de' ? 'Herunterladen' : 'Download File'}</span>
+            </button>
+          )}
+
+          {/* Extract (if archive) */}
+          {contextMenu.file.type !== 'directory' &&
+            (contextMenu.file.name.endsWith('.zip') ||
+              contextMenu.file.name.endsWith('.tar.gz') ||
+              contextMenu.file.name.endsWith('.tgz') ||
+              contextMenu.file.name.endsWith('.gz')) && (
+              <button
+                onClick={() => {
+                  handleDecompress(contextMenu.file);
+                  setContextMenu(null);
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-amber-500/10 text-amber-300 hover:text-amber-200 transition-colors"
+              >
+                <FileArchive className="w-3.5 h-3.5 text-amber-400" />
+                <span>{language === 'de' ? 'Archiv entpacken' : 'Extract Archive'}</span>
+              </button>
+            )}
+
+          <div className="my-1 border-t border-slate-800" />
+
+          {/* Delete */}
+          <button
+            onClick={() => {
+              setDeleteTarget(contextMenu.file);
+              setContextMenu(null);
+            }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 transition-colors"
+          >
+            <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+            <span>{language === 'de' ? 'Löschen' : 'Delete'}</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 };

@@ -59,7 +59,7 @@ const GLOBAL_SECTIONS = [
       { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, hint: '⌘1' },
       { id: 'servers', label: 'Servers', icon: ServerIcon, hint: '' },
       { id: 'activity', label: 'Activity / Audit', icon: Activity, hint: '' },
-      { id: 'changelog', label: 'Changelog & Updates', icon: Sparkles, hint: 'v2.9.0' },
+      { id: 'changelog', label: 'Changelog & Updates', icon: Sparkles, hint: 'v2.9.1' },
     ],
   },
   {
@@ -72,6 +72,8 @@ const GLOBAL_SECTIONS = [
       { id: 'admin-users', label: 'Users', icon: Users, hint: '' },
       { id: 'admin-eggs', label: 'Eggs & Nests', icon: Package, hint: '' },
       { id: 'admin-databases', label: 'Databases', icon: Database, hint: '' },
+      { id: 'admin-discord-bot', label: 'Discord Bot', icon: Bot, hint: '' },
+      { id: 'admin-api-keys', label: 'API-Keys', icon: Key, hint: 'REST' },
     ],
   },
 ] as const;
@@ -179,6 +181,7 @@ export const Sidebar: React.FC = () => {
       case 'admin-users': return t('admin_users');
       case 'admin-eggs': return t('admin_eggs');
       case 'admin-databases': return t('admin_databases');
+      case 'admin-api-keys': return language === 'de' ? 'API-Keys / Tokens' : 'API Keys / Tokens';
       default: return defaultLabel;
     }
   };
@@ -501,6 +504,11 @@ export const Sidebar: React.FC = () => {
   };
 
   const handleNavClick = (view: any) => {
+    if (view === 'admin-api-keys') {
+      openAccountSettings('api-keys');
+      if (isMobileDrawerOpen) setIsMobileDrawerOpen(false);
+      return;
+    }
     setActiveView(view);
     if (isMobileDrawerOpen) {
       setIsMobileDrawerOpen(false);

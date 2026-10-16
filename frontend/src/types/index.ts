@@ -17,6 +17,7 @@ export type ActiveView =
   | 'admin-users' 
   | 'admin-eggs'
   | 'admin-databases'
+  | 'admin-discord-bot'
   | 'setup';
 
 export interface ServerStats {

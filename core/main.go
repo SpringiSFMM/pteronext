@@ -200,6 +200,8 @@ func main() {
 	webhookService := services.NewWebhookService(db)
 	backupService := services.NewBackupService(db, fileService, webhookService, filepath.Dir(cfg.DBPath))
 	scannerService := services.NewSecurityScannerService()
+	discordBotService := services.NewDiscordBotService(db, wingsClient)
+	discordBotService.Start()
 
 	// Setup Router & Middleware
 	router := routes.SetupRouter(
@@ -215,6 +217,7 @@ func main() {
 		backupService,
 		webhookService,
 		scannerService,
+		discordBotService,
 	)
 
 	// HTTP Server with graceful shutdown

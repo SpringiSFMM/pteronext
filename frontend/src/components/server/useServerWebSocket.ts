@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { ServerStatus, PowerAction, ServerStats } from '../../types';
+import { api } from '../../api/client';
 import {
   WebSocketConnectionStatus,
   MetricsHistoryPoint,
@@ -95,6 +96,7 @@ export function useServerWebSocket({
   const reconnectAttemptsRef = useRef(0);
   const demoIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isDemoModeRef = useRef(false);
+  const pendingPowerTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Helper to append a single log line safely
   const appendLog = useCallback((raw: string, level: ConsoleLogEntry['level'] = 'info') => {
@@ -418,40 +420,61 @@ export function useServerWebSocket({
     }
   }, [appendLog, currentStats]);
 
-  // Send power action (start, stop, restart, kill)
+  // Send power action (start, stop, restart, kill) with strict KILL priority
   const sendPowerAction = useCallback((action: PowerAction) => {
+    // 1. Immediately cancel ANY pending lifecycle timers (Kill or Stop overrides Restart/Start)
+    if (pendingPowerTimerRef.current) {
+      clearTimeout(pendingPowerTimerRef.current);
+      pendingPowerTimerRef.current = null;
+    }
+
     appendLog(`\x1b[33m[Action Sent]\x1b[0m Power signal: \x1b[1;36m${action.toUpperCase()}\x1b[0m`, 'system');
 
+    // 2. Kill action has absolute priority: instantly set offline and abort any reboot sequence
+    if (action === 'kill') {
+      setServerStatus('offline');
+      appendLog('\x1b[1;31m[SIGKILL ENFORCED]\x1b[0m Process forcibly terminated with absolute priority.', 'error');
+    } else if (action === 'stop') {
+      setServerStatus('stopping');
+    } else if (action === 'start' || action === 'restart') {
+      setServerStatus('starting');
+    }
+
+    // 3. Send via WebSocket if connection is open
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       socketRef.current.send(JSON.stringify({ event: 'set state', args: [action] }));
-    } else if (isDemoModeRef.current) {
-      // Simulate state transition
+    }
+
+    // 4. Always dispatch to backend REST API to guarantee daemon synchronization
+    if (serverUuid) {
+      api.servers.power(serverUuid, action).catch((err) => {
+        console.warn('REST power action dispatch notice:', err);
+      });
+    }
+
+    // 5. In demo/simulated mode, execute state transitions with clearable timers
+    if (isDemoModeRef.current) {
       if (action === 'start') {
-        setServerStatus('starting');
         appendLog('\x1b[32m[Container]\x1b[0m Initializing boot sequence and mounting volumes...');
-        setTimeout(() => {
+        pendingPowerTimerRef.current = setTimeout(() => {
           setServerStatus('running');
           appendLog('\x1b[32m[Server]\x1b[0m Server process online and listening on assigned port.');
         }, 2000);
       } else if (action === 'stop') {
         appendLog('\x1b[33m[Server]\x1b[0m Graceful shutdown sequence initiated...');
-        setTimeout(() => {
+        pendingPowerTimerRef.current = setTimeout(() => {
           setServerStatus('stopped');
           appendLog('\x1b[31m[Server]\x1b[0m Server marked as stopped. Process exited with code 0.');
         }, 1500);
       } else if (action === 'restart') {
         appendLog('\x1b[33m[Server]\x1b[0m Restarting server process...');
-        setServerStatus('starting');
-        setTimeout(() => {
+        pendingPowerTimerRef.current = setTimeout(() => {
           setServerStatus('running');
           appendLog('\x1b[32m[Server]\x1b[0m Server restarted successfully.');
         }, 2200);
-      } else if (action === 'kill') {
-        setServerStatus('offline');
-        appendLog('\x1b[1;31m[KILL SIGNAL]\x1b[0m SIGKILL sent! Process forcibly terminated.', 'error');
       }
     }
-  }, [appendLog]);
+  }, [appendLog, serverUuid]);
 
   // Clear logs
   const clearLogs = useCallback(() => {

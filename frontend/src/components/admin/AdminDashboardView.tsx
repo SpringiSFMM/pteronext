@@ -27,6 +27,7 @@ import {
   AlertTriangle,
   Sparkles,
   Trash2,
+  Key,
 } from 'lucide-react';
 import { COLOR_THEMES } from '../../types';
 
@@ -41,6 +42,7 @@ export const AdminDashboardView: React.FC = () => {
     servers,
     setActiveView,
     setIsCreateServerOpen,
+    openAccountSettings,
     selectServerAndNavigate,
     addToast,
     language,
@@ -283,6 +285,15 @@ export const AdminDashboardView: React.FC = () => {
           >
             <RefreshCw className={`w-3.5 h-3.5 ${adminLoading ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
+          </button>
+
+          <button
+            onClick={() => openAccountSettings('api-keys')}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#161b22] hover:bg-[#21262d] border border-indigo-500/30 text-xs font-medium text-indigo-300 hover:text-white transition-colors"
+            title="API-Keys &amp; REST Tokens verwalten"
+          >
+            <Key className="w-3.5 h-3.5 text-indigo-400" />
+            <span>{language === 'de' ? 'API-Keys' : 'API Keys'}</span>
           </button>
 
           <button

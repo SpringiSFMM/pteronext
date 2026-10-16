@@ -363,6 +363,34 @@ export interface ServerResourcesResponse {
 // Centralized API Client Object
 // -------------------------------------------------------------
 export const api = {
+  // Generic HTTP helpers
+  get: async <T = any>(path: string): Promise<{ data: T }> => {
+    const fullPath = path.startsWith('/api') ? path : `/api${path.startsWith('/') ? path : '/' + path}`;
+    const res = await request<T>(fullPath, { method: 'GET' });
+    return { data: res };
+  },
+  post: async <T = any>(path: string, body?: any): Promise<{ data: T }> => {
+    const fullPath = path.startsWith('/api') ? path : `/api${path.startsWith('/') ? path : '/' + path}`;
+    const res = await request<T>(fullPath, {
+      method: 'POST',
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return { data: res };
+  },
+  put: async <T = any>(path: string, body?: any): Promise<{ data: T }> => {
+    const fullPath = path.startsWith('/api') ? path : `/api${path.startsWith('/') ? path : '/' + path}`;
+    const res = await request<T>(fullPath, {
+      method: 'PUT',
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return { data: res };
+  },
+  delete: async <T = any>(path: string): Promise<{ data: T }> => {
+    const fullPath = path.startsWith('/api') ? path : `/api${path.startsWith('/') ? path : '/' + path}`;
+    const res = await request<T>(fullPath, { method: 'DELETE' });
+    return { data: res };
+  },
+
   // Authentication & Session
   auth: {
     login: async (credentials: { user: string; password: string; code?: string }): Promise<LoginResponse> => {

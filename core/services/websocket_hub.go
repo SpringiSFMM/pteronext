@@ -370,7 +370,11 @@ func (c *Client) readPump(server *models.Server) {
 					c.sendMessage("console output", "\x1b[31;1m[SECURITY LOCKDOWN]\x1b[0m Dieser Server ist administrativ suspendiert. Server-Starts sind gesperrt.")
 					continue
 				}
-				c.Hub.Broadcast(server.UUID, "status", state)
+				broadcastState := state
+				if state == "kill" {
+					broadcastState = "offline"
+				}
+				c.Hub.Broadcast(server.UUID, "status", broadcastState)
 				c.Hub.Broadcast(server.UUID, "console output", fmt.Sprintf("\x1b[33m[Server]\x1b[0m Server state change received: %s", state))
 				if server.Node != nil {
 					go func(targetNode *models.Node, targetUUID, act string) {

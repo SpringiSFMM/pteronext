@@ -57,7 +57,8 @@ export const ChangelogView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedReleases, setExpandedReleases] = useState<Record<string, boolean>>({
-    'v2.9.0': true,
+    'v2.9.1': true,
+    'v2.9.0': false,
     'v2.8.8': false,
     'v2.8.7': false,
     'v2.8.6': false,
@@ -184,12 +185,55 @@ export const ChangelogView: React.FC = () => {
 
   const defaultReleases: Release[] = [
     {
+      version: 'v2.9.1',
+      title: language === 'de'
+        ? 'Discord Bot Operations Suite, FileManager Kontextmenüs & Kill-Priorität'
+        : 'Discord Bot Operations Suite, FileManager Context Menus & Power Priority',
+      date: 'October 2026',
+      tag: 'LATEST STABLE',
+      features: language === 'de'
+        ? [
+            'PteroNext Discord Bot Integration (Discord.js v14 & Components V2) mit 15 Slash-Commands und Echtzeit-Status-Sync',
+            'FileManager UX-Update: Getrennte Icons für Editor (Cyan) & Rename (Bernstein) plus natives Rechtsklick-Kontextmenü',
+            'Behebung des Re-Render- und Endlos-Reloads im .env & Secrets Tab',
+            'Power Action Kill-Priorität: Sofortiges SIGKILL ohne Verzögerung und Abbruch anhängiger Neustarts',
+            'Dynamische Git-Deployment-Historie ohne Dummy-Einträge bei neuen Servern',
+            'Workload-basiertes Dateiseeding ohne Minecraft-Dateileichen bei Bots',
+          ]
+        : [
+            'PteroNext Discord Bot integration (Discord.js v14 & Components V2) with 15 slash commands and live status sync',
+            'FileManager UX overhaul: Dedicated icons for Editor (Cyan) & Rename (Amber) plus full native right-click context menu',
+            'Resolved infinite reload / freeze loop in .env & Secrets tab',
+            'Power action Kill priority: Immediate SIGKILL cancellation of pending restart sequences',
+            'Dynamic Git deployment history eliminating dummy mock items on new servers',
+            'Workload-aware server file seeding without Minecraft config residue on bots',
+          ],
+      security: language === 'de'
+        ? [
+            'Priorisierte Kill-Abschaltung unterbindet unkontrollierte Neustart-Schleifen',
+            'Robuste 502/503 Fehlerabschirmung im Discord-Bot-Statusmonitor mit Backoff & Cache-Fallback',
+          ]
+        : [
+            'Prioritized Kill execution terminates processes immediately, preventing restart loops',
+            'Robust 502/503 error shielding in Discord bot status polling with backoff and cache fallback',
+          ],
+      improvements: language === 'de'
+        ? [
+            'In-Memory Caching für Dokumentations- und Status-APIs (Latenz von 4s auf <15ms reduziert)',
+            'Erhöhte UX-Klarheit durch getrennte Editor- und Umbenennen-Buttons',
+          ]
+        : [
+            'In-memory caching for Documentation and Status APIs (latency reduced from 4s to <15ms)',
+            'Enhanced UI clarity with separated editor and rename buttons',
+          ],
+    },
+    {
       version: 'v2.9.0',
       title: language === 'de'
         ? '1-Click Pterodactyl Importer, Egg Drag&Drop, CLI Updater & Cloudflare DNS'
         : '1-Click Pterodactyl Importer, Egg Drag&Drop, CLI Updater & Cloudflare DNS',
       date: 'October 2026',
-      tag: 'LATEST STABLE',
+      tag: 'STABLE',
       features: language === 'de'
         ? [
             'Systemweite Versions-Synchronisation auf v2.9.0 mit dynamischer Erkennung aus VERSION / Environment',

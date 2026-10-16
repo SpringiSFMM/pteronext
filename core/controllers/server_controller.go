@@ -694,8 +694,10 @@ func (s *ServerController) PowerAction(c *gin.Context) {
 
 	// Broadcast status update through console WebSocket
 	newState := "starting"
-	if req.Action == "stop" || req.Action == "kill" {
+	if req.Action == "stop" {
 		newState = "stopping"
+	} else if req.Action == "kill" {
+		newState = "offline"
 	}
 	s.wsHub.Broadcast(server.UUID, "status", newState)
 	s.wsHub.Broadcast(server.UUID, "console output", fmt.Sprintf("\x1b[33m[Power Action]\x1b[0m Action '%s' successfully dispatched by %s", req.Action, user.Username))
