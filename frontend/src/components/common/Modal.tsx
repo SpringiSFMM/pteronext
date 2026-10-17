@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 export interface ModalProps {
@@ -89,91 +90,93 @@ export const Modal: React.FC<ModalProps> = ({
     full: 'max-w-[96vw]',
   };
 
-  return (
+  const modalContent = (
     <div
       role="dialog"
       aria-modal="true"
       aria-label={title}
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm p-2 sm:p-4 md:p-6 flex items-center justify-center"
-      onClick={onClose}
+      className="fixed inset-0 z-[99999] overflow-hidden"
     >
-      {/* Modal Dialog Card */}
+      {/* Light-dismiss Backdrop: Portalled to document.body, covers entire viewport */}
       <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          maxHeight: 'min(82vh, 720px)',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-        className={`relative w-full ${maxWidthClasses[maxWidth]} bg-[#0d1117] border border-[#2b3342] rounded-2xl shadow-[0_30px_90px_rgba(0,0,0,0.85),0_0_0_1px_rgba(255,255,255,0.04)] overflow-hidden z-10 my-auto transition-all duration-200 animate-in fade-in zoom-in-95 ${className}`}
-      >
-        {/* Ambient Top Glow Line matching Active Theme */}
-        <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-[var(--theme-accent)] to-transparent opacity-80 pointer-events-none" />
+        className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity duration-200 pointer-events-auto"
+        onClick={onClose}
+      />
 
-        {/* Modal Header - Pinned at top, never clipped */}
-        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-[#1f2633] bg-[#090d13] shrink-0 z-20">
-          <div className="flex items-center gap-3 min-w-0 pr-3">
-            {icon && (
-              <div className="p-2 rounded-xl bg-white/[0.04] border border-white/10 text-zinc-200 shrink-0 shadow-inner">
-                {icon}
-              </div>
-            )}
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-sm sm:text-base font-semibold text-white tracking-tight">
-                  {title}
-                </h3>
-                {badge && (
-                  <span
-                    className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded-md border font-semibold tracking-wider shrink-0 ${badgeColorMap[badgeColor] || badgeColorMap.default}`}
-                  >
-                    {badge}
-                  </span>
+      {/* Centering Wrapper: Uses viewport centering with safe padding */}
+      <div className="fixed inset-0 flex items-center justify-center p-3 sm:p-5 md:p-6 pointer-events-none">
+        {/* Modal Dialog Card */}
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className={`pointer-events-auto relative w-full ${maxWidthClasses[maxWidth]} max-h-[85vh] bg-[#0d1117] border border-[#2b3342] rounded-2xl shadow-[0_30px_90px_rgba(0,0,0,0.85),0_0_0_1px_rgba(255,255,255,0.04)] overflow-hidden z-10 text-left flex flex-col transition-all duration-200 animate-in fade-in zoom-in-95 ${className}`}
+        >
+          {/* Ambient Top Glow Line matching Active Theme */}
+          <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-[var(--theme-accent)] to-transparent opacity-80 pointer-events-none" />
+
+          {/* Modal Header - Pinned at top, never clipped */}
+          <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-[#1f2633] bg-[#090d13] shrink-0 z-20">
+            <div className="flex items-center gap-3 min-w-0 pr-3">
+              {icon && (
+                <div className="p-2 rounded-xl bg-white/[0.04] border border-white/10 text-zinc-200 shrink-0 shadow-inner">
+                  {icon}
+                </div>
+              )}
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-sm sm:text-base font-semibold text-white tracking-tight">
+                    {title}
+                  </h3>
+                  {badge && (
+                    <span
+                      className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded-md border font-semibold tracking-wider shrink-0 ${badgeColorMap[badgeColor] || badgeColorMap.default}`}
+                    >
+                      {badge}
+                    </span>
+                  )}
+                </div>
+                {subtitle && (
+                  <p className="text-xs text-slate-400 mt-0.5 leading-relaxed truncate">
+                    {subtitle}
+                  </p>
                 )}
               </div>
-              {subtitle && (
-                <p className="text-xs text-slate-400 mt-0.5 leading-relaxed truncate">
-                  {subtitle}
-                </p>
-              )}
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono text-slate-400 bg-white/[0.04] border border-white/10 rounded-md">
+                ESC
+              </span>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close modal"
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/[0.08] transition-colors focus:outline-none focus:ring-1 focus:ring-zinc-400"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono text-slate-400 bg-white/[0.04] border border-white/10 rounded-md">
-              ESC
-            </span>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close modal"
-              className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/[0.08] transition-colors focus:outline-none focus:ring-1 focus:ring-zinc-400"
-            >
-              <X className="w-4 h-4" />
-            </button>
+          {/* Modal Body with Custom Smooth Scroll & Flex-1 auto shrinkage */}
+          <div
+            ref={bodyRef}
+            className="p-5 sm:p-6 overflow-y-auto flex-1 min-h-0 custom-scrollbar overscroll-contain"
+          >
+            {children}
           </div>
-        </div>
 
-        {/* Modal Body with Custom Smooth Scroll and Forced Safe Max-Height */}
-        <div
-          ref={bodyRef}
-          style={{
-            maxHeight: 'min(58vh, 500px)',
-          }}
-          className="p-5 sm:p-6 overflow-y-auto flex-1 custom-scrollbar min-h-0 overscroll-contain"
-        >
-          {children}
+          {/* Modal Footer - Pinned at bottom, always visible, never clipped */}
+          {footer && (
+            <div className="px-5 sm:px-6 py-3.5 border-t border-[#1f2633] bg-[#090d13] flex items-center justify-end gap-2.5 shrink-0 z-20">
+              {footer}
+            </div>
+          )}
         </div>
-
-        {/* Optional Modal Footer - Pinned at bottom, never clipped */}
-        {footer && (
-          <div className="px-5 sm:px-6 py-3.5 border-t border-[#1f2633] bg-[#090d13] flex items-center justify-end gap-2.5 shrink-0 z-20">
-            {footer}
-          </div>
-        )}
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 };
 
 export default Modal;

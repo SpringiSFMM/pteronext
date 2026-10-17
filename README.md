@@ -25,7 +25,7 @@ curl -sSL https://pteronext.com/install.sh | bash
 
 ## 📊 PteroNext vs. Legacy Server Panels
 
-| Feature / Metric | **PteroNext (v2.9.1)** | **Traditional Panels (Pterodactyl / Legacy)** |
+| Feature / Metric | **PteroNext (v2.9.1)** | **Traditional Multi-Tier Panels (Legacy PHP)** |
 | :--- | :--- | :--- |
 | **Architecture** | ⚡ **Single Compiled Go Binary** + Embedded React 18 | 🐢 PHP 8.x + Composer + Nginx + Node.js + Redis |
 | **Baseline Idle RAM** | 🟢 **~42 MB** | 🔴 350 MB – 500 MB (PHP-FPM, Workers, Queue) |
@@ -100,6 +100,17 @@ curl -sSL https://pteronext.com/install.sh | bash
 ### 11. 🔄 Live Changelog Feed & Zero-Data-Loss 1-Click Updater
 - **Live GitHub Release Tracking**: Directly checks the central repository for the latest commits, changelogs, and security releases.
 - **Automated SQLite Safety Backups**: Creates point-in-time database snapshots prior to executing upgrades, ensuring zero data loss and flawless rollbacks.
+
+### 12. 🌍 Minecraft World Manager & Multi-Dimension Controls
+- **1-Click Dimension Resets**: Instantly purge and reset Nether (`DIM-1`) or The End (`DIM1`) chunks for fresh terrain, fortresses, and elytra without risking any Overworld structures or player inventories.
+- **Active World Switcher**: Real-time parsing and updating of `server.properties` (`level-name`) with 1-click world activation.
+- **Live Gamerule Matrix**: Toggle `keepInventory`, `mobGriefing`, `doDaylightCycle`, `doWeatherCycle`, and `doFireTick` live with direct console dispatch.
+- **Full Bilingual Localization**: 100% German and English interface across all world management dialogs and notifications.
+
+### 13. 🌐 Hosted Uptime & Status Pages (`pteronext.com/status/{project}`)
+- **Real-Time Availability Telemetry**: Host dedicated, public-facing status pages with zero mock data and automatic latency polling.
+- **Discord Alerting**: Automated incident broadcasts with custom webhooks for downtime, degraded performance, and maintenance windows.
+- **Legal Compliance SLA**: Integrated legal footers (Impressum, Datenschutz, Nutzungsbedingungen) and strict 1-status-page quota enforcement.
 
 ---
 

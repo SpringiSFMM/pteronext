@@ -592,6 +592,7 @@ export function parseRouteFromPath(pathname: string): ParsedRoute {
       else if (tabStr === 'databases' || tabStr === 'database') serverTab = 'databases';
       else if (tabStr === 'schedules' || tabStr === 'schedule') serverTab = 'schedules';
       else if (tabStr === 'users' || tabStr === 'subusers') serverTab = 'users';
+      else if (tabStr === 'worlds' || tabStr === 'world' || tabStr === 'world-manager') serverTab = 'world-manager';
       else if (tabStr === 'config' || tabStr === 'game-config') serverTab = 'game-config';
       else if (tabStr === 'webhooks' || tabStr === 'webhook') serverTab = 'webhooks';
       else if (tabStr === 'settings') serverTab = 'settings';
@@ -732,7 +733,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
-  const [systemVersion, setSystemVersion] = useState<string>('v2.9.1');
+  const [systemVersion, setSystemVersion] = useState<string>('v2.9.2');
 
   const checkSystemVersion = useCallback(async () => {
     try {
@@ -796,6 +797,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       'voice-dashboard': ['console.view', 'control.console'],
       'web-suite': ['allocation.read', 'settings.view'],
       'bot-suite': ['file.read', 'file.write', 'control.console'],
+      'world-manager': ['file.read', 'file.write', 'control.console'],
     };
 
     const needed = TAB_PERMISSIONS_MAP[tabId];

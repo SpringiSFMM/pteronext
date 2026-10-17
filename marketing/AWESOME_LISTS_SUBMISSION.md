@@ -26,8 +26,8 @@ This document contains pre-formatted submission snippets ready to be proposed as
 
 ## 3. Product Hunt Launch Copy
 * **Product Name:** PteroNext
-* **Tagline:** The single-binary cloud game server platform. No PHP, no bloat.
+* **Tagline:** High-performance, single-binary game and application server platform.
 * **Pricing:** Free & Open Source (MIT)
 * **Key Visuals:** Screenshots from `marketing/assets/`
 * **Description:**
-> PteroNext is an open-source, compiled Go server management engine built to replace heavy legacy panels. Run a single command (`curl -sSL https://pteronext.com/install.sh | bash`) on any fresh Linux server, and spin up isolated Docker containers for Minecraft, Rust, Palworld, or Discord bots with 45 MB RAM footprint.
+> PteroNext is an open-source, compiled Go server management engine built for modern cloud and self-hosted infrastructure. Run a single command (`curl -sSL https://pteronext.com/install.sh | bash`) on any fresh Linux server, and spin up isolated Docker containers for Minecraft, Rust, Palworld, or Discord bots with 45 MB baseline RAM footprint and an embedded modern Web UI.

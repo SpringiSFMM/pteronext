@@ -126,6 +126,24 @@ flowchart TD
   - Dadurch spiegeln die Koordinaten stets den aktuellen Live-Stand wider, ohne Server-Lags zu erzeugen.
 - **Interaktiver World-Viewer**: Visualisiert Minecraft `.mca` Anvil Chunks und Regionen im Browser per HTML5 Canvas mit Live-Spielermarkern, TP-Shortcut und Spielerinventar-Inspektion.
 
+### Minecraft World Manager & Multi-Dimension Controls
+- **Multi-World Verwaltung**: Vollautomatische Erkennung aller auf dem Server befindlichen Weltenordner (z.B. `world`, `lobby`, `survival`).
+- **Aktiver Weltenwechsel**: Synchronisiert die aktive Hauptwelt direkt mit `server.properties` (`level-name`) ohne manuelle Konfigurationsdatei-Bearbeitung.
+- **1-Klick-Dimension-Resets**:
+  - **Nether Reset (`DIM-1` / `world_nether`)**: Bereinigt korrumpierte oder ausgebeutete Nether-Chunks, regeneriert Festungen, Bastionen und Antiken Schrott frisch beim nächsten Portal-Betreten.
+  - **End Reset (`DIM1` / `world_the_end`)**: Setzt das Ende zurück, regeneriert die Hauptinsel für neue Enderdrachen-Kämpfe und frische End-Städte mit Elytren.
+  - **Sicherheits-Garantie**: Die Overworld (`region/`), Spielerinventare und Fortschritte bleiben zu 100% geschützt und unberührt.
+- **Live Gamerule Steuerung**: Direkte Konsolen-Toggles für `keepInventory`, `mobGriefing`, `doDaylightCycle`, `doWeatherCycle` und `doFireTick`.
+- **1-Klick ZIP-Sicherung**: Erzeugt sofortige `.zip` Backups einzelner Welten direkt im Hauptverzeichnis.
+- **Vollständige Mehrsprachigkeit**: Alle Dialoge, Warnhinweise und Erfolgsmeldungen sind nativ in Deutsch und Englisch implementiert.
+
+### Gehostete Uptime- & Statusseiten (`pteronext.com/status/{project}`)
+- **Öffentliche Verfügbarkeitsseiten**: Ermöglicht Administratoren das Erstellen mandantenfähiger, öffentlicher Status-Seiten unter `pteronext.com/status/{project}`.
+- **Echte Telemetrie ohne Mock-Daten**: Kontinuierliche Verfügbarkeits- und Latenzprüfung von Daemons, Webdiensten und Game-Servern.
+- **Discord Webhook Alerting**: Automatisches Senden strukturierter Embeds an Discord-Kanäle bei Vorfällen oder Wartungen.
+- **Ressourcenschonendes Quota**: Striktes Kontingent von 1 Statusseite pro Panel-Instanz zur Vermeidung von Infrastruktur-Missbrauch.
+- **Rechtlicher Compliance-Footer**: Integrierte Pflichtangaben (Impressum, Datenschutz, AGB) gemäß DSGVO / TMG.
+
 ### Live Console, ANSI-Farbunterstützung & DOMPurify Sanitization
 - **Echtzeit WebSocket-Streaming**: Bidirektionale WebSocket-Verbindung für Konsolenlogs und Befehlsausführung ohne HTTP-Polling.
 - **Vollständige ANSI-Farben**: Unterstützt 16 Standard-ANSI-Farben, 256-Farben-Paletten und 24-Bit RGB TrueColor für Server-Logs (z.B. Paper/Purpur Chat-Formatierungen).
@@ -3719,7 +3737,7 @@ WebSocket Upgrade (101 Switching Protocols)
 | `PATCH` | `/api/nests/:id` | User JWT + AdminOnly | Aktualisiert ein Nest |
 | `DELETE` | `/api/nests/:id` | User JWT + AdminOnly | Löscht ein Nest |
 | `POST` | `/api/eggs` | User JWT + AdminOnly | Erstellt ein neues Egg |
-| `POST` | `/api/eggs/import` | User JWT + AdminOnly | Importiert Egg aus offizieller Pterodactyl/PteroNext JSON-Spezifikation |
+| `POST` | `/api/eggs/import` | User JWT + AdminOnly | Importiert Egg aus standardisierter JSON-Spezifikation |
 | `PATCH` | `/api/eggs/:id` | User JWT + AdminOnly | Aktualisiert ein Egg |
 | `DELETE` | `/api/eggs/:id` | User JWT + AdminOnly | Löscht ein Egg |
 
@@ -3804,7 +3822,7 @@ WebSocket Upgrade (101 Switching Protocols)
 
 <details><summary><strong>Details: <code>POST /api/eggs/import</code></strong></summary>
 
-- **Zweck:** Importiert Egg aus offizieller Pterodactyl/PteroNext JSON-Spezifikation
+- **Zweck:** Importiert Egg aus standardisierter JSON-Spezifikation
 - **Authentifizierung:** User JWT + AdminOnly
 - **Parameter / Payload:**
 ```json

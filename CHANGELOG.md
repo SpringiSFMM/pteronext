@@ -3,8 +3,30 @@ This file is a running track of new features and fixes to each version of the pa
 
 This project follows [Semantic Versioning](http://semver.org) guidelines.
 
+## v2.9.2
+### Added
+* **Minecraft World Manager**: Multi-World-Übersicht und aktiver Weltenwechsel via `server.properties`, 1-Klick-Dimension-Resets für Nether (`DIM-1`) und Ende (`DIM1`) ohne Overworld-Verlust, Live-Gamerules (`keepInventory`, `mobGriefing`, `doDaylightCycle`, etc.), 1-Klick ZIP-Weltensicherung und 100% zweisprachige Benutzeroberfläche (DE/EN).
+* **Gehostete Uptime- & Statusseiten**: Öffentliche Status-Seiten (`pteronext.com/status/{project}`) ohne Mock-Daten, Live-Verfügbarkeitsprüfungen von Servern und Nodes, Vorfallsmeldungen mit automatischer Discord-Webhook-Alarmierung, rechtssicherer SLA-Footer (Impressum, Datenschutz, AGB) und striktes Kontingent von 1 Statusseite pro Panel.
+* **Dynamisches Discord Status-Board (`#📊・status`)**: Vollständige Live-Synchronisation mit `pteronext.com/status`. Dynamisches Auslesen und Rendern aller Gruppen, Monitore und Cluster-Nodes mit Telemetrie-Latenzen, Uptime-Statistiken und `@Downtime Alert Ping` Rollen-Benachrichtigung.
+* **React Portal Modal-Architektur**: Vollständige Portierung aller Dialoge direkt in `document.body` via `createPortal`, Behebung von CSS-Containing-Block-Abschneidung, fixierte Header/Footer und isolierte Scrollbereiche.
+* **Discord Bot Updates Ping**: Automatisches Anpingen der Rolle `@Updates Ping` bei neuen Releases, GitHub-Commits und Website-Changelogs in `#🚀・updates-changelog`.
+* **Bereinigte Admin-Navigation**: Entfernung aller URL-Pfad-Texte aus der Administrations-Sidebar für ein klares, aufgeräumtes Design.
+* **Community Egg Marketplace**: 1-Klick-Import geprüfter Eggs direkt aus dem PteroNext Ecosystem Store (`pteronext.com`) mit Kategoriensuche, PTDL-Metadatenprüfung und direkter Zuweisung in Nests.
+* **Resend E-Mail-Verifikation & Passwort-Reset**: Vollautomatische E-Mail-Aktivierung von Benutzerkonten und sichere Passwortwiederherstellung via kryptografischem Einmal-Token und 6-stelligem Sicherheits-PIN über Resend.
+* **Discord Bot Management & Operations Suite**: 24 interaktive Slash-Commands (`/suggest`, `/suggest-admin`, `/links`, `/status`), automatische `#📦・egg-marketplace` Synchronisation und 688 verifizierte Phishing-/Scam-Filter mit Ghost-Ping im Verifikationskanal.
+* **Benutzer-Kontoverwaltung & 2FA-Zentrale**: Neue interaktive `/settings` Seite mit Profilverwaltung, DSGVO-Audit-Zeitstempeln, 2FA-Assistent (QR & Backup-Codes) und Statusübersicht eingereichter Eggs.
+
+### Fixed
+* **Modal Viewport Clipping**: Behebung abgeschnittener Modalfenster durch Migration auf React Portals und fixierte Fußzeilen.
+* **Statusboard Dynamic Rendering**: Behebung fester Hardcoded-Checks im Discord-Bot-Statusboard zugunsten vollständiger dynamischer Listen aller konfigurierten Homepage-Dienste.
+
 ## v2.9.1
 ### Added
+* **Minecraft World Manager**: Multi-World-Übersicht und aktiver Weltenwechsel via `server.properties`, 1-Klick-Dimension-Resets für Nether (`DIM-1`) und Ende (`DIM1`) ohne Overworld-Verlust, Live-Gamerules (`keepInventory`, `mobGriefing`, etc.), 1-Klick ZIP-Weltensicherung und 100% zweisprachige Benutzeroberfläche (DE/EN).
+* **Gehostete Uptime- & Statusseiten**: Öffentliche Status-Seiten (`pteronext.com/status/{project}`) ohne Mock-Daten, Live-Verfügbarkeitsprüfungen von Servern und Nodes, Vorfallsmeldungen mit automatischer Discord-Webhook-Alarmierung, rechtssicherer SLA-Footer (Impressum, Datenschutz, AGB) und striktes Kontingent von 1 Statusseite pro Panel.
+* **React Portal Modal-Architektur**: Vollständige Portierung aller Dialoge direkt in `document.body` via `createPortal`, Behebung von CSS-Containing-Block-Abschneidung, fixierte Header/Footer und isolierte Scrollbereiche.
+* **Discord Bot Updates Ping**: Automatisches Anpingen der Rolle `@Updates Ping` bei neuen Releases, GitHub-Commits und Website-Changelogs.
+* **Bereinigte Admin-Navigation**: Entfernung aller URL-Pfad-Texte aus der Administrations-Sidebar für ein klares, aufgeräumtes Design.
 * **Community Egg Marketplace**: 1-Klick-Import geprüfter Eggs direkt aus dem PteroNext Ecosystem Store (`pteronext.com`) mit Kategoriensuche, PTDL-Metadatenprüfung und direkter Zuweisung in Nests.
 * **Resend E-Mail-Verifikation & Passwort-Reset**: Vollautomatische E-Mail-Aktivierung von Benutzerkonten und sichere Passwortwiederherstellung via kryptografischem Einmal-Token und 6-stelligem Sicherheits-PIN über Resend.
 * **Discord Bot Management & Operations Suite**: 21 interaktive Slash-Commands (`/suggest`, `/suggest-admin`, `/links`, `/status`), automatische `#📦・egg-marketplace` Synchronisation und 688 verifizierte Phishing-/Scam-Filter mit Ghost-Ping im Verifikationskanal.

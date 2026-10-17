@@ -16,6 +16,14 @@ wings/wings-linux*
 bin/
 deploy-package/
 pteronext-deploy.tar.gz
+android/
+marketing/*.py
+marketing/*.mp4
+marketing/*.json
+marketing/production_assets/
+marketing/tiktok_audio/
+marketing/tiktok_frames/
+marketing/video_frames/
 *.exe
 *.test
 *.db-shm

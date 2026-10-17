@@ -286,6 +286,7 @@ export type ServerDetailTab =
   | 'users' 
   | 'audit'
   | 'game-config'
+  | 'world-manager'
   | 'plugin-store'
   | 'webhooks'
   | 'diagnostics'

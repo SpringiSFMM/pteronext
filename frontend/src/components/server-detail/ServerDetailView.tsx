@@ -23,6 +23,7 @@ import { SteamQueryTab } from './tabs/SteamQueryTab';
 import { VoiceDashboardTab } from './tabs/VoiceDashboardTab';
 import { WebSuiteTab } from './tabs/WebSuiteTab';
 import { BotSuiteTab } from './tabs/BotSuiteTab';
+import { WorldManagerTab } from './tabs/WorldManagerTab';
 
 export const ServerDetailView: React.FC = () => {
   const { activeServerTab, selectedServer, canAccessServerTab } = useApp();
@@ -81,6 +82,7 @@ export const ServerDetailView: React.FC = () => {
           {activeServerTab === 'voice-dashboard' && <VoiceDashboardTab key={`voice-dashboard-${serverKey}`} />}
           {activeServerTab === 'web-suite' && <WebSuiteTab key={`web-suite-${serverKey}`} />}
           {activeServerTab === 'bot-suite' && <BotSuiteTab key={`bot-suite-${serverKey}`} />}
+          {activeServerTab === 'world-manager' && <WorldManagerTab key={`world-manager-${serverKey}`} />}
         </div>
       )}
     </div>

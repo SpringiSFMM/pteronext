@@ -479,7 +479,7 @@ export const AdminEggsView: React.FC = () => {
                         <div className="min-w-0">
                           <h3 className="text-sm font-bold text-white truncate">{egg.name}</h3>
                           <p className="text-[11px] text-slate-400 font-mono truncate">
-                            {egg.author || 'Pterodactyl'} • {egg.version || '1.0.0'}
+                            {egg.author || 'PteroNext Community'} • {egg.version || '1.0.0'}
                           </p>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
@@ -895,7 +895,7 @@ export const AdminEggsView: React.FC = () => {
       <Modal
         isOpen={isImportOpen}
         onClose={() => setIsImportOpen(false)}
-        title="Import Pterodactyl Egg"
+        title="Import Egg Template"
         subtitle="Upload a PTDL_v1 / PTDL_v2 export file or paste its JSON"
         icon={<Upload className="w-4 h-4 text-emerald-400" />}
         badge="IMPORT JSON"

@@ -32,6 +32,107 @@ if [[ $EUID -ne 0 ]]; then
    exit 1
 fi
 
+# Default configuration
+PORT=8080
+HOST="0.0.0.0"
+DOMAIN=""
+ENABLE_SSL=0
+SSL_MODE="auto"
+NODE_MODE="all-in-one"
+DB_TYPE="sqlite"
+TARGET_OS=""
+
+# Parse CLI arguments (supports both --flag value and --flag=value)
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --port=*)
+            PORT="${1#*=}"
+            shift
+            ;;
+        --port)
+            PORT="$2"
+            shift 2
+            ;;
+        --os=*)
+            TARGET_OS="${1#*=}"
+            shift
+            ;;
+        --os)
+            TARGET_OS="$2"
+            shift 2
+            ;;
+        --ssl=auto|--ssl=caddy|--ssl=1|--ssl=letsencrypt)
+            ENABLE_SSL=1
+            SSL_MODE="auto"
+            shift
+            ;;
+        --ssl=proxy|--ssl=reverse-proxy|--ssl=cloudflare)
+            ENABLE_SSL=0
+            SSL_MODE="proxy"
+            shift
+            ;;
+        --ssl=none|--ssl=local|--ssl=0|--ssl=off)
+            ENABLE_SSL=0
+            SSL_MODE="none"
+            shift
+            ;;
+        --ssl=*)
+            SSL_MODE="${1#*=}"
+            ENABLE_SSL=0
+            shift
+            ;;
+        --ssl)
+            ENABLE_SSL=1
+            SSL_MODE="auto"
+            shift
+            ;;
+        --db=*)
+            DB_TYPE="${1#*=}"
+            shift
+            ;;
+        --db)
+            DB_TYPE="$2"
+            shift 2
+            ;;
+        --domain=*)
+            DOMAIN="${1#*=}"
+            shift
+            ;;
+        --domain)
+            DOMAIN="$2"
+            shift 2
+            ;;
+        --host=*)
+            HOST="${1#*=}"
+            shift
+            ;;
+        --host)
+            HOST="$2"
+            shift 2
+            ;;
+        --wings-only)
+            NODE_MODE="wings-only"
+            shift
+            ;;
+        --panel-only)
+            NODE_MODE="panel-only"
+            shift
+            ;;
+        --mode=*)
+            NODE_MODE="${1#*=}"
+            shift
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+
+if [[ -n "${TARGET_OS}" ]]; then
+    echo -e "${GREEN}[INFO] Configured OS Target: ${BOLD}${TARGET_OS}${NC}"
+fi
+echo -e "${GREEN}[INFO] Configuration: Port=${BOLD}${PORT}${NC}, DB=${BOLD}${DB_TYPE}${NC}, SSL=${BOLD}${SSL_MODE}${NC}, Mode=${BOLD}${NODE_MODE}${NC}"
+
 INSTALL_DIR="/opt/pteronext"
 DATA_DIR="/var/lib/pteronext"
 SERVICE_PATH="/etc/systemd/system/pteronext.service"
@@ -148,7 +249,7 @@ Type=simple
 User=pteronext
 Group=pteronext
 WorkingDirectory=${DATA_DIR}
-ExecStart=${INSTALL_DIR}/pteronext --data ${DATA_DIR} --port 8080 --host 0.0.0.0 --jwt-secret ${JWT_SECRET}
+ExecStart=${INSTALL_DIR}/pteronext --data ${DATA_DIR} --port ${PORT} --host ${HOST} --jwt-secret ${JWT_SECRET}
 Restart=always
 RestartSec=5s
 
@@ -172,12 +273,24 @@ systemctl restart pteronext.service
 sleep 2
 if systemctl is-active --quiet pteronext; then
     SERVER_IP="$(curl -s -4 https://icanhazip.com || hostname -I | awk '{print $1}' || echo "YOUR-SERVER-IP")"
+    
+    if [[ -n "${DOMAIN}" ]]; then
+        if [[ $ENABLE_SSL -eq 1 ]]; then
+            PANEL_URL="https://${DOMAIN}"
+        else
+            PANEL_URL="http://${DOMAIN}:${PORT}"
+        fi
+    else
+        PANEL_URL="http://${SERVER_IP}:${PORT}"
+    fi
+
     echo ""
     echo -e "${GREEN}${BOLD}=====================================================================${NC}"
-    echo -e "${GREEN}${BOLD}  ✓ PteroNext Panel Successfully Installed & Running!${NC}"
+    echo -e "${GREEN}${BOLD}  ✓ PteroNext Successfully Installed & Running!${NC}"
     echo -e "${GREEN}${BOLD}=====================================================================${NC}"
     echo ""
-    echo -e "  🌐 Web Panel URL:   ${BOLD}http://${SERVER_IP}:8080${NC}"
+    echo -e "  🌐 Web Panel URL:   ${BOLD}${PANEL_URL}${NC}"
+    echo -e "  ⚙️ Mode:             ${BOLD}${NODE_MODE}${NC} (DB: ${DB_TYPE}, SSL: ${SSL_MODE})"
     echo -e "  👤 Default User:    ${BOLD}admin${NC} (admin@pteronext.internal)"
     echo -e "  🔑 Default Pass:    ${BOLD}admin123456${NC}"
     echo ""

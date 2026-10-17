@@ -59,7 +59,7 @@ const GLOBAL_SECTIONS = [
       { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, hint: '⌘1' },
       { id: 'servers', label: 'Servers', icon: ServerIcon, hint: '' },
       { id: 'activity', label: 'Activity / Audit', icon: Activity, hint: '' },
-      { id: 'changelog', label: 'Changelog & Updates', icon: Sparkles, hint: 'v2.9.1' },
+      { id: 'changelog', label: 'Changelog & Updates', icon: Sparkles, hint: 'v2.9.2' },
     ],
   },
   {
@@ -151,6 +151,7 @@ export const Sidebar: React.FC = () => {
       case 'players': return t('tab_players');
       case 'network': return t('tab_network');
       case 'webhooks': return t('tab_webhooks');
+      case 'world-manager': return 'World Manager';
       case 'plugin-store': return t('tab_plugins');
       case 'game-config': return t('tab_game_config');
       case 'sidecars': return t('tab_sidecars');
@@ -240,6 +241,7 @@ export const Sidebar: React.FC = () => {
           id: 'services',
           label: 'Services & Extensions',
           tabs: [
+            { id: 'world-manager', label: 'World Manager', icon: Globe },
             { id: 'plugin-store', label: 'Plugins & Mods', icon: Package },
             { id: 'game-config', label: 'Game Config', icon: Sliders },
             { id: 'sidecars', label: 'Redis & DB Sidecars', icon: Zap },

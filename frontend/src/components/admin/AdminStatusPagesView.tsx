@@ -240,6 +240,18 @@ export const AdminStatusPagesView: React.FC = () => {
 
   // Handle open Create Modal
   const handleOpenCreate = () => {
+    if (pages.length >= 1) {
+      addToast({
+        title: language === 'de' ? 'Panel-Limit erreicht' : 'Limit Reached',
+        description:
+          language === 'de'
+            ? 'Pro Panel-Instanz ist maximal 1 Status-Seite erlaubt, um Server-Ressourcen zu schonen. Du kannst die bestehende Seite jederzeit bearbeiten.'
+            : 'Maximum 1 status page per panel instance allowed to conserve infrastructure resources. You can edit the existing page anytime.',
+        type: 'warning',
+      });
+      return;
+    }
+
     setEditingPage(null);
     setFormName('');
     setFormSlug('');
@@ -412,6 +424,18 @@ export const AdminStatusPagesView: React.FC = () => {
           language === 'de'
             ? `Die URL "pteronext.com/status/${cleanSlug}" ist bereits vergeben.`
             : `The URL "pteronext.com/status/${cleanSlug}" is already in use.`,
+        type: 'error',
+      });
+      return;
+    }
+
+    if (!editingPage && pages.length >= 1) {
+      addToast({
+        title: language === 'de' ? 'Limit erreicht' : 'Limit Reached',
+        description:
+          language === 'de'
+            ? 'Pro Panel-Instanz ist maximal 1 Statusseite erlaubt.'
+            : 'Maximum 1 status page per panel allowed.',
         type: 'error',
       });
       return;
@@ -631,7 +655,7 @@ export const AdminStatusPagesView: React.FC = () => {
               },
               {
                 name: 'Panel Core',
-                value: 'panel.pteronext.com (v2.9.1)',
+                value: 'panel.pteronext.com (v2.9.2)',
                 inline: true,
               },
             ],
@@ -833,13 +857,20 @@ export const AdminStatusPagesView: React.FC = () => {
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
-          <button
-            onClick={handleOpenCreate}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white text-xs font-bold font-mono transition-all shadow-[0_0_20px_rgba(6,182,212,0.3)] active:scale-95"
-          >
-            <Plus className="w-4 h-4" />
-            <span>{language === 'de' ? 'Statusseite erstellen' : 'Create Status Page'}</span>
-          </button>
+          {pages.length >= 1 ? (
+            <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800/80 border border-slate-700/60 text-slate-300 text-xs font-mono shadow-sm">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#10b981]" />
+              <span className="text-slate-400">Limit: <strong className="text-white">1/1</strong> Statusseite</span>
+            </div>
+          ) : (
+            <button
+              onClick={handleOpenCreate}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white text-xs font-bold font-mono transition-all shadow-[0_0_20px_rgba(6,182,212,0.3)] active:scale-95"
+            >
+              <Plus className="w-4 h-4" />
+              <span>{language === 'de' ? 'Statusseite erstellen' : 'Create Status Page'}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -956,12 +987,14 @@ export const AdminStatusPagesView: React.FC = () => {
               ? 'Kein Eintrag entspricht deinen Suchkriterien.'
               : 'Erstelle jetzt deine erste gehostete Uptime-Seite mit Live-Verfügbarkeitsprüfungen unter pteronext.com/status/{project}.'}
           </p>
-          <button
-            onClick={handleOpenCreate}
-            className="mt-4 px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-bold font-mono transition-all"
-          >
-            Jetzt Statusseite anlegen
-          </button>
+          {pages.length < 1 && (
+            <button
+              onClick={handleOpenCreate}
+              className="mt-4 px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-bold font-mono transition-all"
+            >
+              Jetzt Statusseite anlegen
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4">
@@ -1182,14 +1215,22 @@ export const AdminStatusPagesView: React.FC = () => {
       <Modal
         isOpen={isEditorOpen}
         onClose={() => setIsEditorOpen(false)}
-        title={editingPage ? `Statusseite bearbeiten: ${editingPage.name}` : 'Neue Uptime & Statusseite erstellen'}
-        subtitle="Konfiguriere Projektname, Slug, automatische Komponenten-Prüfung & Discord Webhook."
+        title={
+          language === 'de'
+            ? (editingPage ? `Statusseite bearbeiten: ${editingPage.name}` : 'Neue Uptime & Statusseite erstellen')
+            : (editingPage ? `Edit Status Page: ${editingPage.name}` : 'Create New Uptime & Status Page')
+        }
+        subtitle={
+          language === 'de'
+            ? 'Konfiguriere Projektname, Slug, automatische Komponenten-Prüfung & Discord Webhook.'
+            : 'Configure project name, slug, automated component monitors & Discord webhook.'
+        }
         icon={<Activity className="w-5 h-5 text-cyan-400" />}
         maxWidth="3xl"
         footer={
           <div className="flex items-center justify-between w-full">
             <span className="text-[11px] font-mono text-slate-500">
-              URL: pteronext.com/status/{formSlug || 'projekt'}
+              URL: pteronext.com/status/{formSlug || 'project'}
             </span>
             <div className="flex items-center gap-3">
               <button
@@ -1197,7 +1238,7 @@ export const AdminStatusPagesView: React.FC = () => {
                 onClick={() => setIsEditorOpen(false)}
                 className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono transition-all"
               >
-                Abbrechen
+                {language === 'de' ? 'Abbrechen' : 'Cancel'}
               </button>
               <button
                 type="submit"
@@ -1206,7 +1247,11 @@ export const AdminStatusPagesView: React.FC = () => {
                 className="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white text-xs font-bold font-mono shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all disabled:opacity-50 flex items-center gap-2"
               >
                 {isSaving && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
-                <span>{editingPage ? 'Änderungen speichern' : 'Statusseite erstellen'}</span>
+                <span>
+                  {language === 'de'
+                    ? (editingPage ? 'Änderungen speichern' : 'Statusseite erstellen')
+                    : (editingPage ? 'Save Changes' : 'Create Status Page')}
+                </span>
               </button>
             </div>
           </div>
@@ -1516,8 +1561,16 @@ export const AdminStatusPagesView: React.FC = () => {
       <Modal
         isOpen={isIncidentOpen}
         onClose={() => setIsIncidentOpen(false)}
-        title={`Vorfall oder Wartung melden: ${incidentTargetPage?.name}`}
-        subtitle="Veröffentliche ein Live-Update für Nutzer und benachrichtige optional den Discord-Kanal."
+        title={
+          language === 'de'
+            ? `Vorfall oder Wartung melden: ${incidentTargetPage?.name}`
+            : `Report Incident or Maintenance: ${incidentTargetPage?.name}`
+        }
+        subtitle={
+          language === 'de'
+            ? 'Veröffentliche ein Live-Update für Nutzer und benachrichtige optional den Discord-Kanal.'
+            : 'Publish a live status update for users and optionally alert the Discord channel.'
+        }
         icon={<Flame className="w-5 h-5 text-rose-400" />}
         maxWidth="2xl"
         footer={
@@ -1527,7 +1580,7 @@ export const AdminStatusPagesView: React.FC = () => {
               onClick={() => setIsIncidentOpen(false)}
               className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono transition-all"
             >
-              Abbrechen
+              {language === 'de' ? 'Abbrechen' : 'Cancel'}
             </button>
             <button
               type="submit"
@@ -1536,7 +1589,7 @@ export const AdminStatusPagesView: React.FC = () => {
               className="px-5 py-2 rounded-xl bg-gradient-to-r from-rose-500 to-orange-600 hover:from-rose-400 hover:to-orange-500 text-white text-xs font-bold font-mono shadow-[0_0_15px_rgba(244,63,94,0.3)] transition-all disabled:opacity-50 flex items-center gap-2"
             >
               {isPublishingIncident && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
-              <span>Vorfall jetzt veröffentlichen</span>
+              <span>{language === 'de' ? 'Vorfall jetzt veröffentlichen' : 'Publish Incident Now'}</span>
             </button>
           </div>
         }

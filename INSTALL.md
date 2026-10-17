@@ -1,6 +1,6 @@
 # 🚀 PteroNext Panel - Server Installations-Anleitung
 
-PteroNext ist eine moderne, blitzschnelle Single-Binary-Lösung für Game-Server-Management. Im Gegensatz zum alten Pterodactyl benötigt PteroNext **kein PHP, kein Composer, kein Nginx und kein MySQL/Redis zwingend** – das gesamte Backend und das moderne React-Frontend sind in einer einzigen, performanten Go-Binary kompiliert.
+PteroNext ist eine moderne, blitzschnelle Single-Binary-Lösung für Game-Server-Management. Im Gegensatz zu herkömmlichen Multi-Tier Server-Panels benötigt PteroNext **kein PHP, kein Composer, kein Nginx und kein MySQL/Redis zwingend** – das gesamte Backend und das moderne React-Frontend sind in einer einzigen, performanten Go-Binary kompiliert.
 
 ---
 

@@ -19,6 +19,7 @@ import {
   Download,
   AlertCircle,
   ExternalLink,
+  Rocket,
 } from 'lucide-react';
 
 interface Release {
@@ -57,7 +58,8 @@ export const ChangelogView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedReleases, setExpandedReleases] = useState<Record<string, boolean>>({
-    'v2.9.1': true,
+    'v2.9.2': true,
+    'v2.9.1': false,
     'v2.9.0': false,
     'v2.8.8': false,
     'v2.8.7': false,
@@ -185,12 +187,41 @@ export const ChangelogView: React.FC = () => {
 
   const defaultReleases: Release[] = [
     {
+      version: 'v2.9.2',
+      title: language === 'de'
+        ? 'Minecraft World Manager, Uptime Status Portal, React Portal Modals & Discord Bot Telemetrie'
+        : 'Minecraft World Manager, Uptime Status Portal, React Portal Modals & Discord Bot Telemetry',
+      date: 'October 2026',
+      tag: 'LATEST STABLE',
+      features: language === 'de'
+        ? [
+            'Minecraft World Manager: Multi-World Übersicht, 1-Klick Dimension Resets (Nether/End) & Gamerule-Steuerung',
+            'Gehostete Uptime- & Statusseiten unter pteronext.com/status/{project} mit 1-Seiten-Quota',
+            'Dynamisches Discord Status-Board (#📊・status) mit Homepage-Echtzeit-Synchronisation & @Downtime Alert Ping',
+            'React Portal Modal-Architektur: Kein Viewport-Abschneiden mehr durch Portierung in document.body',
+            'Discord Bot Updates Ping: Automatisches Pingen von @Updates Ping bei neuen Releases & Commits',
+            'Community Egg Marketplace: 1-Klick-Import geprüfter Eggs direkt in Panel-Nests',
+            'Resend E-Mail-Verifikation & sicherer Passwort-Reset',
+            'Aufgeräumte Admin-Sidebar ohne Pfad-URLs',
+          ]
+        : [
+            'Minecraft World Manager: Multi-world overview, 1-click dimension resets (Nether/End) & gamerule controls',
+            'Hosted Uptime & Status Pages system at pteronext.com/status/{project} with 1-page quota limit',
+            'Dynamic Discord Status Board (#📊・status) with homepage realtime sync & @Downtime Alert Ping',
+            'React Portal Modal Architecture: Zero viewport clipping via document.body portals',
+            'Discord Bot Updates Ping: Automated @Updates Ping role mentions on new releases & commits',
+            'Community Egg Marketplace: 1-click import of verified eggs directly into panel nests',
+            'Resend email verification & secure password reset flow',
+            'Decluttered admin sidebar stripped of path URLs',
+          ],
+    },
+    {
       version: 'v2.9.1',
       title: language === 'de'
         ? 'Discord Bot Operations Suite, FileManager Kontextmenüs & Kill-Priorität'
         : 'Discord Bot Operations Suite, FileManager Context Menus & Power Priority',
       date: 'October 2026',
-      tag: 'LATEST STABLE',
+      tag: 'STABLE',
       features: language === 'de'
         ? [
             'PteroNext Discord Bot Integration (Discord.js v14 & Components V2) mit 15 Slash-Commands und Echtzeit-Status-Sync',
@@ -230,22 +261,22 @@ export const ChangelogView: React.FC = () => {
     {
       version: 'v2.9.0',
       title: language === 'de'
-        ? '1-Click Pterodactyl Importer, Egg Drag&Drop, CLI Updater & Cloudflare DNS'
-        : '1-Click Pterodactyl Importer, Egg Drag&Drop, CLI Updater & Cloudflare DNS',
+        ? '1-Click Server-Importer, Egg Drag&Drop, CLI Updater & Cloudflare DNS'
+        : '1-Click Server Importer, Egg Drag&Drop, CLI Updater & Cloudflare DNS',
       date: 'October 2026',
       tag: 'STABLE',
       features: language === 'de'
         ? [
             'Systemweite Versions-Synchronisation auf v2.9.0 mit dynamischer Erkennung aus VERSION / Environment',
             'PteroNext Safe CLI Updater (pteronext update) mit automatischem SQLite-Backup ohne Datenverlust',
-            '1-Click Pterodactyl & Pelican Importer zur nahtlosen Migration aller Server und Quotas',
+            '1-Click Importer für herkömmliche Panels zur nahtlosen Migration aller Server und Quotas',
             'Offline Drag&Drop Import für Egg-Templates und Manifeste',
             'Automatisierte Cloudflare DNS E-Mail-Routing & MX/SPF/DMARC Konfiguration',
           ]
         : [
             'System-wide version synchronization to v2.9.0 with dynamic detection from VERSION / environment',
             'PteroNext safe CLI updater (pteronext update) with automated SQLite backup without data loss',
-            '1-Click Pterodactyl & Pelican importer for seamless migration of servers and quotas',
+            '1-Click importer for legacy panels for seamless migration of servers and quotas',
             'Offline drag-and-drop import for egg templates and manifests',
             'Automated Cloudflare DNS email routing & MX/SPF/DMARC configuration',
           ],
@@ -752,9 +783,16 @@ export const ChangelogView: React.FC = () => {
         </div>
       </div>
 
-      {/* Release Timeline (Collapsible Accordions) */}
-      <div className="space-y-4">
-        {paginatedReleases.map((release) => {
+      {/* Release Timeline (Collapsible Accordions with Connected Timeline) */}
+      <div className="relative pl-6 sm:pl-10 space-y-4">
+        {/* Continuous Connected Vertical Timeline Line */}
+        <div
+          className="absolute left-2.5 sm:left-4 top-4 bottom-8 w-0.5 bg-gradient-to-b from-indigo-500 via-cyan-500/60 to-emerald-500/20 rounded-full shadow-[0_0_10px_rgba(99,102,241,0.35)]"
+          aria-hidden="true"
+        />
+
+        {paginatedReleases.map((release, index) => {
+          const isLatest = index === 0 && validCurrentPage === 1;
           const isExpanded = expandedReleases[release.version] ?? (release.version === (displayReleases[0]?.version || 'v2.9.0'));
           const featureItems =
             release.features && release.features.length > 0
@@ -770,12 +808,51 @@ export const ChangelogView: React.FC = () => {
           return (
             <div
               key={release.version}
-              className="cyber-glass rounded-2xl border border-slate-800 hover:border-slate-700/80 transition-all overflow-hidden shadow-lg"
+              className="relative cyber-glass rounded-2xl border border-slate-800 hover:border-slate-700/80 transition-all shadow-lg"
             >
+              {/* Milestone Icon Node on Connected Timeline */}
+              <div className="absolute -left-[30px] sm:-left-[38px] top-6 flex items-center justify-center z-10">
+                {/* Pulse ring for latest version */}
+                {isLatest && (
+                  <span className="absolute -inset-1 rounded-xl bg-indigo-500/35 animate-ping opacity-75 pointer-events-none" />
+                )}
+                <div
+                  className={`relative w-7 h-7 sm:w-8 sm:h-8 rounded-xl border flex items-center justify-center shadow-lg transition-transform hover:scale-110 ${
+                    isLatest
+                      ? 'bg-emerald-950/95 border-emerald-400 text-emerald-300 shadow-emerald-500/30 ring-2 ring-emerald-500/40'
+                      : release.version.startsWith('v2.9')
+                      ? 'bg-emerald-950/95 border-emerald-400 text-emerald-300 shadow-emerald-500/30'
+                      : release.version === 'v2.8.8'
+                      ? 'bg-indigo-950/95 border-indigo-400 text-indigo-300 shadow-indigo-500/30'
+                      : release.version === 'v2.8.7'
+                      ? 'bg-cyan-950/95 border-cyan-400 text-cyan-300 shadow-cyan-500/30'
+                      : 'bg-[#161b22] border-slate-700 text-indigo-400 shadow-slate-900/40'
+                  }`}
+                >
+                  {release.version.startsWith('v2.9') ? (
+                    <Rocket className="w-3.5 h-3.5" />
+                  ) : release.version === 'v2.8.8' ? (
+                    <Sparkles className="w-3.5 h-3.5" />
+                  ) : release.version === 'v2.8.7' ? (
+                    <Zap className="w-3.5 h-3.5" />
+                  ) : (
+                    <GitBranch className="w-3.5 h-3.5" />
+                  )}
+
+                  {/* Pulse Dot indicator on latest version */}
+                  {isLatest && (
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-[#161b22] animate-pulse" />
+                  )}
+                </div>
+
+                {/* Horizontal connector stem */}
+                <div className="hidden sm:block absolute left-full top-1/2 -translate-y-1/2 w-2 h-0.5 bg-indigo-500/40" />
+              </div>
+
               {/* Clickable Header Button */}
               <button
                 onClick={() => toggleRelease(release.version)}
-                className="w-full p-5 sm:p-6 text-left flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-white/[0.02] transition-colors select-none group"
+                className="w-full p-5 sm:p-6 text-left flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-white/[0.02] transition-colors select-none group rounded-2xl"
                 aria-expanded={isExpanded}
               >
                 <div className="flex items-center gap-3.5 min-w-0">
@@ -809,8 +886,8 @@ export const ChangelogView: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-3 shrink-0 self-end sm:self-auto">
-                  <div className="flex items-center gap-1.5 text-xs text-slate-400 font-mono">
-                    <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0d1117] border border-slate-700/80 text-xs text-slate-300 font-mono shadow-sm">
+                    <Calendar className="w-3.5 h-3.5 text-indigo-400" />
                     <span>{release.date}</span>
                   </div>
                   {release.tag && (

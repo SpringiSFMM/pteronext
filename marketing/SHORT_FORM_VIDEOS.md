@@ -22,13 +22,13 @@ This kit provides complete 30-second high-conversion video scripts and storyboar
 
 ---
 
-## 🎬 Video Concept 2: "Pterodactyl vs PteroNext Benchmark Battle"
+## 🎬 Video Concept 2: "Legacy vs Modern Go Architecture Benchmark"
 
 * **Format:** Split Screen or sequential comparison.
 * **Hook:** *Can we cut game server panel RAM usage by 85%?*
 * **Visuals:**
-  * Left: Traditional Panel (~380 MB RAM, 6 docker containers running).
-  * Right: PteroNext (42 MB RAM, 1 single binary running).
+  * Left: Legacy Multi-Stack System (~380 MB RAM, multiple background services/containers).
+  * Right: PteroNext (45 MB RAM, 1 single Go binary running).
   * Live latency comparison: 48 ms vs 2.1 ms.
 
 ---

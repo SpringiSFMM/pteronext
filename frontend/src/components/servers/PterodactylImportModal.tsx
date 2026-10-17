@@ -102,7 +102,7 @@ export const PterodactylImportModal: React.FC = () => {
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        setConnectionError(data.error || 'Verbindung zu Pterodactyl/Pelican/Hydrodactyl fehlgeschlagen.');
+        setConnectionError(data.error || 'Verbindung zum Quell-Panel fehlgeschlagen.');
       } else {
         setConnectedPlatform(data.platform);
         setDiscoveredServers(data.servers || []);
@@ -208,7 +208,7 @@ export const PterodactylImportModal: React.FC = () => {
     <Modal
       isOpen={isImportModalOpen}
       onClose={() => setIsImportModalOpen(false)}
-      title={language === 'de' ? 'Pterodactyl, Pelican & Hydrodactyl Import-Assistent' : 'Pterodactyl, Pelican & Hydrodactyl Migration Suite'}
+      title={language === 'de' ? 'Multi-Tier & Legacy Panel Import-Assistent' : 'Legacy Panel Migration Suite'}
       maxWidth="3xl"
     >
       <div className="space-y-5">
@@ -297,7 +297,7 @@ export const PterodactylImportModal: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="field-label text-xs">
-                    {language === 'de' ? 'Quell-Panel URL (Pterodactyl, Pelican oder Hydrodactyl)' : 'Source Panel URL (Pterodactyl, Pelican or Hydrodactyl)'}
+                    {language === 'de' ? 'Quell-Panel URL (Herkömmliches Server-Panel)' : 'Source Panel URL (Legacy Server Panel)'}
                   </label>
                   <input
                     type="url"
@@ -327,8 +327,8 @@ export const PterodactylImportModal: React.FC = () => {
               <div className="flex items-center justify-between pt-1">
                 <p className="text-[11px] text-slate-400">
                   {language === 'de'
-                    ? 'Tipp: Erstelle unter "Application API" im Quell-Panel (Pterodactyl / Pelican / Hydrodactyl) einen Key mit Leserechten auf Server.'
-                    : 'Tip: Create an Application API key with read permissions on servers in Pterodactyl, Pelican or Hydrodactyl.'}
+                    ? 'Tipp: Erstelle unter "Application API" im Quell-Panel einen Key mit Leserechten auf Server.'
+                    : 'Tip: Create an Application API key with read permissions on servers in your source panel.'}
                 </p>
                 <button
                   type="submit"
@@ -502,7 +502,7 @@ export const PterodactylImportModal: React.FC = () => {
           <form onSubmit={handleJsonImport} className="space-y-4">
             <div className="p-4 rounded-xl border border-[#30363d] bg-[#161b22]/70 space-y-3">
               <label className="field-label text-xs">
-                {language === 'de' ? 'Pterodactyl / Pelican / Hydrodactyl Egg JSON oder Projekt-Export einfügen:' : 'Paste Pterodactyl / Pelican / Hydrodactyl Egg or Project JSON:'}
+                {language === 'de' ? 'Standard Egg JSON oder Projekt-Export einfügen:' : 'Paste Standard Egg or Project JSON:'}
               </label>
               <textarea
                 rows={10}
@@ -523,8 +523,8 @@ export const PterodactylImportModal: React.FC = () => {
               />
               <p className="text-[11px] text-slate-400">
                 {language === 'de'
-                  ? 'Unterstützt offizielle Pterodactyl Eggs, Parkervcp Eggs, Pelican Blueprints, Hydrodactyl Manifests und benutzerdefinierte Server-Templates.'
-                  : 'Supports Pterodactyl Eggs, Pelican Blueprints, Hydrodactyl manifests and custom server manifests.'}
+                  ? 'Unterstützt offizielle Standard-Eggs, Server-Blueprints und benutzerdefinierte Server-Templates.'
+                  : 'Supports standard Eggs, server blueprints, and custom server manifests.'}
               </p>
             </div>
 
