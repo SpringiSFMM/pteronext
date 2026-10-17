@@ -41,6 +41,10 @@ export const MobileHeader: React.FC = () => {
         return 'Users';
       case 'admin-eggs':
         return 'Eggs & Nests';
+      case 'admin-discord-bot':
+        return 'Discord Bot';
+      case 'admin-status-pages':
+        return 'Uptime Pages';
       default:
         return 'Server Matrix';
     }

@@ -607,7 +607,10 @@ export function parseRouteFromPath(pathname: string): ParsedRoute {
     if (segments[1] === 'users') return { view: 'admin-users' };
     if (segments[1] === 'eggs' || segments[1] === 'nests') return { view: 'admin-eggs' };
     if (segments[1] === 'databases') return { view: 'admin-databases' };
-    if (segments[1] === 'integrations' || segments[1] === 'discord') return { view: 'admin-dashboard' };
+    if (segments[1] === 'discord-bot' || segments[1] === 'discord' || segments[1] === 'bot') return { view: 'admin-discord-bot' };
+    if (segments[1] === 'status-pages' || segments[1] === 'status' || segments[1] === 'uptime') return { view: 'admin-status-pages' };
+    if (segments[1] === 'api-keys' || segments[1] === 'api' || segments[1] === 'apikeys') return { view: 'admin-api-keys' };
+    return { view: 'admin-dashboard' };
   }
 
   if (first === 'dashboard') return { view: 'dashboard' };
@@ -632,12 +635,16 @@ export function buildPathForRoute(view: ActiveView, server?: Server | null, tab?
     case 'databases': return '/databases';
     case 'activity': return '/activity';
     case 'changelog': return '/changelog';
-    case 'admin-dashboard': return '/admin';
+    case 'admin':
+    case 'admin-dashboard': return '/admin/dashboard';
     case 'admin-servers': return '/admin/servers';
     case 'admin-nodes': return '/admin/nodes';
     case 'admin-users': return '/admin/users';
     case 'admin-eggs': return '/admin/eggs';
     case 'admin-databases': return '/admin/databases';
+    case 'admin-discord-bot': return '/admin/discord-bot';
+    case 'admin-status-pages': return '/admin/status-pages';
+    case 'admin-api-keys': return '/admin/api-keys';
     case 'dashboard': default: return '/';
   }
 }
