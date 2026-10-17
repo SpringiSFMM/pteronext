@@ -3,6 +3,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/version-v2.9.1-indigo?style=for-the-badge" alt="Version 2.9.1">
   <img src="https://img.shields.io/badge/architecture-Single%20Binary%20Go%20%2B%20React-emerald?style=for-the-badge" alt="Go + React Single Binary">
+  <a href="https://pteronext.com"><img src="https://img.shields.io/badge/Website-pteronext.com-cyan?style=for-the-badge&logo=google-chrome&logoColor=white" alt="Website"></a>
   <a href="https://buymeacoffee.com/springisfm"><img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Support-amber?style=for-the-badge&logo=buy-me-a-coffee&logoColor=white" alt="Buy Me A Coffee"></a>
   <a href="https://discord.gg/UJ28Umsx25"><img src="https://img.shields.io/badge/Discord-Community-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord Community"></a>
   <img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="License MIT">
@@ -10,8 +11,35 @@
 
 ---
 
+### 🚀 1-Command Automated Server Quickstart
+
+Install and start the complete PteroNext Panel on any fresh Linux server (Ubuntu, Debian, CentOS, Rocky Linux, AlmaLinux) in under 15 seconds:
+
+```bash
+curl -sSL https://pteronext.com/install.sh | bash
+```
+
+> Installs the static single binary, sets up `systemd`, configures automatic JWT authentication, and launches on `http://<SERVER_IP>:8080`.
+
+---
+
+## 📊 PteroNext vs. Legacy Server Panels
+
+| Feature / Metric | **PteroNext (v2.9.1)** | **Traditional Panels (Pterodactyl / Legacy)** |
+| :--- | :--- | :--- |
+| **Architecture** | ⚡ **Single Compiled Go Binary** + Embedded React 18 | 🐢 PHP 8.x + Composer + Nginx + Node.js + Redis |
+| **Baseline Idle RAM** | 🟢 **~42 MB** | 🔴 350 MB – 500 MB (PHP-FPM, Workers, Queue) |
+| **Installation Time** | ⚡ **< 15 seconds** (1 automated curl command) | 🔴 15 – 30 minutes (Manual database & webserver setup) |
+| **Egg Marketplace** | 📦 **Built-in Community Store** (1-click import) | ❌ Manual JSON file downloads & uploads |
+| **Crash Analyzer** | 🤖 **Intelligent Auto-Fix** (Stacktrace diagnostics) | ❌ Raw log viewing only |
+| **File Snapshots** | ⏳ **Time-Machine Diff Engine** with 1-click restore | ❌ Overwrites files immediately |
+| **Cloudflare DNS** | 🌐 **Zero-Config SRV & A-Record Automation** | ❌ Manual DNS dashboard editing |
+| **Discord Bot** | 💬 **Native Core Bot** with Slash-Commands & Alerts | ❌ Third-party plugins required |
+
+---
+
 > 📖 **Vollständige Dokumentation & Handbuch:**  
-> Eine detaillierte deutsche Dokumentation zu Architektur, allen Features, Installation, API/CLI-Referenz und Sicherheits-Best-Practices findest du in der [**DOCUMENTATION.md**](DOCUMENTATION.md).
+> Eine detaillierte Dokumentation zu Architektur, allen Features, Installation, API/CLI-Referenz und Sicherheits-Best-Practices findest du im [**DOCUMENTATION.md**](DOCUMENTATION.md) sowie auf [**pteronext.com/docs**](https://pteronext.com/docs).
 
 ---
 
