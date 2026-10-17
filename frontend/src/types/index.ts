@@ -18,6 +18,8 @@ export type ActiveView =
   | 'admin-eggs'
   | 'admin-databases'
   | 'admin-discord-bot'
+  | 'admin-status-pages'
+  | 'admin-api-keys'
   | 'setup';
 
 export interface ServerStats {
