@@ -608,7 +608,7 @@ export function parseRouteFromPath(pathname: string): ParsedRoute {
     if (segments[1] === 'eggs' || segments[1] === 'nests') return { view: 'admin-eggs' };
     if (segments[1] === 'databases') return { view: 'admin-databases' };
     if (segments[1] === 'discord-bot' || segments[1] === 'discord' || segments[1] === 'bot') return { view: 'admin-discord-bot' };
-    if (segments[1] === 'status-pages' || segments[1] === 'status' || segments[1] === 'uptime') return { view: 'admin-status-pages' };
+    if (segments[1] === 'status' || segments[1] === 'status-pages' || segments[1] === 'statuspage' || segments[1] === 'uptime') return { view: 'admin-status-pages' };
     if (segments[1] === 'api-keys' || segments[1] === 'api' || segments[1] === 'apikeys') return { view: 'admin-api-keys' };
     return { view: 'admin-dashboard' };
   }
@@ -643,7 +643,7 @@ export function buildPathForRoute(view: ActiveView, server?: Server | null, tab?
     case 'admin-eggs': return '/admin/eggs';
     case 'admin-databases': return '/admin/databases';
     case 'admin-discord-bot': return '/admin/discord-bot';
-    case 'admin-status-pages': return '/admin/status-pages';
+    case 'admin-status-pages': return '/admin/status';
     case 'admin-api-keys': return '/admin/api-keys';
     case 'dashboard': default: return '/';
   }

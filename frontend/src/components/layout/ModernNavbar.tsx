@@ -95,39 +95,8 @@ export const ModernNavbar: React.FC = () => {
   return (
     <header className="sticky top-0 z-30 w-full border-b border-[#30363d]/80 bg-[#0d1117]/85 backdrop-blur-md px-4 sm:px-6 lg:px-8 py-2.5 transition-colors">
       <div className="flex items-center justify-between gap-3 max-w-7xl mx-auto">
-        {/* Left: Breadcrumbs / Active Context */}
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
-            <span
-              onClick={() => setActiveView('dashboard')}
-              className="hover:text-white cursor-pointer font-bold tracking-wide text-slate-300"
-            >
-              PteroNext
-            </span>
-            <span>/</span>
-            {activeView === 'server-detail' && selectedServer ? (
-              <>
-                <span
-                  onClick={() => setActiveView('servers')}
-                  className="hover:text-white cursor-pointer text-slate-400 truncate max-w-[120px]"
-                >
-                  Servers
-                </span>
-                <span>/</span>
-                <span className="text-white font-semibold truncate max-w-[160px] sm:max-w-[240px]">
-                  {selectedServer.name}
-                </span>
-                <span className="hidden sm:inline-block text-[11px] px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-slate-400">
-                  {activeServerTab}
-                </span>
-              </>
-            ) : (
-              <span className="text-white font-medium capitalize">
-                {activeView.replace('admin-', 'Admin: ').replace('-', ' ')}
-              </span>
-            )}
-          </div>
-        </div>
+        {/* Left: Clean spacer (text/links removed) */}
+        <div className="flex items-center min-w-0" />
 
         {/* Right: Version pill, Command Palette Hint, Create Button, Profile */}
         <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">

@@ -94,25 +94,24 @@ export const Modal: React.FC<ModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-label={title}
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 md:p-6 overflow-hidden"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm p-2 sm:p-4 md:p-6 flex items-center justify-center"
+      onClick={onClose}
     >
-      {/* Light-dismiss Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity duration-200"
-        onClick={onClose}
-      />
-
       {/* Modal Dialog Card */}
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ maxHeight: 'min(90vh, calc(100dvh - 2.5rem))', height: 'auto', display: 'flex', flexDirection: 'column' }}
-        className={`relative w-full ${maxWidthClasses[maxWidth]} bg-[#0d1117] border border-[#2b3342] rounded-2xl shadow-[0_30px_90px_rgba(0,0,0,0.85),0_0_0_1px_rgba(255,255,255,0.04)] overflow-hidden z-10 shrink min-h-0 my-auto transition-all duration-200 animate-in fade-in zoom-in-95 ${className}`}
+        style={{
+          maxHeight: 'calc(100vh - 2.5rem)',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+        className={`relative w-full ${maxWidthClasses[maxWidth]} bg-[#0d1117] border border-[#2b3342] rounded-2xl shadow-[0_30px_90px_rgba(0,0,0,0.85),0_0_0_1px_rgba(255,255,255,0.04)] overflow-hidden z-10 my-auto transition-all duration-200 animate-in fade-in zoom-in-95 ${className}`}
       >
         {/* Ambient Top Glow Line matching Active Theme */}
         <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-[var(--theme-accent)] to-transparent opacity-80 pointer-events-none" />
 
-        {/* Modal Header */}
-        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-[#1f2633] bg-[#090d13]/95 shrink-0 z-20">
+        {/* Modal Header - Pinned at top, never clipped */}
+        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-[#1f2633] bg-[#090d13] shrink-0 z-20">
           <div className="flex items-center gap-3 min-w-0 pr-3">
             {icon && (
               <div className="p-2 rounded-xl bg-white/[0.04] border border-white/10 text-zinc-200 shrink-0 shadow-inner">
@@ -155,14 +154,20 @@ export const Modal: React.FC<ModalProps> = ({
           </div>
         </div>
 
-        {/* Modal Body with Custom Smooth Scroll */}
-        <div ref={bodyRef} className="p-5 sm:p-6 overflow-y-auto flex-1 custom-scrollbar min-h-0 overscroll-contain">
+        {/* Modal Body with Custom Smooth Scroll and Forced Max-Height */}
+        <div
+          ref={bodyRef}
+          style={{
+            maxHeight: 'calc(100vh - 11rem)',
+          }}
+          className="p-5 sm:p-6 overflow-y-auto flex-1 custom-scrollbar min-h-0 overscroll-contain"
+        >
           {children}
         </div>
 
-        {/* Optional Modal Footer */}
+        {/* Optional Modal Footer - Pinned at bottom, never clipped */}
         {footer && (
-          <div className="px-5 sm:px-6 py-3.5 border-t border-[#1f2633] bg-[#090d13]/95 flex items-center justify-end gap-2.5 shrink-0 z-20">
+          <div className="px-5 sm:px-6 py-3.5 border-t border-[#1f2633] bg-[#090d13] flex items-center justify-end gap-2.5 shrink-0 z-20">
             {footer}
           </div>
         )}
