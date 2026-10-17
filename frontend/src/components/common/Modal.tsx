@@ -101,7 +101,7 @@ export const Modal: React.FC<ModalProps> = ({
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          maxHeight: 'calc(100vh - 2.5rem)',
+          maxHeight: 'min(82vh, 720px)',
           display: 'flex',
           flexDirection: 'column',
         }}
@@ -154,11 +154,11 @@ export const Modal: React.FC<ModalProps> = ({
           </div>
         </div>
 
-        {/* Modal Body with Custom Smooth Scroll and Forced Max-Height */}
+        {/* Modal Body with Custom Smooth Scroll and Forced Safe Max-Height */}
         <div
           ref={bodyRef}
           style={{
-            maxHeight: 'calc(100vh - 11rem)',
+            maxHeight: 'min(58vh, 500px)',
           }}
           className="p-5 sm:p-6 overflow-y-auto flex-1 custom-scrollbar min-h-0 overscroll-contain"
         >

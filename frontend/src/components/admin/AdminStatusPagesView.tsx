@@ -811,9 +811,6 @@ export const AdminStatusPagesView: React.FC = () => {
               <Radio className="w-3 h-3 animate-pulse text-cyan-400" />
               Realtime Monitoring & CDN
             </span>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/[0.05] text-cyan-300 border border-cyan-500/30">
-              /admin/status
-            </span>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2">
             <Activity className="w-6 h-6 text-cyan-400" />
