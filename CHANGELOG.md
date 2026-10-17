@@ -6,10 +6,12 @@ This project follows [Semantic Versioning](http://semver.org) guidelines.
 ## v2.9.1
 ### Added
 * **Community Egg Marketplace**: 1-Klick-Import geprüfter Eggs direkt aus dem PteroNext Ecosystem Store (`pteronext.com`) mit Kategoriensuche, PTDL-Metadatenprüfung und direkter Zuweisung in Nests.
+* **Resend E-Mail-Verifikation & Passwort-Reset**: Vollautomatische E-Mail-Aktivierung von Benutzerkonten und sichere Passwortwiederherstellung via kryptografischem Einmal-Token und 6-stelligem Sicherheits-PIN über Resend.
+* **Discord Bot Management & Operations Suite**: 21 interaktive Slash-Commands (`/suggest`, `/suggest-admin`, `/links`, `/status`), automatische `#📦・egg-marketplace` Synchronisation und 688 verifizierte Phishing-/Scam-Filter mit Ghost-Ping im Verifikationskanal.
+* **Benutzer-Kontoverwaltung & 2FA-Zentrale**: Neue interaktive `/settings` Seite mit Profilverwaltung, DSGVO-Audit-Zeitstempeln, 2FA-Assistent (QR & Backup-Codes) und Statusübersicht eingereichter Eggs.
 * **Audit-Log Export als CSV & JSON**: Vollständiger tabellarischer und strukturierter Export aller administrativen und benutzerbezogenen Audit-Events für Compliance und Monitoring.
 * **Automatische Backup-Rotation mit Lock-Schutz**: Intelligente Archivierung älterer Snapshots unter striktem Schutz passwort- oder manipulationsgeschützter AES-256-GCM Locked Backups.
 * **Erweiterte Webhook-Events**: Neue Event-Trigger für `server.start`, `server.stop` und `server.oom` für externe Monitoring- und Benachrichtigungssysteme.
-* **Discord Bot Management & Operations Suite**: Integrated Discord Bot engine with Discord.js v14 and Discord Components V2, 15 slash commands, interactive verification modal, ticket transcripts, and full server lifecycle power control (`/server-start`, `/server-stop`, `/server-restart`).
 * **FileManager Action Differentiator**: Redesigned distinguishable action icons for code editor (`FileCode` in cyan) and file rename (`Tag` in amber).
 * **Native FileManager Context Menu**: Full right-click context menu across files and directories with Open, Edit, Rename, Copy Path, Download, Extract Archive, and Delete.
 * **Server Power Action Kill Priority**: Absolute priority for server Kill signals, cancelling any pending start, stop, or restart sequences immediately and broadcasting instant offline state to UI and Wings.

@@ -56,18 +56,55 @@ esac
 
 echo -e "${GREEN}[INFO] Detected Architecture: ${BOLD}${ARCH_NAME}${NC}"
 
-# Check if binary exists locally, or compile if Go is installed
-if [[ ! -f "$BINARY_SOURCE" ]]; then
-    echo -e "${AMBER}[WARN] Pre-compiled binary not found at ${BINARY_SOURCE}.${NC}"
-    if command -v go &> /dev/null; then
-        echo -e "${CYAN}[BUILD] Compiling PteroNext from local source...${NC}"
-        cd "${SCRIPT_DIR}/core"
-        CGO_ENABLED=0 go build -ldflags="-s -w" -o "${SCRIPT_DIR}/core/pteronext-linux-${ARCH_NAME}" main.go
-        BINARY_SOURCE="${SCRIPT_DIR}/core/pteronext-linux-${ARCH_NAME}"
+# Resolve or Download PteroNext Single-Binary
+DOWNLOAD_URL="https://pteronext.com/dl/pteronext-linux-${ARCH_NAME}"
+GITHUB_FALLBACK_URL="https://raw.githubusercontent.com/SpringiSFMM/pteronext/main/core/pteronext-linux-${ARCH_NAME}"
+TEMP_BINARY="/tmp/pteronext-linux-${ARCH_NAME}"
+
+if [[ -f "${BINARY_SOURCE}" ]]; then
+    echo -e "${GREEN}[OK] Using local binary from ${BINARY_SOURCE}${NC}"
+elif [[ -f "./pteronext-linux-${ARCH_NAME}" ]]; then
+    BINARY_SOURCE="./pteronext-linux-${ARCH_NAME}"
+    echo -e "${GREEN}[OK] Using local binary in current directory${NC}"
+else
+    echo -e "${CYAN}[DOWNLOAD] Fetching pre-compiled PteroNext Panel binary (${ARCH_NAME})...${NC}"
+    echo -e "           CDN: ${BOLD}${DOWNLOAD_URL}${NC}"
+    
+    DOWNLOAD_SUCCESS=0
+    if command -v curl &> /dev/null; then
+        if curl -fSL --progress-bar -o "${TEMP_BINARY}" "${DOWNLOAD_URL}"; then
+            DOWNLOAD_SUCCESS=1
+        fi
+    elif command -v wget &> /dev/null; then
+        if wget -q --show-progress -O "${TEMP_BINARY}" "${DOWNLOAD_URL}"; then
+            DOWNLOAD_SUCCESS=1
+        fi
+    fi
+
+    # Fallback if primary CDN fails
+    if [[ $DOWNLOAD_SUCCESS -ne 1 ]] || [[ ! -s "${TEMP_BINARY}" ]]; then
+        echo -e "${AMBER}[WARN] Primary CDN download failed, trying fallback...${NC}"
+        if command -v curl &> /dev/null; then
+            curl -fSL -o "${TEMP_BINARY}" "${GITHUB_FALLBACK_URL}" || true
+        fi
+    fi
+
+    # Validate downloaded binary
+    if [[ -s "${TEMP_BINARY}" ]]; then
+        BINARY_SOURCE="${TEMP_BINARY}"
+        echo -e "${GREEN}[OK] Binary downloaded successfully ($(du -h "${TEMP_BINARY}" | cut -f1)).${NC}"
     else
-        echo -e "${RED}[ERROR] Binary missing and 'go' compiler is not installed.${NC}"
-        echo -e "Please ensure pteronext-linux-${ARCH_NAME} is present in the core/ directory."
-        exit 1
+        # Fallback to Go build if Go is available and source code is present
+        if command -v go &> /dev/null && [[ -f "${SCRIPT_DIR}/core/main.go" ]]; then
+            echo -e "${CYAN}[BUILD] Compiling PteroNext from local source...${NC}"
+            cd "${SCRIPT_DIR}/core"
+            CGO_ENABLED=0 go build -ldflags="-s -w" -o "${TEMP_BINARY}" main.go
+            BINARY_SOURCE="${TEMP_BINARY}"
+        else
+            echo -e "${RED}[ERROR] Failed to download PteroNext binary for ${ARCH_NAME}.${NC}"
+            echo -e "Please verify internet connectivity or manual installation instructions at https://pteronext.com/docs"
+            exit 1
+        fi
     fi
 fi
 
