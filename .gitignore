@@ -16,6 +16,9 @@ wings/wings-linux*
 bin/
 deploy-package/
 pteronext-deploy.tar.gz
+*.tar.gz
+*.zip
+legacy-archive/
 android/
 marketing/*.py
 marketing/*.mp4

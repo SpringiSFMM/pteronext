@@ -15,15 +15,27 @@ import {
   Globe,
   ChevronRight,
   Terminal,
+  Loader2,
 } from 'lucide-react';
 
 interface ServerCardProps {
   server: Server;
+  isSelected?: boolean;
+  onToggleSelect?: (e: React.MouseEvent) => void;
+  isBulkMode?: boolean;
 }
 
-export const ServerCard: React.FC<ServerCardProps> = ({ server }) => {
-  const { selectServerAndNavigate, handlePowerAction, addToast } = useApp();
+export const ServerCard: React.FC<ServerCardProps> = ({
+  server,
+  isSelected = false,
+  onToggleSelect,
+  isBulkMode = false,
+}) => {
+  const { selectServerAndNavigate, handlePowerAction, addToast, pendingPowerActions } = useApp();
   const [copied, setCopied] = useState(false);
+
+  const pendingAction = pendingPowerActions[server.id] || pendingPowerActions[server.uuid];
+  const isActionPending = Boolean(pendingAction);
 
   const handleCopyIp = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -39,20 +51,29 @@ export const ServerCard: React.FC<ServerCardProps> = ({ server }) => {
 
   const handleAction = (e: React.MouseEvent, action: 'start' | 'restart' | 'stop' | 'kill') => {
     e.stopPropagation();
+    if (isActionPending) return;
     handlePowerAction(server.id, action);
   };
 
   const isRunning = server.status === 'running';
-  const isStarting = server.status === 'starting';
+  const isStarting = server.status === 'starting' || pendingAction === 'start' || pendingAction === 'restart';
 
   return (
     <div
-      onClick={() => selectServerAndNavigate(server, 'console')}
-      className={`group relative rounded-2xl p-5 transition-all duration-200 flex flex-col justify-between cursor-pointer glass-panel glass-card-interactive shadow-lg hover:border-[var(--theme-accent)] hover:shadow-[0_0_24px_var(--theme-accent-glow)] ${
-        isRunning
-          ? 'border-emerald-500/30'
+      onClick={() => {
+        if (isBulkMode && onToggleSelect) {
+          onToggleSelect(null as any);
+        } else {
+          selectServerAndNavigate(server, 'console');
+        }
+      }}
+      className={`group relative rounded-2xl p-5 transition-all duration-300 flex flex-col justify-between cursor-pointer glass-panel glass-card-interactive shadow-lg hover:border-[var(--theme-accent)] hover:shadow-[0_0_24px_var(--theme-accent-glow)] ${
+        isSelected
+          ? 'border-indigo-500 ring-2 ring-indigo-500/30 bg-indigo-500/5'
           : isStarting
-          ? 'border-amber-500/30'
+          ? 'border-amber-500/60 shadow-[0_0_20px_rgba(245,158,11,0.25)] animate-pulse'
+          : isRunning
+          ? 'border-emerald-500/30 hover:border-emerald-500/50'
           : 'border-[#30363d]'
       }`}
     >
@@ -68,6 +89,25 @@ export const ServerCard: React.FC<ServerCardProps> = ({ server }) => {
       {/* Top Header: Title, Egg, Status Badge */}
       <div>
         <div className="flex items-start justify-between gap-3 mb-2.5">
+          {isBulkMode && (
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleSelect?.(e);
+              }}
+              className="pt-0.5 cursor-pointer shrink-0 mr-1"
+            >
+              <div
+                className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${
+                  isSelected
+                    ? 'bg-indigo-600 border-indigo-500 text-white shadow-[0_0_10px_rgba(99,102,241,0.5)]'
+                    : 'border-[#30363d] bg-[#0d1117] hover:border-slate-500'
+                }`}
+              >
+                {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+              </div>
+            </div>
+          )}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 uppercase tracking-wide">
@@ -135,11 +175,15 @@ export const ServerCard: React.FC<ServerCardProps> = ({ server }) => {
           {!isRunning && (
             <button
               onClick={(e) => handleAction(e, 'start')}
-              disabled={isStarting}
-              title="Start Server"
-              className="p-1.5 rounded-lg bg-[#21262d] hover:bg-emerald-500/20 text-emerald-400 border border-[#30363d] hover:border-emerald-500/30 transition-colors disabled:opacity-50"
+              disabled={isStarting || isActionPending}
+              title={pendingAction === 'start' ? 'Starting...' : 'Start Server'}
+              className="p-1.5 rounded-lg bg-[#21262d] hover:bg-emerald-500/20 text-emerald-400 border border-[#30363d] hover:border-emerald-500/30 transition-all disabled:opacity-60"
             >
-              <Play className="w-3.5 h-3.5 fill-current" />
+              {pendingAction === 'start' ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+              ) : (
+                <Play className="w-3.5 h-3.5 fill-current" />
+              )}
             </button>
           )}
 
@@ -147,24 +191,39 @@ export const ServerCard: React.FC<ServerCardProps> = ({ server }) => {
             <>
               <button
                 onClick={(e) => handleAction(e, 'restart')}
-                title="Restart Server"
-                className="p-1.5 rounded-lg bg-[#21262d] hover:bg-amber-500/20 text-amber-400 border border-[#30363d] hover:border-amber-500/30 transition-colors"
+                disabled={isActionPending}
+                title={pendingAction === 'restart' ? 'Restarting...' : 'Restart Server'}
+                className="p-1.5 rounded-lg bg-[#21262d] hover:bg-amber-500/20 text-amber-400 border border-[#30363d] hover:border-amber-500/30 transition-all disabled:opacity-60"
               >
-                <RotateCw className="w-3.5 h-3.5" />
+                {pendingAction === 'restart' ? (
+                  <RotateCw className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                ) : (
+                  <RotateCw className="w-3.5 h-3.5" />
+                )}
               </button>
               <button
                 onClick={(e) => handleAction(e, 'stop')}
-                title="Graceful Stop"
-                className="p-1.5 rounded-lg bg-[#21262d] hover:bg-slate-700 text-slate-300 hover:text-white border border-[#30363d] transition-colors"
+                disabled={isActionPending}
+                title={pendingAction === 'stop' ? 'Stopping...' : 'Graceful Stop'}
+                className="p-1.5 rounded-lg bg-[#21262d] hover:bg-slate-700 text-slate-300 hover:text-white border border-[#30363d] transition-all disabled:opacity-60"
               >
-                <Square className="w-3.5 h-3.5 fill-current" />
+                {pendingAction === 'stop' ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-300" />
+                ) : (
+                  <Square className="w-3.5 h-3.5 fill-current" />
+                )}
               </button>
               <button
                 onClick={(e) => handleAction(e, 'kill')}
-                title="Kill Immediately"
-                className="p-1.5 rounded-lg bg-[#21262d] hover:bg-rose-500/20 text-rose-400 border border-[#30363d] hover:border-rose-500/30 transition-colors"
+                disabled={isActionPending}
+                title={pendingAction === 'kill' ? 'Killing...' : 'Kill Immediately'}
+                className="p-1.5 rounded-lg bg-[#21262d] hover:bg-rose-500/20 text-rose-400 border border-[#30363d] hover:border-rose-500/30 transition-all disabled:opacity-60"
               >
-                <Skull className="w-3.5 h-3.5" />
+                {pendingAction === 'kill' ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-400" />
+                ) : (
+                  <Skull className="w-3.5 h-3.5" />
+                )}
               </button>
             </>
           )}

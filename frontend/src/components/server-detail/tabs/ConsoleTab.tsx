@@ -471,8 +471,15 @@ export const ConsoleTab: React.FC = () => {
         {/* Terminal Screen */}
         <div className="flex-1 p-4 overflow-y-auto font-mono text-xs text-slate-300 space-y-1 select-text bg-[#090d16]">
           {terminalLogs.length === 0 ? (
-            <div className="text-slate-600 italic py-8 text-center font-mono">
-              [Terminal output cleared. Enter command below to execute...]
+            <div className="space-y-2.5 py-6 px-2 animate-pulse font-mono">
+              <div className="h-3 w-52 bg-[#161b22] rounded" />
+              <div className="h-3 w-80 bg-[#161b22]/70 rounded" />
+              <div className="h-3 w-64 bg-[#161b22]/50 rounded" />
+              <div className="h-3 w-96 bg-[#161b22]/40 rounded" />
+              <div className="h-3 w-40 bg-[#161b22]/30 rounded" />
+              <div className="text-slate-600 text-[11px] italic pt-3">
+                [Connecting to real-time container daemon... Stream will appear automatically.]
+              </div>
             </div>
           ) : (
             terminalLogs.map((line, idx) => renderLogLine(line, idx))

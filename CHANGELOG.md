@@ -22,21 +22,13 @@ This project follows [Semantic Versioning](http://semver.org) guidelines.
 
 ## v2.9.1
 ### Added
-* **Minecraft World Manager**: Multi-World-Übersicht und aktiver Weltenwechsel via `server.properties`, 1-Klick-Dimension-Resets für Nether (`DIM-1`) und Ende (`DIM1`) ohne Overworld-Verlust, Live-Gamerules (`keepInventory`, `mobGriefing`, etc.), 1-Klick ZIP-Weltensicherung und 100% zweisprachige Benutzeroberfläche (DE/EN).
-* **Gehostete Uptime- & Statusseiten**: Öffentliche Status-Seiten (`pteronext.com/status/{project}`) ohne Mock-Daten, Live-Verfügbarkeitsprüfungen von Servern und Nodes, Vorfallsmeldungen mit automatischer Discord-Webhook-Alarmierung, rechtssicherer SLA-Footer (Impressum, Datenschutz, AGB) und striktes Kontingent von 1 Statusseite pro Panel.
-* **React Portal Modal-Architektur**: Vollständige Portierung aller Dialoge direkt in `document.body` via `createPortal`, Behebung von CSS-Containing-Block-Abschneidung, fixierte Header/Footer und isolierte Scrollbereiche.
-* **Discord Bot Updates Ping**: Automatisches Anpingen der Rolle `@Updates Ping` bei neuen Releases, GitHub-Commits und Website-Changelogs.
-* **Bereinigte Admin-Navigation**: Entfernung aller URL-Pfad-Texte aus der Administrations-Sidebar für ein klares, aufgeräumtes Design.
-* **Community Egg Marketplace**: 1-Klick-Import geprüfter Eggs direkt aus dem PteroNext Ecosystem Store (`pteronext.com`) mit Kategoriensuche, PTDL-Metadatenprüfung und direkter Zuweisung in Nests.
-* **Resend E-Mail-Verifikation & Passwort-Reset**: Vollautomatische E-Mail-Aktivierung von Benutzerkonten und sichere Passwortwiederherstellung via kryptografischem Einmal-Token und 6-stelligem Sicherheits-PIN über Resend.
-* **Discord Bot Management & Operations Suite**: 21 interaktive Slash-Commands (`/suggest`, `/suggest-admin`, `/links`, `/status`), automatische `#📦・egg-marketplace` Synchronisation und 688 verifizierte Phishing-/Scam-Filter mit Ghost-Ping im Verifikationskanal.
-* **Benutzer-Kontoverwaltung & 2FA-Zentrale**: Neue interaktive `/settings` Seite mit Profilverwaltung, DSGVO-Audit-Zeitstempeln, 2FA-Assistent (QR & Backup-Codes) und Statusübersicht eingereichter Eggs.
-* **Audit-Log Export als CSV & JSON**: Vollständiger tabellarischer und strukturierter Export aller administrativen und benutzerbezogenen Audit-Events für Compliance und Monitoring.
-* **Automatische Backup-Rotation mit Lock-Schutz**: Intelligente Archivierung älterer Snapshots unter striktem Schutz passwort- oder manipulationsgeschützter AES-256-GCM Locked Backups.
-* **Erweiterte Webhook-Events**: Neue Event-Trigger für `server.start`, `server.stop` und `server.oom` für externe Monitoring- und Benachrichtigungssysteme.
+* **Discord Bot Operations Suite**: 15 interaktive Slash-Commands, automatischer `#📦・egg-marketplace` Synchronisations-Feed und 688 verifizierte Phishing-/Scam-Filter mit Ghost-Ping im Verifikationskanal.
 * **FileManager Action Differentiator**: Redesigned distinguishable action icons for code editor (`FileCode` in cyan) and file rename (`Tag` in amber).
 * **Native FileManager Context Menu**: Full right-click context menu across files and directories with Open, Edit, Rename, Copy Path, Download, Extract Archive, and Delete.
 * **Server Power Action Kill Priority**: Absolute priority for server Kill signals, cancelling any pending start, stop, or restart sequences immediately and broadcasting instant offline state to UI and Wings.
+* **Audit-Log Export als CSV & JSON**: Vollständiger tabellarischer und strukturierter Export aller administrativen und benutzerbezogenen Audit-Events für Compliance und Monitoring.
+* **Automatische Backup-Rotation mit Lock-Schutz**: Intelligente Archivierung älterer Snapshots unter striktem Schutz passwort- oder manipulationsgeschützter AES-256-GCM Locked Backups.
+* **Erweiterte Webhook-Events**: Neue Event-Trigger für `server.start`, `server.stop` und `server.oom` für externe Monitoring- und Benachrichtigungssysteme.
 * **Dynamic Git Deployment History**: Clean deployment history initialization eliminating dummy mock runs on newly provisioned servers.
 * **Workload-Aware Server File Seeding**: Node.js and Discord bot templates seed proper project files (`index.js`, `package.json`, `.env.example`) instead of Minecraft server configs.
 * **Realtime Website Status Polling**: Resilience engine with 2-stage backoff and cached fallback for the status monitor against transient network/gateway blips.

@@ -479,7 +479,11 @@ interface AppContextType {
   deleteNote: (id: string) => void;
   togglePinNote: (id: string) => void;
 
-  // Actions
+  // Actions & Server Loading States
+  isLoadingServers: boolean;
+  pendingPowerActions: Record<string, PowerAction>;
+  isPowerActionPending: (serverId: string) => boolean;
+  bulkPowerAction: (serverIds: string[], action: PowerAction) => Promise<void>;
   handlePowerAction: (serverId: string, action: PowerAction) => void;
   addTerminalCommand: (command: string) => void;
   clearTerminal: () => void;
@@ -659,7 +663,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [servers, setServers] = useState<Server[]>([]);
+  const [isLoadingServers, setIsLoadingServers] = useState<boolean>(true);
+  const [pendingPowerActions, setPendingPowerActions] = useState<Record<string, PowerAction>>({});
   const [selectedServer, setSelectedServerState] = useState<Server | null>(null);
+
+  const isPowerActionPending = useCallback((serverId: string) => {
+    return Boolean(pendingPowerActions[serverId]);
+  }, [pendingPowerActions]);
 
   const [activeServerTab, setActiveServerTabState] = useState<ServerDetailTab>(() => {
     return initialRoute.current.serverTab || 'console';
@@ -1077,6 +1087,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // -------------------------------------------------------------
   const refreshServers = useCallback(async () => {
     try {
+      setIsLoadingServers(true);
       const srvRes = await api.servers.list();
       const raw = srvRes?.data || [];
       const mapped = raw.map(mapBackendServerToFrontend);
@@ -1112,6 +1123,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
     } catch (e) {
       console.warn('[AppContext] Failed to refresh servers:', e);
+    } finally {
+      setIsLoadingServers(false);
     }
   }, []);
 
@@ -2016,6 +2029,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const target = servers.find((s) => s.id === serverId || s.uuid === serverId);
     if (!target) return;
 
+    // Track pending power action state for animations & spinners
+    setPendingPowerActions((prev) => ({ ...prev, [target.id]: action, [target.uuid]: action }));
+
     let optimisticStatus: ServerStatus = target.status;
     let toastType: 'success' | 'info' | 'warning' | 'error' = 'info';
     const actionLabel = action.toUpperCase();
@@ -2136,7 +2152,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               };
             });
           }
-        } catch {}
+        } catch {} finally {
+          setPendingPowerActions((prev) => {
+            const copy = { ...prev };
+            delete copy[target.id];
+            delete copy[target.uuid];
+            return copy;
+          });
+        }
       }, 1500);
     } catch (err: any) {
       console.warn('[AppContext] Real backend power action error:', err?.message);
@@ -2145,6 +2168,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         description: err?.message || 'Could not communicate with node daemon.',
         type: 'error',
       });
+      setPendingPowerActions((prev) => {
+        const copy = { ...prev };
+        delete copy[target.id];
+        delete copy[target.uuid];
+        return copy;
+      });
+    }
+  };
+
+  const bulkPowerAction = async (serverIds: string[], action: PowerAction): Promise<void> => {
+    if (!serverIds || serverIds.length === 0) return;
+    const targetServers = servers.filter((s) => serverIds.includes(s.id) || serverIds.includes(s.uuid));
+    if (targetServers.length === 0) return;
+
+    addToast({
+      title: `Bulk ${action.toUpperCase()}`,
+      description: `Dispatching ${action} signal to ${targetServers.length} server(s)...`,
+      type: 'info',
+    });
+
+    for (const srv of targetServers) {
+      handlePowerAction(srv.id, action);
+      await new Promise((r) => setTimeout(r, 150));
     }
   };
 
@@ -3526,6 +3572,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateNote,
         deleteNote,
         togglePinNote,
+        isLoadingServers,
+        pendingPowerActions,
+        isPowerActionPending,
+        bulkPowerAction,
         handlePowerAction,
         addTerminalCommand,
         clearTerminal,
