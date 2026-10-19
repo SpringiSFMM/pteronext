@@ -37,6 +37,7 @@ func GetInstalledVersion() string {
 		"/var/lib/pteronext/VERSION",
 		"/opt/pteronext/VERSION",
 		"/root/panel/VERSION",
+		"/var/www/pteronext/VERSION",
 	}
 	for _, path := range candidates {
 		if data, err := os.ReadFile(path); err == nil {
@@ -51,7 +52,7 @@ func GetInstalledVersion() string {
 	}
 
 	// 3. Fallback to latest stable release
-	return "v2.9.1"
+	return "v2.9.2"
 }
 
 func NewSystemUpdateController() *SystemUpdateController {

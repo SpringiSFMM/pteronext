@@ -758,6 +758,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     checkSystemVersion();
   }, [checkSystemVersion]);
 
+  // Failsafe timer: Ensure server skeletons never hang indefinitely
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoadingServers(false);
+    }, 3500);
+    return () => clearTimeout(timer);
+  }, []);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [nodes, setNodes] = useState<NodeInfo[]>([]);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
@@ -1489,6 +1497,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (isMounted) {
           setIsAuthenticated(false);
           setIsAuthChecking(false);
+          setIsLoadingServers(false);
         }
         return;
       }
@@ -1521,16 +1530,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             });
           }
         } else {
-          if (isMounted) setIsAuthenticated(false);
+          if (isMounted) {
+            setIsAuthenticated(false);
+            setIsAuthChecking(false);
+            setIsLoadingServers(false);
+          }
           api.auth.clearToken();
-          if (isMounted) setIsAuthChecking(false);
           return;
         }
       } catch (e) {
         console.warn('[AppContext] Session verification failed (/api/auth/me):', e);
-        if (isMounted) setIsAuthenticated(false);
+        if (isMounted) {
+          setIsAuthenticated(false);
+          setIsAuthChecking(false);
+          setIsLoadingServers(false);
+        }
         api.auth.clearToken();
-        if (isMounted) setIsAuthChecking(false);
         return;
       }
 
@@ -1576,6 +1591,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       } catch (e) {
         console.warn('[AppContext] Could not fetch servers (/api/servers):', e);
+      } finally {
+        if (isMounted) {
+          setIsLoadingServers(false);
+        }
       }
 
       // 4. Load system stats from GET /api/system/stats (Only meaningful for root admin)

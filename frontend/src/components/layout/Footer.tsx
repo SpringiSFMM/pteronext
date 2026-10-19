@@ -58,14 +58,7 @@ export const Footer: React.FC = () => {
             title="System Changelog ansehen"
           >
             <Sparkles className="w-3 h-3 text-[var(--theme-accent)]" />
-            <span>{systemVersion || 'v2.9.0'} Release</span>
-          </button>
-
-          <button
-            onClick={() => setActiveView('changelog')}
-            className="px-2.5 py-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.04] transition-colors"
-          >
-            Changelogs
+            <span>{systemVersion || 'v2.9.2'} Release</span>
           </button>
 
           <a

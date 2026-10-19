@@ -656,7 +656,7 @@ export const Sidebar: React.FC = () => {
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500 font-mono leading-none mt-0.5">
-                  Control Panel {systemVersion || 'v2.9.0'}
+                  Control Panel {systemVersion || 'v2.9.2'}
                 </p>
               </div>
             </div>
@@ -918,7 +918,7 @@ export const Sidebar: React.FC = () => {
                               </div>
                               {(item.hint || (item.id as string) === 'changelog') && (
                                 <span className="text-[10px] font-mono text-slate-500">
-                                  {(item.id as string) === 'changelog' ? (systemVersion || 'v2.9.0') : item.hint}
+                                  {(item.id as string) === 'changelog' ? (systemVersion || 'v2.9.2') : item.hint}
                                 </span>
                               )}
                               {isActive && !item.hint && (

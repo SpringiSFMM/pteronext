@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	CurrentVersion = "v2.9.0"
+	CurrentVersion = "v2.9.2"
 	DefaultRepo    = "SpringiSFMM/pteronext"
 )
 

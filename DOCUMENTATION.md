@@ -1,7 +1,7 @@
 # 🦅 PteroNext & Wings — Vollständige Systemdokumentation
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v2.7.3-indigo?style=for-the-badge" alt="Version 2.7.3">
+  <img src="https://img.shields.io/badge/version-v2.9.2-indigo?style=for-the-badge" alt="Version 2.9.2">
   <img src="https://img.shields.io/badge/architecture-Single%20Binary%20Go%20%2B%20React-emerald?style=for-the-badge" alt="Go + React Single Binary">
   <img src="https://img.shields.io/badge/security-Argon2id%20%2B%20AES--256--GCM-red?style=for-the-badge" alt="Security Argon2id + AES-256-GCM">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="License MIT">
@@ -232,6 +232,24 @@ flowchart TD
 ### Panel Quickstart & Automatisierte Deployment-Skripte
 
 Das Repository beinhaltet sofort einsatzbereite Automatisierungsskripte für Neuinstallationen und blitzschnelle Updates.
+
+#### ⚡ 1-Click Terminal Update (Sofortiges In-Place Upgrade ohne Datenverlust)
+
+Für bestehende PteroNext-Installationen kann das Update direkt über das offizielle Remote-Skript oder den systemweiten CLI-Befehl ausgeführt werden:
+
+```bash
+# 🌐 1-Click Remote Terminal Update:
+bash <(curl -sSL https://pteronext.com/install.sh) --update
+
+# 🖥️ Alternativ über den nativen System-CLI-Befehl auf dem Server:
+pteronext update
+# oder:
+pteronext-update
+# oder direkt das lokale Updater-Skript:
+bash /opt/pteronext/pteronext-update.sh
+```
+
+*Das Update sichert automatisch die bestehende SQLite-Datenbank (`pteronext.db.bak`), lädt die neueste Single-Binary herunter, validiert die Prüfsumme, führt automatische Datenbank-Migrationen durch und startet den `pteronext.service` in unter 3 Sekunden ohne Ausfallzeit für laufende Game-Server neu.*
 
 #### Option A: 1-Click All-in-One Deployment (Panel + Wings auf Zielserver)
 ```bash
@@ -5458,18 +5476,28 @@ docker run -d \
 
 ### Remote-Deployment & Delta-Updates auf Live-Server
 
-PteroNext bietet ein blitzschnelles Delta-Update, das neue Binaries via SSH streamt und den Service ohne Unterbrechung anderer Prozesse neu startet:
+PteroNext bietet zwei bequeme Methoden zur Aktualisierung von Live-Servern:
 
+#### Methode 1: 1-Click Terminal-Update direkt auf dem Zielserver
+```bash
+# 🌐 Remote 1-Click Update ausführen:
+bash <(curl -sSL https://pteronext.com/install.sh) --update
+
+# 🖥️ Oder über die lokale CLI:
+pteronext update
+```
+
+#### Methode 2: Ultra-Fast Delta Update vom lokalen Rechner via SSH
 ```bash
 # ⚡ Ultra-Fast Delta Update in unter 3 Sekunden:
 ./quick-update.sh <SERVER_IP> root
 ```
 
-Ablauf des Delta-Updates:
-1. Prüft SSH-Schlüssel für passwortlosen Zugriff.
-2. Streamt komprimierte `pteronext-linux-amd64` und `wings-linux-amd64` Binaries über die SSH-Pipe.
+Ablauf des Updates:
+1. Validiert Service-Status und legt ein Backup der Datenbank (`pteronext.db.bak`) an.
+2. Streamt bzw. lädt die neueste komprimierte `pteronext-linux-amd64` Single-Binary herunter.
 3. Tauscht die Binaries atomar in `/opt/pteronext/` und `/usr/local/bin/` aus.
-4. Führt `systemctl restart pteronext wings` aus.
+4. Führt `systemctl restart pteronext` aus.
 5. Führt einen HTTP-Healthcheck auf Port 8080 durch.
 
 ---

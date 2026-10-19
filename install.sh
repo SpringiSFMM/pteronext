@@ -45,6 +45,25 @@ TARGET_OS=""
 # Parse CLI arguments (supports both --flag value and --flag=value)
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --update|-u|update)
+            echo -e "${CYAN}=====================================================================${NC}"
+            echo -e "${BOLD}  ⚡ PTERONEXT AUTOMATED 1-CLICK TERMINAL UPDATER${NC}"
+            echo -e "  Zero-Data-Loss Guaranteed — Preserving all Databases & Workloads"
+            echo -e "${CYAN}=====================================================================${NC}"
+            if [[ -f "/opt/pteronext/pteronext-update.sh" ]]; then
+                exec bash /opt/pteronext/pteronext-update.sh "${@:2}"
+            elif [[ -f "${SCRIPT_DIR}/pteronext-update.sh" ]]; then
+                exec bash "${SCRIPT_DIR}/pteronext-update.sh" "${@:2}"
+            elif [[ -x "/opt/pteronext/pteronext" ]]; then
+                exec /opt/pteronext/pteronext update "${@:2}"
+            elif command -v pteronext >/dev/null 2>&1; then
+                exec pteronext update "${@:2}"
+            else
+                echo -e "${GREEN}[INFO] Downloading latest PteroNext Safe Updater...${NC}"
+                curl -sSL https://raw.githubusercontent.com/SpringiSFMM/pteronext/main/pteronext-update.sh | bash -s -- "${@:2}"
+                exit 0
+            fi
+            ;;
         --port=*)
             PORT="${1#*=}"
             shift
@@ -220,9 +239,16 @@ echo -e "${CYAN}[DIR] Setting up /opt/pteronext and /var/lib/pteronext...${NC}"
 mkdir -p "${INSTALL_DIR}"
 mkdir -p "${DATA_DIR}" "${DATA_DIR}/backups" "${DATA_DIR}/eggs"
 
-# Copy binary
+# Copy binary and updater script
 cp -f "${BINARY_SOURCE}" "${INSTALL_DIR}/pteronext"
 chmod +x "${INSTALL_DIR}/pteronext"
+ln -sf "${INSTALL_DIR}/pteronext" /usr/local/bin/pteronext 2>/dev/null || true
+
+if [[ -f "${SCRIPT_DIR}/pteronext-update.sh" ]]; then
+    cp -f "${SCRIPT_DIR}/pteronext-update.sh" "${INSTALL_DIR}/pteronext-update.sh"
+    chmod +x "${INSTALL_DIR}/pteronext-update.sh"
+    ln -sf "${INSTALL_DIR}/pteronext-update.sh" /usr/local/bin/pteronext-update 2>/dev/null || true
+fi
 
 # Generate JWT Secret if not already generated
 JWT_SECRET_FILE="${DATA_DIR}/.jwt_secret"
