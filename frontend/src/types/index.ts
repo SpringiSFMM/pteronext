@@ -372,6 +372,7 @@ export interface ServerGroup {
   icon?: string;
   collapsed?: boolean;
   serverIds: string[];
+  userId?: number | string;
 }
 
 export interface ScheduleCondition {

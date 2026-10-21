@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { ServerCard } from './ServerCard';
 import { ServerCardSkeleton, ServerTableRowSkeleton } from './ServerCardSkeleton';
@@ -86,20 +86,80 @@ export const ServerListView: React.FC = () => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkActionRunning, setBulkActionRunning] = useState<PowerAction | null>(null);
 
-  // Server Groups & Folders State (Feature 1)
-  const [serverGroups, setServerGroups] = useState<ServerGroup[]>(() => {
+  // Server Groups & Folders State (User-Scoped)
+  const getGroupsStorageKey = (userId?: number | string | null) => {
+    return userId ? `pteronext_server_groups_${userId}` : 'pteronext_server_groups_guest';
+  };
+
+  const loadGroupsForUser = (userId?: number | string | null): ServerGroup[] => {
     try {
-      const saved = localStorage.getItem('pteronext_server_groups');
-      if (saved) return JSON.parse(saved);
-    } catch {}
+      const key = getGroupsStorageKey(userId);
+      let saved = localStorage.getItem(key);
+
+      // Fallback & migration from legacy non-scoped storage key
+      if (!saved && userId) {
+        const legacy = localStorage.getItem('pteronext_server_groups');
+        if (legacy) {
+          const parsed = JSON.parse(legacy);
+          if (Array.isArray(parsed)) {
+            // Only adopt legacy groups that either have no user_id or match the current user
+            const matched = parsed
+              .filter((g: any) => g && (!g.userId || String(g.userId) === String(userId)))
+              .map((g: any) => ({ ...g, userId }));
+            if (matched.length > 0) {
+              localStorage.setItem(key, JSON.stringify(matched));
+              return matched;
+            }
+          }
+        }
+      }
+
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          // Strictly enforce owner / user_id check inside each group object so groups from other users are not shown
+          return parsed
+            .filter((g: any) => {
+              if (!g || typeof g !== 'object') return false;
+              if (userId) {
+                return !g.userId || String(g.userId) === String(userId);
+              }
+              return !g.userId;
+            })
+            .map((g: any) => ({
+              ...g,
+              userId: g.userId ?? (userId || undefined),
+            }));
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load server groups:', err);
+    }
     return [];
+  };
+
+  const [serverGroups, setServerGroups] = useState<ServerGroup[]>(() => {
+    return loadGroupsForUser(currentUser?.id);
   });
 
+  // Reload the user's specific groups whenever the logged-in user changes or mounts
+  useEffect(() => {
+    setServerGroups(loadGroupsForUser(currentUser?.id));
+  }, [currentUser?.id]);
+
   const saveGroups = (newGroups: ServerGroup[]) => {
-    setServerGroups(newGroups);
+    const currentUserId = currentUser?.id;
+    const key = getGroupsStorageKey(currentUserId);
+    const scopedGroups = newGroups.map((g) => ({
+      ...g,
+      userId: g.userId ?? (currentUserId || undefined),
+    }));
+    setServerGroups(scopedGroups);
     try {
-      localStorage.setItem('pteronext_server_groups', JSON.stringify(newGroups));
-    } catch {}
+      localStorage.setItem(key, JSON.stringify(scopedGroups));
+    } catch (err) {
+      console.error('Failed to save server groups:', err);
+    }
   };
 
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
@@ -116,7 +176,7 @@ export const ServerListView: React.FC = () => {
       saveGroups(
         serverGroups.map((g) =>
           g.id === editingGroup.id
-            ? { ...g, name: groupNameInput.trim(), color: groupColorInput }
+            ? { ...g, name: groupNameInput.trim(), color: groupColorInput, userId: g.userId ?? currentUser?.id }
             : g
         )
       );
@@ -132,6 +192,7 @@ export const ServerListView: React.FC = () => {
         color: groupColorInput,
         collapsed: false,
         serverIds: [],
+        userId: currentUser?.id,
       };
       saveGroups([...serverGroups, newGroup]);
       addToast({
@@ -180,7 +241,13 @@ export const ServerListView: React.FC = () => {
   };
 
   const getGroupNameForServer = (serverId: string) => {
-    const g = serverGroups.find((grp) => grp.serverIds.includes(serverId));
+    const g = serverGroups.find((grp) => {
+      if (!grp.serverIds.includes(serverId)) return false;
+      if (currentUser?.id && grp.userId && String(grp.userId) !== String(currentUser.id)) {
+        return false;
+      }
+      return true;
+    });
     return g ? { name: g.name, color: g.color } : null;
   };
 

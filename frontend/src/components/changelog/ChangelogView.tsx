@@ -568,44 +568,46 @@ export const ChangelogView: React.FC = () => {
     {
       version: 'v2.6.0',
       title: language === 'de'
-        ? 'Enterprise Themes, Custom CSS Studio, Smooth Accordions & 2FA Recovery'
-        : 'Enterprise Themes, Custom CSS Studio, Smooth Accordions & 2FA Recovery',
-      date: 'October 2026',
-      tag: 'STABLE RELEASE',
+        ? 'Global Nebula Theme Designer, User-Scoped Server-Ordner, Direkter Ordner-Upload & Staging-Sandboxes'
+        : 'Global Nebula Theme Designer, User-Scoped Server Folders, Direct Folder Upload & Staging Sandboxes',
+      date: language === 'de' ? '21. Oktober 2026' : 'October 21, 2026',
+      tag: 'STABLE RELEASE • ptn-20261021-af739d',
       features: language === 'de'
         ? [
-            '11 Handgefertigte Themes mit vollständiger Farbharmonie (Cyberpunk, Midnight, Sakura, Aurora, Matrix)',
-            '4 Dynamische Hintergrund-Leinwände: Ambient Dynamic Glow, Cyber Mesh Grid, Pure OLED Black & Classic Dark',
-            'Custom CSS Live Studio in den Benutzereinstellungen mit sofortiger Vorschau ohne Reload',
-            'Zwei-Faktor-Authentifizierung (2FA) Härtung: Case-insensitives Login & serverseitiger Notfall-Reset-CLI-Befehl (-reset-2fa)',
-            'Multi-User Co-Pilot Admin-Präsenz mit interaktiver Liste aller aktiven Admins und deren Aktivitäten',
-            'Sanfte Accordion-Transitions (CSS Grid Animations) im Server-Dashboard und in der Plattform-Navigation',
+            'Global Nebula Theme Designer (Admin-only): 8 Presets, dynamische Akzentfarben, Glow-Levels, Custom Wallpaper, Branding und globale CSS-Injection',
+            'Server-Gruppen & persönliche Ordner (User-Scoped): Drag & Drop, einklappbare Ordner und strikte Isolation pro Benutzerkonto (keine globale Vermischung)',
+            'Direkter Ordner-Upload & Rekursiver Drop: Ganze Verzeichnisbäume mit erhaltener Struktur direkt in den Dateimanager hochladen',
+            'Schedule Conditions (Bedingte Ausführung): Smart Trigger bei 0 Spielern (Idle-Schutz), CPU-Schwellenwert oder Server-Status',
+            'Server-Branches & Staging-Sandboxes: 1-Klick Klonen von Servern in isolierte Testumgebungen für risikofreie Updates und Tests',
+            'Granulare Subuser-Rechte & Visual Glob Rules: Detaillierte Dateirechte (Upload, Delete, Archive) und visuelle Pfad-Guardrails',
           ]
         : [
-            '11 Handcrafted themes with full color harmony (Cyberpunk, Midnight, Sakura, Aurora, Matrix)',
-            '4 Dynamic background canvases: Ambient Dynamic Glow, Cyber Mesh Grid, Pure OLED Black & Classic Dark',
-            'Custom CSS Live Studio in user account settings with instant preview without page reloads',
-            'Two-Factor Authentication (2FA) hardening: Case-insensitive login & emergency CLI reset (-reset-2fa)',
-            'Multi-User Co-Pilot Admin presence with interactive list of active administrators and their activities',
-            'Smooth accordion transitions (CSS Grid animations) in server dashboard and platform navigation',
+            'Global Nebula Theme Designer (Admin-only): 8 Presets, dynamic accent colors, glow levels, custom wallpaper, branding, and global CSS injection',
+            'Server Groups & Personal Folders (User-Scoped): Drag & Drop, collapsible folders, and strict isolation per user account (no global leakage)',
+            'Direct Folder Upload & Recursive Drop: Upload entire directory trees with preserved structure directly into the File Manager',
+            'Schedule Conditions (Conditional Execution): Smart triggers on 0 players (idle protection), CPU threshold, or server lifecycle status',
+            'Server Branches & Staging Sandboxes: 1-click cloning of servers into isolated staging environments for risk-free updates and testing',
+            'Granular Subuser Permissions & Visual Glob Rules: Detailed file permissions (Upload, Delete, Archive) and visual path guardrails',
           ],
       security: language === 'de'
         ? [
-            '2FA-Aussperrschutz mit automatischem Fallback und Notfall-Reset via CLI (/opt/pteronext/pteronext -reset-2fa)',
-            'Robuste Session-Verifikation mit Argon2id & JWT-Tokens',
+            'Strikte Isolation für persönliche Server-Ordner: Vollständige Trennung persönlicher Ordner verhindert unautorisierte Einsichtnahme zwischen Konten',
+            'Visual Glob Guardrails: Pfadbasierte Zugriffsregeln blockieren unbefugte Dateimanipulationen und Directory Traversal durch Subuser',
           ]
         : [
-            '2FA lockout prevention with automatic fallback and emergency CLI reset',
-            'Robust session verification using Argon2id and JWT tokens',
+            'Strict personal folder isolation: Complete separation of user folders prevents unauthorized cross-account visibility or leakage',
+            'Visual Glob Guardrails: Path-based access rules enforce strict boundaries for subuser file operations and prevent traversal',
           ],
       improvements: language === 'de'
         ? [
-            'Fehlerbehebung und zentrierte Ausrichtung für Suchleiste im Workload-Dashboard',
-            'Co-Pilot Admin-Präsenz mit interaktiver Liste, Avatar-Indikatoren und Letztgesehen-Telemetrie',
+            'Bugfix: Behebung der globalen Ordnersichtbarkeit (Ordner sind jetzt strikt an das jeweilige Benutzerkonto gebunden)',
+            'Optimierter rekursiver Upload-Handler im Dateimanager für große Verzeichnisstrukturen mit erhaltener Hierarchie',
+            'Ressourceneffiziente Prüfung von Schedule-Bedingungen zur Minimierung unnötiger Hintergrund-Ausführungen',
           ]
         : [
-            'Bug fix and centered alignment for search bar in workload dashboard',
-            'Co-Pilot Admin presence with interactive roster, avatars, and last-seen telemetry',
+            'Bugfix: Resolved global folder visibility (folders are now strictly bound to the authenticated user account)',
+            'Optimized recursive upload handler in File Manager for large directory hierarchies with preserved structure',
+            'Resource-efficient schedule condition evaluation minimizing unnecessary background executions',
           ],
     },
     {

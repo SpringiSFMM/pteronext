@@ -121,6 +121,22 @@ This project follows [Semantic Versioning](http://semver.org) guidelines.
 * **Core Auto-Updater**: Automated release-stream subscriptions for Paper, Purpur and Velocity, nightly cron automation (04:00 AM) with pre-update backups and a 60-second crash auto-revert recovery hook.
 * **Smart SFTP- & Access-Key-Manager**: Temporary guest credentials with configurable TTL expiration, per-key IP whitelisting, daemon authentication integration, and 1-click `sftp://` URI generation for FileZilla and WinSCP.
 
+## v2.6.0
+### Added
+* **Global Nebula Theme Designer (Admin-only)**: 8 vorkonfigurierte Design-Presets, stufenlose Akzentfarben, anpassbare Glow-Levels, dynamische Canvas-Hintergründe, benutzerdefinierte Wallpaper, Plattform-Branding und globale CSS-Injection im Admin-Panel (Push: `ptn-20261021-af739d`).
+* **Server-Gruppen & persönliche Ordner (User-Scoped)**: Strukturieren von Servern via Drag & Drop, einklappbare Ordner und strikte Isolation pro Benutzerkonto (keine globale Vermischung oder Dateneinsicht durch Fremde).
+* **Direkter Ordner-Upload & Rekursiver Drop**: Hochladen ganzer Verzeichnisbäume mit vollständig erhaltener Ordnerhierarchie direkt per Drag & Drop in den Dateimanager.
+* **Schedule Conditions (Bedingte Ausführung)**: Intelligente Trigger-Bedingungen für Cronjobs & Tasks (Ausführung nur bei 0 Spielern für Idle-Schutz, CPU-Schwellenwert oder spezifischem Server-Status).
+* **Server-Branches & Staging-Sandboxes**: 1-Klick Klonen von Produktivservern in isolierte Staging-Umgebungen für risikofreie Plugin-Updates, Modpack-Tests und Konfigurationsexperimente.
+* **Granulare Subuser-Rechte & Visual Glob Rules**: Detaillierte Dateirechte (Upload, Delete, Archive) mit visuellen Pfad-Guardrails und Ausschlussmustern.
+
+### Security
+* **Strikte Benutzer-Isolation für persönliche Server-Ordner**: Vollständige Trennung persönlicher Ordner verhindert unautorisierte Sichtbarkeit zwischen verschiedenen Benutzerkonten.
+* **Visual Glob Path Guardrails**: Visuelle Pfadfilter verhindern unautorisierte Dateizugriffe und Directory-Traversal durch Subuser.
+
+### Fixed
+* **Globale Ordnersichtbarkeit behoben**: Behebung der systemweiten Sichtbarkeit von Server-Ordnern – Ordner sind jetzt strikt an das jeweilige Benutzerkonto gebunden.
+
 ## v1.12.3
 ### Fixed
 * Adds a rate limit when changing email addresses on an account to prevent account enumeration.

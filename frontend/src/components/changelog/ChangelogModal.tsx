@@ -59,22 +59,20 @@ export const ChangelogModal: React.FC = () => {
       ? latestRelease.highlights
       : language === 'en'
       ? [
-          'Port & Network Manager with 1-Click Primary Switching & Pool Allocation',
-          'Player & Community Dashboard with Live Avatars, Chat Relay & Ban Management',
-          'Integrated Redis, SQLite & PostgreSQL Sidecars with Auto-Credential Injection',
-          'Built-in Web Database Viewer for rapid table inspection in browser',
-          'Security Scanner & Bytecode Backdoor Detection for .jar files',
-          'Multi-User Co-Pilot Presence & 1-Click Incident Freeze / Safe Mode',
-          'Granular Zero-Trust RBAC with visual path and command rules',
+          'Global Nebula Theme Designer (Admin-only): 8 Presets, dynamic accent colors, glow levels, custom wallpaper, branding, and global CSS injection',
+          'Server Groups & Personal Folders (User-Scoped): Drag & Drop, collapsible folders, and strict isolation per user account (no global leakage)',
+          'Direct Folder Upload & Recursive Drop: Upload entire directory trees with preserved structure directly into the File Manager',
+          'Schedule Conditions (Conditional Execution): Smart triggers on 0 players (idle protection), CPU threshold, or server lifecycle status',
+          'Server Branches & Staging Sandboxes: 1-click cloning of servers into isolated staging environments for risk-free updates and testing',
+          'Granular Subuser Permissions & Visual Glob Rules: Detailed file permissions (Upload, Delete, Archive) and visual path guardrails',
         ]
       : [
-          'Port- & Netzwerk-Manager mit 1-Klick Primary Switching & Pool Allokation',
-          'Player- & Community-Dashboard mit Live-Avatar, Chat-Relay & Ban-Verwaltung',
-          'Integrierte Redis-, SQLite- & PostgreSQL-Sidecars mit Auto-Credential-Injection',
-          'Integrierter Web-DB-Viewer für schnelle Tabellen-Inspektion im Browser',
-          'Sicherheits-Scan & Bytecode Backdoor Detection für .jar Dateien',
-          'Multi-User Co-Pilot Presence & 1-Klick Incident Freeze / Safe Mode',
-          'Granulares Zero-Trust RBAC mit visuellen Path- & Command-Rules',
+          'Global Nebula Theme Designer (Admin-only): 8 Presets, dynamische Akzentfarben, Glow-Levels, Custom Wallpaper, Branding und globale CSS-Injection',
+          'Server-Gruppen & persönliche Ordner (User-Scoped): Drag & Drop, einklappbare Ordner und strikte Isolation pro Benutzerkonto (keine globale Vermischung)',
+          'Direkter Ordner-Upload & Rekursiver Drop: Ganze Verzeichnisbäume mit erhaltener Struktur direkt in den Dateimanager hochladen',
+          'Schedule Conditions (Bedingte Ausführung): Smart Trigger bei 0 Spielern (Idle-Schutz), CPU-Schwellenwert oder Server-Status',
+          'Server-Branches & Staging-Sandboxes: 1-Klick Klonen von Servern in isolierte Testumgebungen für risikofreie Updates und Tests',
+          'Granulare Subuser-Rechte & Visual Glob Rules: Detaillierte Dateirechte (Upload, Delete, Archive) und visuelle Pfad-Guardrails',
         ];
 
   const securityItems: string[] =
@@ -82,14 +80,14 @@ export const ChangelogModal: React.FC = () => {
       ? latestRelease.security
       : language === 'en'
       ? [
+          'Strict personal folder isolation: Complete separation of user folders prevents unauthorized cross-account visibility or leakage',
+          'Visual Glob Guardrails: Path-based access rules enforce strict boundaries for subuser file operations and prevent traversal',
           'Automated masking of sensitive tokens, passwords, and webhooks in live logs',
-          'Host-level sanitization and canonical path checking via filepath.Clean against traversal',
-          'Zero-Trust RBAC prioritizing DENY rules before ALLOW rules',
         ]
       : [
+          'Strikte Isolation für persönliche Server-Ordner: Vollständige Trennung persönlicher Ordner verhindert unautorisierte Einsichtnahme zwischen Konten',
+          'Visual Glob Guardrails: Pfadbasierte Zugriffsregeln blockieren unbefugte Dateimanipulationen und Directory Traversal durch Subuser',
           'Automatische Zensur (Masking) sensibler Tokens, Passwörter und Webhooks in Live-Logs',
-          'Host-Level Sanitization und kanonische Pfadprüfung via filepath.Clean gegen Directory Traversal',
-          'Zero-Trust RBAC mit Vorrang von DENY-Regeln vor ALLOW-Regeln',
         ];
 
   const improvementItems: string[] =
@@ -97,14 +95,14 @@ export const ChangelogModal: React.FC = () => {
       ? latestRelease.improvements
       : language === 'en'
       ? [
-          'Multi-Node load balancing based on actual RAM and CPU utilization',
-          'Discord & Slack first webhooks with interactive action buttons',
-          'Modernized glassmorphism interface with smooth animations and micro-interactions',
+          'Bugfix: Resolved global folder visibility (folders are now strictly bound to the authenticated user account)',
+          'Optimized recursive upload handler in File Manager for large directory hierarchies with preserved structure',
+          'Resource-efficient schedule condition evaluation minimizing unnecessary background executions',
         ]
       : [
-          'Multi-Node Load Balancing basierend auf tatsächlicher RAM- und CPU-Auslastung',
-          'Discord- & Slack-First Webhooks mit interaktiven Action-Buttons',
-          'Modernisiertes Glasmorphismus-Design mit flüssigen Animationen und Micro-Interaktionen',
+          'Bugfix: Behebung der globalen Ordnersichtbarkeit (Ordner sind jetzt strikt an das jeweilige Benutzerkonto gebunden)',
+          'Optimierter rekursiver Upload-Handler im Dateimanager für große Verzeichnisstrukturen mit erhaltener Hierarchie',
+          'Ressourceneffiziente Prüfung von Schedule-Bedingungen zur Minimierung unnötiger Hintergrund-Ausführungen',
         ];
 
   const currentList =
@@ -142,7 +140,7 @@ export const ChangelogModal: React.FC = () => {
                   )}
                 </div>
                 <h3 className="text-lg font-bold text-white tracking-tight mt-1">
-                  {latestRelease.title || (language === 'de' ? 'Enterprise Security, Sidecars & Co-Pilot' : 'Enterprise Security, Sidecars & Co-Pilot')}
+                  {latestRelease.title || (language === 'de' ? 'Global Nebula Theme Designer, Server-Ordner & Staging-Sandboxes' : 'Global Nebula Theme Designer, Server Folders & Staging Sandboxes')}
                 </h3>
               </div>
             </div>
@@ -157,8 +155,8 @@ export const ChangelogModal: React.FC = () => {
 
           <p className="text-xs text-slate-300 font-sans leading-relaxed">
             {language === 'de'
-              ? 'Willkommen beim neuen Update! PteroNext wurde mit mächtigen Sicherheits-, Community- und Sidecar-Werkzeugen erweitert, um Serververwaltung noch schneller, sicherer und intuitiver zu machen.'
-              : 'Welcome to the latest update! PteroNext has been equipped with powerful security, community, and sidecar management tools to make server operations faster, safer, and more intuitive.'}
+              ? 'Willkommen bei Version v2.6.0! PteroNext wurde mit dem neuen Global Nebula Theme Designer, benutzerbezogenen Server-Ordnern mit strikter Isolation, direktem Verzeichnis-Upload und Staging-Sandboxes erweitert.'
+              : 'Welcome to version v2.6.0! PteroNext has been equipped with the new Global Nebula Theme Designer, user-scoped server folders with strict isolation, direct folder upload, and staging sandboxes.'}
           </p>
 
           {/* Navigation Category Tabs */}

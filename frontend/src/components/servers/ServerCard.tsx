@@ -46,6 +46,19 @@ export const ServerCard: React.FC<ServerCardProps> = ({
   const [copied, setCopied] = useState(false);
   const [showFolderMenu, setShowFolderMenu] = useState(false);
 
+  // Scoped folder groups for active user
+  const userScopedGroups = (availableGroups || []).filter((g) => {
+    if (!g) return false;
+    if (currentUser?.id) {
+      return !g.userId || String(g.userId) === String(currentUser.id);
+    }
+    return !g.userId;
+  });
+
+  const assignedGroup = userScopedGroups.find((g) => g.serverIds?.includes(server.id));
+  const activeGroupName = groupName || assignedGroup?.name;
+  const activeGroupColor = groupColor || assignedGroup?.color;
+
   const isMine = (() => {
     if (!currentUser) return true;
     if (server.ownerId && currentUser.id) {
@@ -161,17 +174,17 @@ export const ServerCard: React.FC<ServerCardProps> = ({
               )}
 
               {/* Group Folder Badge */}
-              {groupName && (
+              {activeGroupName && (
                 <span
                   className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-md border"
                   style={{
-                    backgroundColor: groupColor ? `${groupColor}15` : '#6366f115',
-                    borderColor: groupColor ? `${groupColor}40` : '#6366f140',
-                    color: groupColor || '#818cf8',
+                    backgroundColor: activeGroupColor ? `${activeGroupColor}15` : '#6366f115',
+                    borderColor: activeGroupColor ? `${activeGroupColor}40` : '#6366f140',
+                    color: activeGroupColor || '#818cf8',
                   }}
                 >
                   <Folder className="w-2.5 h-2.5" />
-                  <span className="truncate max-w-[100px]">{groupName}</span>
+                  <span className="truncate max-w-[100px]">{activeGroupName}</span>
                 </span>
               )}
             </div>
@@ -289,7 +302,7 @@ export const ServerCard: React.FC<ServerCardProps> = ({
 
         {/* View Details button & Folder Assign */}
         <div className="flex items-center gap-1.5">
-          {availableGroups && availableGroups.length > 0 && onMoveToGroup && (
+          {userScopedGroups && userScopedGroups.length > 0 && onMoveToGroup && (
             <div className="relative inline-block" onClick={(e) => e.stopPropagation()}>
               <button
                 type="button"
@@ -320,26 +333,29 @@ export const ServerCard: React.FC<ServerCardProps> = ({
                     <span className="w-2 h-2 rounded-full bg-slate-600" />
                     <span>Kein Ordner</span>
                   </button>
-                  {availableGroups.map((g) => (
-                    <button
-                      key={g.id}
-                      type="button"
-                      onClick={() => {
-                        onMoveToGroup(server.id, g.id);
-                        setShowFolderMenu(false);
-                      }}
-                      className="w-full text-left px-3 py-1.5 text-slate-200 hover:text-white hover:bg-white/5 transition-colors text-xs flex items-center justify-between"
-                    >
-                      <span className="flex items-center gap-2 truncate">
-                        <span
-                          className="w-2 h-2 rounded-full shrink-0"
-                          style={{ backgroundColor: g.color || '#6366f1' }}
-                        />
-                        <span className="truncate">{g.name}</span>
-                      </span>
-                      {groupName === g.name && <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
-                    </button>
-                  ))}
+                  {userScopedGroups.map((g) => {
+                    const isAssigned = (activeGroupName && g.name === activeGroupName) || g.serverIds?.includes(server.id);
+                    return (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={() => {
+                          onMoveToGroup(server.id, g.id);
+                          setShowFolderMenu(false);
+                        }}
+                        className="w-full text-left px-3 py-1.5 text-slate-200 hover:text-white hover:bg-white/5 transition-colors text-xs flex items-center justify-between"
+                      >
+                        <span className="flex items-center gap-2 truncate">
+                          <span
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ backgroundColor: g.color || '#6366f1' }}
+                          />
+                          <span className="truncate">{g.name}</span>
+                        </span>
+                        {isAssigned && <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
