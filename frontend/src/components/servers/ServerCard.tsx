@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Server } from '../../types';
+import { Server, ServerGroup } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { StatusBadge } from '../common/StatusBadge';
 import { ResourceMeter } from '../common/ResourceMeter';
@@ -18,6 +18,7 @@ import {
   Loader2,
   UserCheck,
   Users,
+  Folder,
 } from 'lucide-react';
 
 interface ServerCardProps {
@@ -25,6 +26,10 @@ interface ServerCardProps {
   isSelected?: boolean;
   onToggleSelect?: (e: React.MouseEvent) => void;
   isBulkMode?: boolean;
+  groupName?: string;
+  groupColor?: string;
+  availableGroups?: ServerGroup[];
+  onMoveToGroup?: (serverId: string, groupId: string | null) => void;
 }
 
 export const ServerCard: React.FC<ServerCardProps> = ({
@@ -32,9 +37,14 @@ export const ServerCard: React.FC<ServerCardProps> = ({
   isSelected = false,
   onToggleSelect,
   isBulkMode = false,
+  groupName,
+  groupColor,
+  availableGroups,
+  onMoveToGroup,
 }) => {
   const { selectServerAndNavigate, handlePowerAction, addToast, pendingPowerActions, currentUser } = useApp();
   const [copied, setCopied] = useState(false);
+  const [showFolderMenu, setShowFolderMenu] = useState(false);
 
   const isMine = (() => {
     if (!currentUser) return true;
@@ -76,6 +86,11 @@ export const ServerCard: React.FC<ServerCardProps> = ({
 
   return (
     <div
+      draggable={!isBulkMode}
+      onDragStart={(e) => {
+        e.dataTransfer.setData('text/plain', server.id);
+        e.dataTransfer.effectAllowed = 'move';
+      }}
       onClick={() => {
         if (isBulkMode && onToggleSelect) {
           onToggleSelect(null as any);
@@ -142,6 +157,21 @@ export const ServerCard: React.FC<ServerCardProps> = ({
                 <span className="flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
                   <UserCheck className="w-3 h-3 text-emerald-400" />
                   <span>Eigentümer</span>
+                </span>
+              )}
+
+              {/* Group Folder Badge */}
+              {groupName && (
+                <span
+                  className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-md border"
+                  style={{
+                    backgroundColor: groupColor ? `${groupColor}15` : '#6366f115',
+                    borderColor: groupColor ? `${groupColor}40` : '#6366f140',
+                    color: groupColor || '#818cf8',
+                  }}
+                >
+                  <Folder className="w-2.5 h-2.5" />
+                  <span className="truncate max-w-[100px]">{groupName}</span>
                 </span>
               )}
             </div>
@@ -257,15 +287,73 @@ export const ServerCard: React.FC<ServerCardProps> = ({
           )}
         </div>
 
-        {/* View Details button */}
-        <button
-          onClick={() => selectServerAndNavigate(server, 'console')}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#21262d] hover:bg-[#30363d] text-slate-300 hover:text-white border border-[#30363d] text-xs font-medium transition-colors"
-        >
-          <Terminal className="w-3.5 h-3.5 text-slate-400" />
-          <span>Console</span>
-          <ChevronRight className="w-3 h-3 text-slate-500" />
-        </button>
+        {/* View Details button & Folder Assign */}
+        <div className="flex items-center gap-1.5">
+          {availableGroups && availableGroups.length > 0 && onMoveToGroup && (
+            <div className="relative inline-block" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                onClick={() => setShowFolderMenu((prev) => !prev)}
+                title="In Ordner verschieben"
+                className={`p-1.5 rounded-lg border transition-colors ${
+                  showFolderMenu
+                    ? 'bg-indigo-600 text-white border-indigo-500'
+                    : 'bg-[#21262d] text-slate-400 hover:text-white border-[#30363d]'
+                }`}
+              >
+                <Folder className="w-3.5 h-3.5" />
+              </button>
+
+              {showFolderMenu && (
+                <div className="absolute right-0 bottom-full mb-1 w-48 bg-[#0d1117] border border-[#30363d] rounded-xl shadow-2xl py-1 z-30 font-sans text-xs">
+                  <div className="px-3 py-1.5 text-[10px] font-mono uppercase text-slate-400 font-semibold border-b border-[#30363d]/60">
+                    Ordner zuweisen
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onMoveToGroup(server.id, null);
+                      setShowFolderMenu(false);
+                    }}
+                    className="w-full text-left px-3 py-1.5 text-slate-400 hover:text-white hover:bg-white/5 transition-colors text-xs flex items-center gap-2"
+                  >
+                    <span className="w-2 h-2 rounded-full bg-slate-600" />
+                    <span>Kein Ordner</span>
+                  </button>
+                  {availableGroups.map((g) => (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => {
+                        onMoveToGroup(server.id, g.id);
+                        setShowFolderMenu(false);
+                      }}
+                      className="w-full text-left px-3 py-1.5 text-slate-200 hover:text-white hover:bg-white/5 transition-colors text-xs flex items-center justify-between"
+                    >
+                      <span className="flex items-center gap-2 truncate">
+                        <span
+                          className="w-2 h-2 rounded-full shrink-0"
+                          style={{ backgroundColor: g.color || '#6366f1' }}
+                        />
+                        <span className="truncate">{g.name}</span>
+                      </span>
+                      {groupName === g.name && <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <button
+            onClick={() => selectServerAndNavigate(server, 'console')}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#21262d] hover:bg-[#30363d] text-slate-300 hover:text-white border border-[#30363d] text-xs font-medium transition-colors"
+          >
+            <Terminal className="w-3.5 h-3.5 text-slate-400" />
+            <span>Console</span>
+            <ChevronRight className="w-3 h-3 text-slate-500" />
+          </button>
+        </div>
       </div>
     </div>
   );

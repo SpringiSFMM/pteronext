@@ -930,6 +930,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     document.documentElement.classList.add(`theme-${colorTheme}`);
   }, [colorTheme]);
 
+  // Apply custom Nebula designer tokens on startup
+  useEffect(() => {
+    try {
+      const savedNebula = localStorage.getItem('pteronext_global_theme_config');
+      if (savedNebula) {
+        const cfg = JSON.parse(savedNebula);
+        const root = document.documentElement;
+        if (cfg.primaryAccent) root.style.setProperty('--theme-accent', cfg.primaryAccent);
+        if (cfg.secondaryAccent) root.style.setProperty('--theme-secondary', cfg.secondaryAccent);
+        if (cfg.borderRadius) root.style.setProperty('--theme-radius', `${cfg.borderRadius}px`);
+        if (cfg.primaryAccent && cfg.accentGlow) {
+          const glow = cfg.accentGlow === 'none' ? 'transparent' : cfg.accentGlow === 'subtle' ? `${cfg.primaryAccent}40` : cfg.accentGlow === 'neon' ? `${cfg.primaryAccent}cc` : `${cfg.primaryAccent}80`;
+          root.style.setProperty('--theme-accent-glow', glow);
+        }
+        if (cfg.panelTitle) document.title = cfg.panelTitle;
+      }
+    } catch {}
+  }, []);
+
   // Language (DE/EN)
   const [language, setLanguageState] = useState<'de' | 'en'>(() => {
     try {

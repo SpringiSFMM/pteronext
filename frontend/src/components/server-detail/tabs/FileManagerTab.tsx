@@ -11,6 +11,7 @@ import {
   File,
   Plus,
   Upload,
+  FolderUp,
   Trash2,
   Edit3,
   ChevronRight,
@@ -176,6 +177,7 @@ export const FileManagerTab: React.FC = () => {
   };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
 
   // Format file byte size
   const formatSize = (bytes: number) => {
@@ -547,7 +549,14 @@ export const FileManagerTab: React.FC = () => {
     }
   };
 
-  // Drag and Drop handlers
+  const handleFolderInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      processUploadedFileList(e.target.files);
+      e.target.value = '';
+    }
+  };
+
+  // Drag and Drop handlers with Recursive Folder Support (Feature 5)
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -560,10 +569,64 @@ export const FileManagerTab: React.FC = () => {
     setIsDraggingOver(false);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDraggingOver(false);
+
+    // Try reading entries recursively if browser supports webkitGetAsEntry
+    const items = e.dataTransfer.items;
+    if (items && items.length > 0) {
+      const filesFound: File[] = [];
+      const traverseEntry = async (entry: any): Promise<void> => {
+        if (!entry) return;
+        if (entry.isFile) {
+          await new Promise<void>((resolve) => {
+            entry.file((file: File) => {
+              filesFound.push(file);
+              resolve();
+            }, () => resolve());
+          });
+        } else if (entry.isDirectory) {
+          const dirReader = entry.createReader();
+          const readAll = async (): Promise<any[]> => {
+            return new Promise((resolve) => {
+              dirReader.readEntries((entries: any[]) => resolve(entries || []), () => resolve([]));
+            });
+          };
+          let batch = await readAll();
+          while (batch.length > 0) {
+            for (const child of batch) {
+              await traverseEntry(child);
+            }
+            batch = await readAll();
+          }
+        }
+      };
+
+      try {
+        const promises: Promise<void>[] = [];
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i] as any;
+          const entry = typeof item.webkitGetAsEntry === 'function' ? item.webkitGetAsEntry() : null;
+          if (entry) {
+            promises.push(traverseEntry(entry));
+          }
+        }
+        await Promise.all(promises);
+
+        if (filesFound.length > 0) {
+          const dt = new DataTransfer();
+          filesFound.forEach((f) => dt.items.add(f));
+          processUploadedFileList(dt.files);
+          return;
+        }
+      } catch (err) {
+        console.warn('Recursive drop traversal fallback:', err);
+      }
+    }
+
+    // Standard files fallback
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       processUploadedFileList(e.dataTransfer.files);
     }
@@ -725,6 +788,17 @@ export const FileManagerTab: React.FC = () => {
             <span>New Folder</span>
           </button>
 
+          {/* Upload Folder (Feature 5) */}
+          <button
+            disabled={isServerSuspended}
+            onClick={() => folderInputRef.current?.click()}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 font-mono text-xs font-semibold hover:border-slate-600 transition-all active:scale-95 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            title={language === 'de' ? 'Kompletten Ordner hochladen' : 'Upload entire directory'}
+          >
+            <FolderUp className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Upload Folder</span>
+          </button>
+
           {/* Upload File */}
           <button
             disabled={isServerSuspended}
@@ -742,6 +816,16 @@ export const FileManagerTab: React.FC = () => {
             ref={fileInputRef}
             onChange={handleFileInputChange}
             className="hidden"
+          />
+
+          {/* Hidden folder input */}
+          <input
+            type="file"
+            multiple
+            ref={folderInputRef}
+            onChange={handleFolderInputChange}
+            className="hidden"
+            {...({ webkitdirectory: '', directory: '' } as any)}
           />
         </div>
       </div>

@@ -19,6 +19,7 @@ export type ActiveView =
   | 'admin-databases'
   | 'admin-discord-bot'
   | 'admin-status-pages'
+  | 'admin-designer'
   | 'admin-api-keys'
   | 'setup';
 
@@ -347,6 +348,56 @@ export const BACKGROUND_EFFECTS: BackgroundEffectOption[] = [
     badge: 'Minimalist',
   },
 ];
+
+export interface NebulaThemeConfig {
+  primaryAccent: string;
+  secondaryAccent: string;
+  accentGlow: 'none' | 'subtle' | 'high' | 'neon';
+  surfaceTone: 'obsidian' | 'midnight' | 'charcoal' | 'pitch_black';
+  borderRadius: number;
+  backgroundStyle: BackgroundEffect | 'custom_image';
+  backgroundImageUrl?: string;
+  backgroundOpacity?: number;
+  panelLogoUrl?: string;
+  panelFaviconUrl?: string;
+  panelTitle?: string;
+  customCss?: string;
+  iconStyle: 'rounded' | 'sharp' | 'neon_glow';
+}
+
+export interface ServerGroup {
+  id: string;
+  name: string;
+  color?: string;
+  icon?: string;
+  collapsed?: boolean;
+  serverIds: string[];
+}
+
+export interface ScheduleCondition {
+  id?: string;
+  type: 'players_zero' | 'cpu_below' | 'server_running' | 'uptime_hours';
+  value?: number;
+  label?: string;
+}
+
+export interface SubuserFilePermission {
+  allowedDirectories: string[];
+  deniedFiles: string[];
+  canUpload: boolean;
+  canDelete: boolean;
+  canEdit: boolean;
+  canArchive: boolean;
+}
+
+export interface ServerBranch {
+  id: string;
+  sourceServerId: string;
+  branchServerId: string;
+  name: string;
+  createdAt: string;
+  notes?: string;
+}
 
 export interface ColorThemeOption {
   id: ColorTheme;

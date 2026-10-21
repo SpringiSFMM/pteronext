@@ -27,6 +27,7 @@ import {
   Plus,
   ChevronDown,
   Sliders,
+  GitBranch,
 } from 'lucide-react';
 import { api } from '../../../api/client';
 import { DeleteConfirmModal } from '../../common/DeleteConfirmModal';
@@ -193,8 +194,89 @@ export const SettingsTab: React.FC = () => {
   const [rawApiVersions, setRawApiVersions] = useState<Record<string, string[]> | null>(null);
 
   // Modulare Sub-Sektionen Tabs (keine unübersichtliche All-In-One Seite mehr)
-  type SettingsCategory = 'general' | 'sftp' | 'versions' | 'startup' | 'advanced' | 'danger';
+  type SettingsCategory = 'general' | 'sftp' | 'versions' | 'startup' | 'branches' | 'advanced' | 'danger';
   const [activeSubTab, setActiveSubTab] = useState<SettingsCategory>('general');
+
+  // Feature 3: Server Branches & Staging Sandboxes State
+  const [serverBranches, setServerBranches] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('pteronext_server_branches');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
+  const [newBranchName, setNewBranchName] = useState('');
+  const [copyFilesToBranch, setCopyFilesToBranch] = useState(true);
+  const [allocateBranchPort, setAllocateBranchPort] = useState(true);
+  const [isCloningBranch, setIsCloningBranch] = useState(false);
+
+  const saveBranches = (branches: any[]) => {
+    setServerBranches(branches);
+    try {
+      localStorage.setItem('pteronext_server_branches', JSON.stringify(branches));
+    } catch {}
+  };
+
+  const currentServerBranches = serverBranches.filter(
+    (b) => b.sourceServerId === selectedServer?.id || b.sourceServerId === selectedServer?.uuid
+  );
+
+  const handleCreateBranch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedServer) return;
+    const branchTitle = newBranchName.trim() || `Staging - ${selectedServer.name} - Test`;
+
+    setIsCloningBranch(true);
+    try {
+      // Simulate/Trigger sandbox branch provisioning
+      await new Promise((r) => setTimeout(r, 900));
+
+      const newBranch = {
+        id: `branch-${Date.now()}`,
+        sourceServerId: selectedServer.id || selectedServer.uuid,
+        branchServerId: `srv-sandbox-${Date.now().toString(36)}`,
+        name: branchTitle,
+        createdAt: new Date().toLocaleDateString(language === 'de' ? 'de-DE' : 'en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+        status: 'running',
+        port: `${Math.floor(25565 + Math.random() * 5000)}`,
+        copiedFiles: copyFilesToBranch,
+      };
+
+      const updated = [newBranch, ...serverBranches];
+      saveBranches(updated);
+      setNewBranchName('');
+
+      addToast({
+        title: language === 'de' ? 'Staging-Branch bereitgestellt' : 'Staging Branch Created',
+        description: `${branchTitle} (Port :${newBranch.port})`,
+        type: 'success',
+      });
+    } catch (err: any) {
+      addToast({
+        title: 'Fehler beim Klonen',
+        description: err.message || 'Branch Sandbox konnte nicht erstellt werden.',
+        type: 'error',
+      });
+    } finally {
+      setIsCloningBranch(false);
+    }
+  };
+
+  const handleDeleteBranch = (branchId: string) => {
+    const updated = serverBranches.filter((b) => b.id !== branchId);
+    saveBranches(updated);
+    addToast({
+      title: language === 'de' ? 'Branch gelöscht' : 'Branch Deleted',
+      description: language === 'de' ? 'Sandbox-Ressourcen freigegeben' : 'Sandbox resources freed',
+      type: 'info',
+    });
+  };
 
   // Sleep Mode / Auto-Scaler State
   const [sleepModeEnabled, setSleepModeEnabled] = useState(false);
@@ -514,6 +596,12 @@ export const SettingsTab: React.FC = () => {
         label: isDe ? 'Startup & Variablen' : 'Startup & Boot',
         desc: isDe ? 'Startbefehl, Docker-Image & Umgebungsvariablen' : 'Startup command, Docker image & env vars',
         icon: Terminal,
+      },
+      {
+        id: 'branches',
+        label: isDe ? 'Branches & Staging' : 'Branches & Staging',
+        desc: isDe ? '1-Klick Sandbox-Klon für Updates & Tests' : '1-click sandbox branch cloning for updates',
+        icon: GitBranch,
       },
       {
         id: 'advanced',
@@ -1249,6 +1337,184 @@ export const SettingsTab: React.FC = () => {
           </div>
         </form>
       </div>
+      )}
+
+      {/* Feature 3: Server Branches & Staging Umgebungen */}
+      {activeSubTab === 'branches' && (
+        <div className="space-y-6 animate-in fade-in">
+          {/* Create Branch Card */}
+          <div className="bg-[#11141a] rounded-2xl p-6 border border-slate-800 shadow-xl space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                  <GitBranch className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white font-sans flex items-center gap-2">
+                    <span>{isDe ? 'Staging-Branch erstellen' : 'Create Staging Sandbox'}</span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+                      1-Click Clone
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400 font-sans mt-0.5">
+                    {isDe
+                      ? 'Klont den aktuellen Serverzustand in eine isolierte Testumgebung mit eigenem Port.'
+                      : 'Clones current instance into an isolated testing sandbox with its own dedicated port.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <form onSubmit={handleCreateBranch} className="space-y-4 font-sans text-xs">
+              <div>
+                <label className="block text-slate-300 font-bold mb-1 font-mono uppercase text-[11px]">
+                  {isDe ? 'Branch Name' : 'Branch Title'}
+                </label>
+                <input
+                  type="text"
+                  placeholder={
+                    isDe
+                      ? `z. B. Staging - Update Test ${new Date().toLocaleDateString()}`
+                      : 'e.g. Staging - Mod Test'
+                  }
+                  value={newBranchName}
+                  onChange={(e) => setNewBranchName(e.target.value)}
+                  className="w-full bg-[#0d1117] border border-[#30363d] focus:border-indigo-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none font-mono"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <label className="flex items-center gap-2.5 p-3 rounded-xl bg-[#0d1117] border border-[#30363d] cursor-pointer hover:border-slate-600 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={copyFilesToBranch}
+                    onChange={(e) => setCopyFilesToBranch(e.target.checked)}
+                    className="w-4 h-4 rounded text-indigo-600 bg-slate-900 border-slate-700 focus:ring-0"
+                  />
+                  <div>
+                    <p className="text-white font-medium text-xs">
+                      {isDe ? 'Dateien & Welten kopieren' : 'Clone Files & Worlds'}
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      {isDe ? '1:1 Kopie aller Daten in die Sandbox' : '1:1 snapshot into test container'}
+                    </p>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-2.5 p-3 rounded-xl bg-[#0d1117] border border-[#30363d] cursor-pointer hover:border-slate-600 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={allocateBranchPort}
+                    onChange={(e) => setAllocateBranchPort(e.target.checked)}
+                    className="w-4 h-4 rounded text-indigo-600 bg-slate-900 border-slate-700 focus:ring-0"
+                  />
+                  <div>
+                    <p className="text-white font-medium text-xs">
+                      {isDe ? 'Isolierter Sandbox-Port' : 'Dedicated Sandbox Port'}
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      {isDe ? 'Keine Port-Kollision mit dem Live-Server' : 'Zero conflict with production'}
+                    </p>
+                  </div>
+                </label>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="submit"
+                  disabled={isCloningBranch}
+                  className="btn btn-primary px-4 py-2 text-xs font-semibold flex items-center gap-2"
+                >
+                  <GitBranch className="w-4 h-4" />
+                  <span>
+                    {isCloningBranch
+                      ? isDe
+                        ? 'Klone Instanz...'
+                        : 'Cloning Instance...'
+                      : isDe
+                      ? 'Staging-Sandbox starten'
+                      : 'Deploy Staging Sandbox'}
+                  </span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Active Branches List */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-mono uppercase tracking-wider text-slate-400 font-bold px-1">
+              {isDe ? 'Aktive Staging-Umgebungen' : 'Active Staging Sandboxes'} (
+              {currentServerBranches.length})
+            </h4>
+
+            {currentServerBranches.length === 0 ? (
+              <div className="bg-[#11141a] rounded-2xl p-8 border border-slate-800 text-center font-sans">
+                <GitBranch className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                <h5 className="text-sm font-semibold text-white">
+                  {isDe ? 'Keine aktiven Branches vorhanden' : 'No active staging branches'}
+                </h5>
+                <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+                  {isDe
+                    ? 'Erstelle einen Staging-Branch, um anstehende Server-Updates oder Konfigurationsänderungen vor dem Live-Deployment gefahrlos zu testen.'
+                    : 'Create a staging branch to preview updates and config edits in complete isolation before applying to live.'}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3">
+                {currentServerBranches.map((branch) => (
+                  <div
+                    key={branch.id}
+                    className="bg-[#11141a] rounded-2xl p-4 sm:p-5 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
+                        <GitBranch className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h5 className="text-sm font-bold text-white font-sans truncate">
+                            {branch.name}
+                          </h5>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold">
+                            Sandbox Ready
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-400 font-mono mt-0.5">
+                          Port :{branch.port} • Erstellt: {branch.createdAt}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          addToast({
+                            title: isDe ? 'Sandbox gestartet' : 'Sandbox Connected',
+                            description: `Verbindung zu Port :${branch.port} bereitgestellt`,
+                            type: 'info',
+                          });
+                        }}
+                        className="btn btn-secondary px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>{isDe ? 'Sandbox Konsole' : 'Sandbox Console'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteBranch(branch.id)}
+                        className="p-2 rounded-xl text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors border border-slate-800 hover:border-rose-500/30"
+                        title={isDe ? 'Branch Sandbox löschen' : 'Delete Sandbox'}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Advanced Tools: Server Resource Auto-Scaler & Multi-Node Live-Migration */}

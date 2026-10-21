@@ -40,6 +40,7 @@ import {
   ExternalLink,
   MessageSquare,
   BookOpen,
+  Palette,
 } from 'lucide-react';
 import {
   ServerDetailTab,
@@ -77,6 +78,7 @@ const GLOBAL_SECTIONS = [
       { id: 'admin-databases', label: 'Databases', icon: Database, hint: '' },
       { id: 'admin-discord-bot', label: 'Discord Bot', icon: Bot, hint: '' },
       { id: 'admin-status-pages', label: 'Status Pages', icon: Activity, hint: '' },
+      { id: 'admin-designer', label: 'Theme & Nebula Designer', icon: Palette, hint: 'Theme' },
       { id: 'admin-api-keys', label: 'API-Keys', icon: Key, hint: '' },
     ],
   },
@@ -188,6 +190,7 @@ export const Sidebar: React.FC = () => {
       case 'admin-databases': return t('admin_databases');
       case 'admin-discord-bot': return 'Discord Bot';
       case 'admin-status-pages': return language === 'de' ? 'Status Pages' : 'Status Pages';
+      case 'admin-designer': return language === 'de' ? 'Theme & Nebula Designer' : 'Nebula Theme Designer';
       case 'admin-api-keys': return language === 'de' ? 'API-Keys / Tokens' : 'API Keys / Tokens';
       default: return defaultLabel;
     }

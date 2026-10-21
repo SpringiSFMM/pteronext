@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { ServerCard } from './ServerCard';
 import { ServerCardSkeleton, ServerTableRowSkeleton } from './ServerCardSkeleton';
-import { Server, ServerStatus, PowerAction } from '../../types';
+import { Server, ServerStatus, PowerAction, ServerGroup } from '../../types';
 import {
   Server as ServerIcon,
   Search,
@@ -25,8 +25,16 @@ import {
   Loader2,
   UserCheck,
   Users,
+  Folder,
+  FolderPlus,
+  FolderOpen,
+  ChevronDown,
+  ChevronRight,
+  Trash2,
+  Edit2,
 } from 'lucide-react';
 import { StatusBadge } from '../common/StatusBadge';
+import { Modal } from '../common/Modal';
 import { useTranslation } from '../../i18n/useTranslation';
 
 export const ServerListView: React.FC = () => {
@@ -77,6 +85,104 @@ export const ServerListView: React.FC = () => {
   const [isBulkMode, setIsBulkMode] = useState<boolean>(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkActionRunning, setBulkActionRunning] = useState<PowerAction | null>(null);
+
+  // Server Groups & Folders State (Feature 1)
+  const [serverGroups, setServerGroups] = useState<ServerGroup[]>(() => {
+    try {
+      const saved = localStorage.getItem('pteronext_server_groups');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
+
+  const saveGroups = (newGroups: ServerGroup[]) => {
+    setServerGroups(newGroups);
+    try {
+      localStorage.setItem('pteronext_server_groups', JSON.stringify(newGroups));
+    } catch {}
+  };
+
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+  const [editingGroup, setEditingGroup] = useState<ServerGroup | null>(null);
+  const [groupNameInput, setGroupNameInput] = useState('');
+  const [groupColorInput, setGroupColorInput] = useState('#6366f1');
+  const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
+
+  const handleCreateOrUpdateGroup = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!groupNameInput.trim()) return;
+
+    if (editingGroup) {
+      saveGroups(
+        serverGroups.map((g) =>
+          g.id === editingGroup.id
+            ? { ...g, name: groupNameInput.trim(), color: groupColorInput }
+            : g
+        )
+      );
+      addToast({
+        title: isDe ? 'Gruppe aktualisiert' : 'Group Updated',
+        description: groupNameInput.trim(),
+        type: 'success',
+      });
+    } else {
+      const newGroup: ServerGroup = {
+        id: `group-${Date.now()}`,
+        name: groupNameInput.trim(),
+        color: groupColorInput,
+        collapsed: false,
+        serverIds: [],
+      };
+      saveGroups([...serverGroups, newGroup]);
+      addToast({
+        title: isDe ? 'Neuer Ordner angelegt' : 'Folder Created',
+        description: groupNameInput.trim(),
+        type: 'success',
+      });
+    }
+
+    setIsGroupModalOpen(false);
+    setEditingGroup(null);
+    setGroupNameInput('');
+  };
+
+  const handleDeleteGroup = (groupId: string) => {
+    saveGroups(serverGroups.filter((g) => g.id !== groupId));
+    addToast({
+      title: isDe ? 'Ordner gelöscht' : 'Folder Deleted',
+      description: isDe ? 'Instanzen bleiben erhalten' : 'Instances kept',
+      type: 'info',
+    });
+  };
+
+  const handleToggleGroupCollapse = (groupId: string) => {
+    saveGroups(
+      serverGroups.map((g) =>
+        g.id === groupId ? { ...g, collapsed: !g.collapsed } : g
+      )
+    );
+  };
+
+  const handleMoveServerToGroup = (serverId: string, targetGroupId: string | null) => {
+    const updated = serverGroups.map((g) => {
+      const filtered = g.serverIds.filter((id) => id !== serverId);
+      if (targetGroupId && g.id === targetGroupId) {
+        return { ...g, serverIds: [...filtered, serverId] };
+      }
+      return { ...g, serverIds: filtered };
+    });
+    saveGroups(updated);
+    addToast({
+      title: isDe ? 'Ordner aktualisiert' : 'Folder Updated',
+      description: targetGroupId ? 'Server in Ordner verschoben' : 'Aus Ordner entfernt',
+      type: 'success',
+    });
+  };
+
+  const getGroupNameForServer = (serverId: string) => {
+    const g = serverGroups.find((grp) => grp.serverIds.includes(serverId));
+    return g ? { name: g.name, color: g.color } : null;
+  };
 
   const filteredServers = servers.filter((server) => {
     const matchesSearch =
@@ -217,6 +323,20 @@ export const ServerListView: React.FC = () => {
               <ListIcon className="w-3.5 h-3.5" />
             </button>
           </div>
+
+          <button
+            onClick={() => {
+              setEditingGroup(null);
+              setGroupNameInput('');
+              setGroupColorInput('#6366f1');
+              setIsGroupModalOpen(true);
+            }}
+            className="btn btn-secondary px-3.5 py-2 text-xs font-semibold shadow-sm flex items-center gap-1.5 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10"
+            title="Create a folder to organize your servers"
+          >
+            <FolderPlus className="w-4 h-4 text-indigo-400" />
+            <span>{isDe ? 'Neuer Ordner' : 'New Folder'}</span>
+          </button>
 
           <button
             onClick={() => setIsImportModalOpen(true)}
@@ -378,21 +498,192 @@ export const ServerListView: React.FC = () => {
         </div>
       </div>
 
-      {/* Server Listing: Grid View */}
+      {/* Server Listing: Folders & Groups / Flat Listing */}
       {viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="space-y-6">
           {isLoadingServers ? (
-            <ServerCardSkeleton count={6} />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <ServerCardSkeleton count={6} />
+            </div>
+          ) : serverGroups.length > 0 ? (
+            <>
+              {/* Groups Sections */}
+              {serverGroups.map((group) => {
+                const groupServers = filteredServers.filter((s) => group.serverIds.includes(s.id));
+                const isOver = dragOverGroupId === group.id;
+
+                return (
+                  <div
+                    key={group.id}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'move';
+                      if (dragOverGroupId !== group.id) setDragOverGroupId(group.id);
+                    }}
+                    onDragLeave={() => {
+                      if (dragOverGroupId === group.id) setDragOverGroupId(null);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setDragOverGroupId(null);
+                      const droppedId = e.dataTransfer.getData('text/plain');
+                      if (droppedId) handleMoveServerToGroup(droppedId, group.id);
+                    }}
+                    className={`rounded-2xl border transition-all ${
+                      isOver
+                        ? 'border-indigo-500 bg-indigo-500/10 shadow-[0_0_20px_rgba(99,102,241,0.2)]'
+                        : 'border-[#30363d]/80 bg-[#161b22]/40'
+                    } p-4 space-y-3.5`}
+                  >
+                    {/* Folder Header */}
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <div
+                        onClick={() => handleToggleGroupCollapse(group.id)}
+                        className="flex items-center gap-2.5 cursor-pointer select-none group/hdr"
+                      >
+                        <button
+                          type="button"
+                          className="p-1 text-slate-400 group-hover/hdr:text-white transition-colors"
+                        >
+                          {group.collapsed ? (
+                            <ChevronRight className="w-4 h-4" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4" />
+                          )}
+                        </button>
+                        <div
+                          className="p-1.5 rounded-lg border flex items-center justify-center shrink-0"
+                          style={{
+                            backgroundColor: `${group.color || '#6366f1'}15`,
+                            borderColor: `${group.color || '#6366f1'}40`,
+                            color: group.color || '#818cf8',
+                          }}
+                        >
+                          {group.collapsed ? (
+                            <Folder className="w-4 h-4" />
+                          ) : (
+                            <FolderOpen className="w-4 h-4" />
+                          )}
+                        </div>
+                        <h3 className="text-sm font-bold text-white group-hover/hdr:text-indigo-300 transition-colors">
+                          {group.name}
+                        </h3>
+                        <span className="text-xs font-mono text-slate-400 bg-[#0d1117] px-2 py-0.5 rounded-full border border-[#30363d]">
+                          {groupServers.length} {groupServers.length === 1 ? 'Server' : 'Server'}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingGroup(group);
+                            setGroupNameInput(group.name);
+                            setGroupColorInput(group.color || '#6366f1');
+                            setIsGroupModalOpen(true);
+                          }}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[#21262d] transition-colors"
+                          title={isDe ? 'Ordner bearbeiten' : 'Edit Folder'}
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteGroup(group.id)}
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                          title={isDe ? 'Ordner entfernen' : 'Delete Folder'}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Folder Content */}
+                    {!group.collapsed && (
+                      <>
+                        {groupServers.length === 0 ? (
+                          <div className="py-6 border border-dashed border-[#30363d] rounded-xl text-center text-xs text-slate-500 font-mono">
+                            {isDe
+                              ? 'Ziehe Instanzen per Drag & Drop hierher'
+                              : 'Drag & Drop instances here to add them to this folder'}
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {groupServers.map((server) => {
+                              const gInfo = getGroupNameForServer(server.id);
+                              return (
+                                <ServerCard
+                                  key={server.id}
+                                  server={server}
+                                  isBulkMode={isBulkMode}
+                                  isSelected={selectedIds.includes(server.id)}
+                                  onToggleSelect={() => toggleSelectServer(server.id)}
+                                  groupName={gInfo?.name}
+                                  groupColor={gInfo?.color}
+                                  availableGroups={serverGroups}
+                                  onMoveToGroup={handleMoveServerToGroup}
+                                />
+                              );
+                            })}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Ungrouped Section */}
+              {(() => {
+                const ungroupedServers = filteredServers.filter(
+                  (s) => !serverGroups.some((g) => g.serverIds.includes(s.id))
+                );
+                if (ungroupedServers.length === 0) return null;
+
+                return (
+                  <div className="rounded-2xl border border-[#30363d]/60 bg-[#161b22]/20 p-4 space-y-3.5">
+                    <div className="flex items-center gap-2">
+                      <Folder className="w-4 h-4 text-slate-500" />
+                      <h3 className="text-xs font-mono uppercase tracking-wider text-slate-400 font-bold">
+                        {isDe ? 'Ohne Ordner (Nicht zugewiesen)' : 'Ungrouped Instances'}
+                      </h3>
+                      <span className="text-xs font-mono text-slate-400 bg-[#0d1117] px-2 py-0.5 rounded-full border border-[#30363d]">
+                        {ungroupedServers.length}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {ungroupedServers.map((server) => (
+                        <ServerCard
+                          key={server.id}
+                          server={server}
+                          isBulkMode={isBulkMode}
+                          isSelected={selectedIds.includes(server.id)}
+                          onToggleSelect={() => toggleSelectServer(server.id)}
+                          availableGroups={serverGroups}
+                          onMoveToGroup={handleMoveServerToGroup}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+            </>
           ) : (
-            filteredServers.map((server) => (
-              <ServerCard
-                key={server.id}
-                server={server}
-                isBulkMode={isBulkMode}
-                isSelected={selectedIds.includes(server.id)}
-                onToggleSelect={() => toggleSelectServer(server.id)}
-              />
-            ))
+            /* Flat Grid View when no folders exist */
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredServers.map((server) => (
+                <ServerCard
+                  key={server.id}
+                  server={server}
+                  isBulkMode={isBulkMode}
+                  isSelected={selectedIds.includes(server.id)}
+                  onToggleSelect={() => toggleSelectServer(server.id)}
+                  availableGroups={serverGroups}
+                  onMoveToGroup={handleMoveServerToGroup}
+                />
+              ))}
+            </div>
           )}
         </div>
       ) : (
@@ -405,6 +696,7 @@ export const ServerListView: React.FC = () => {
                   {isBulkMode && <th className="py-3 px-4 w-10">Select</th>}
                   <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4">Instance / Egg</th>
+                  <th className="py-3 px-4">Ordner</th>
                   <th className="py-3 px-4">Node & Allocation</th>
                   <th className="py-3 px-4">CPU Usage</th>
                   <th className="py-3 px-4">Memory</th>
@@ -418,6 +710,7 @@ export const ServerListView: React.FC = () => {
                   filteredServers.map((server) => {
                     const isSelected = selectedIds.includes(server.id);
                     const pendingAction = pendingPowerActions[server.id];
+                    const gInfo = getGroupNameForServer(server.id);
 
                     return (
                       <tr
@@ -457,6 +750,23 @@ export const ServerListView: React.FC = () => {
                             {server.name}
                           </p>
                           <p className="text-[11px] text-slate-400 font-mono">{server.egg}</p>
+                        </td>
+                        <td className="py-3.5 px-4" onClick={(e) => e.stopPropagation()}>
+                          {gInfo ? (
+                            <span
+                              className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-md border"
+                              style={{
+                                backgroundColor: `${gInfo.color || '#6366f1'}15`,
+                                borderColor: `${gInfo.color || '#6366f1'}40`,
+                                color: gInfo.color || '#818cf8',
+                              }}
+                            >
+                              <Folder className="w-2.5 h-2.5" />
+                              <span>{gInfo.name}</span>
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-mono text-slate-600">—</span>
+                          )}
                         </td>
                         <td className="py-3.5 px-4">
                           <div className="flex items-center gap-1.5">
@@ -605,6 +915,94 @@ export const ServerListView: React.FC = () => {
           </div>
         </div>
       )}
+      {/* Server Group Create/Edit Modal */}
+      <Modal
+        isOpen={isGroupModalOpen}
+        onClose={() => {
+          setIsGroupModalOpen(false);
+          setEditingGroup(null);
+        }}
+        title={
+          editingGroup
+            ? isDe
+              ? 'Ordner bearbeiten'
+              : 'Edit Folder'
+            : isDe
+            ? 'Neuen Server-Ordner erstellen'
+            : 'Create Server Folder'
+        }
+      >
+        <form onSubmit={handleCreateOrUpdateGroup} className="space-y-4">
+          <div>
+            <label className="block text-xs font-mono uppercase text-slate-300 mb-1.5 font-bold">
+              {isDe ? 'Ordnername' : 'Folder Name'}
+            </label>
+            <input
+              type="text"
+              required
+              placeholder={isDe ? 'z. B. Production Minecraft, Bots, Staging...' : 'e.g. Production, Bots, Staging...'}
+              value={groupNameInput}
+              onChange={(e) => setGroupNameInput(e.target.value)}
+              className="w-full bg-[#0d1117] border border-[#30363d] focus:border-indigo-500 rounded-xl px-3.5 py-2 text-xs text-white outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-mono uppercase text-slate-300 mb-2 font-bold">
+              {isDe ? 'Farbe' : 'Color Accent'}
+            </label>
+            <div className="flex items-center gap-2 flex-wrap">
+              {[
+                { hex: '#6366f1', name: 'Indigo' },
+                { hex: '#8b5cf6', name: 'Purple' },
+                { hex: '#06b6d4', name: 'Cyan' },
+                { hex: '#10b981', name: 'Emerald' },
+                { hex: '#f59e0b', name: 'Amber' },
+                { hex: '#f43f5e', name: 'Rose' },
+                { hex: '#64748b', name: 'Slate' },
+              ].map((c) => (
+                <button
+                  key={c.hex}
+                  type="button"
+                  onClick={() => setGroupColorInput(c.hex)}
+                  className={`w-7 h-7 rounded-full transition-transform flex items-center justify-center ${
+                    groupColorInput === c.hex ? 'ring-2 ring-white scale-110' : 'hover:scale-105'
+                  }`}
+                  style={{ backgroundColor: c.hex }}
+                  title={c.name}
+                >
+                  {groupColorInput === c.hex && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#30363d]">
+            <button
+              type="button"
+              onClick={() => {
+                setIsGroupModalOpen(false);
+                setEditingGroup(null);
+              }}
+              className="px-4 py-2 rounded-xl text-xs font-mono text-slate-400 hover:text-white"
+            >
+              {isDe ? 'Abbrechen' : 'Cancel'}
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary px-4 py-2 text-xs font-semibold"
+            >
+              {editingGroup
+                ? isDe
+                  ? 'Speichern'
+                  : 'Save Changes'
+                : isDe
+                ? 'Ordner anlegen'
+                : 'Create Folder'}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

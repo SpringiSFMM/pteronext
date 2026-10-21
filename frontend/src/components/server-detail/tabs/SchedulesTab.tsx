@@ -58,6 +58,9 @@ export const SchedulesTab: React.FC = () => {
   const [taskName, setTaskName] = useState('');
   const [cronExpression, setCronExpression] = useState('0 4 * * *');
   const [taskDescription, setTaskDescription] = useState('');
+  const [scheduleCondition, setScheduleCondition] = useState<
+    'none' | 'players_zero' | 'server_running' | 'cpu_low' | 'ram_high'
+  >('none');
 
   // Event trigger state
   const [triggers, setTriggers] = useState<EventTriggerRule[]>([]);
@@ -93,10 +96,23 @@ export const SchedulesTab: React.FC = () => {
     e.preventDefault();
     if (!taskName) return;
 
+    let desc = taskDescription.trim() || `Automated job running on ${cronExpression}`;
+    if (scheduleCondition !== 'none') {
+      const condLabel =
+        scheduleCondition === 'players_zero'
+          ? (language === 'de' ? 'Nur wenn 0 Spieler online' : 'Only if 0 players online')
+          : scheduleCondition === 'server_running'
+          ? (language === 'de' ? 'Nur wenn Server online' : 'Only if server is online')
+          : scheduleCondition === 'cpu_low'
+          ? (language === 'de' ? 'Nur wenn CPU < 30%' : 'Only if CPU < 30%')
+          : (language === 'de' ? 'Nur wenn RAM > 85%' : 'Only if RAM > 85%');
+      desc = `[Bedingung: ${condLabel}] ${desc}`;
+    }
+
     addSchedule({
       name: taskName,
       cron: cronExpression,
-      description: taskDescription || `Automated job running on ${cronExpression}`,
+      description: desc,
       isActive: true,
       nextRun: 'Calculated by cron engine',
       actions: ['Command Trigger', 'Notification Log'],
@@ -105,6 +121,7 @@ export const SchedulesTab: React.FC = () => {
     setIsModalOpen(false);
     setTaskName('');
     setTaskDescription('');
+    setScheduleCondition('none');
   };
 
   const handleTestTrigger = async (rule: EventTriggerRule) => {
@@ -407,8 +424,16 @@ export const SchedulesTab: React.FC = () => {
                     >
                       {sch.isActive ? 'Active' : 'Inactive'}
                     </span>
+                    {sch.description && sch.description.includes('[Bedingung:') && (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 flex items-center gap-1 font-semibold">
+                        <ShieldAlert className="w-3 h-3 text-cyan-400" />
+                        <span>{sch.description.match(/\[Bedingung:\s*(.*?)\]/)?.[1] || 'Bedingung'}</span>
+                      </span>
+                    )}
                   </div>
-                  <p className="text-xs text-slate-400">{sch.description}</p>
+                  <p className="text-xs text-slate-400">
+                    {sch.description.replace(/\[Bedingung:\s*.*?\]\s*/, '')}
+                  </p>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
@@ -575,6 +600,42 @@ export const SchedulesTab: React.FC = () => {
               onChange={(e) => setCronExpression(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white font-mono focus:outline-none focus:border-[var(--theme-accent,#e5a93c)]"
             />
+          </div>
+
+          <div>
+            <label className="block text-xs font-mono uppercase text-slate-300 mb-1.5 flex items-center justify-between">
+              <span>{language === 'de' ? 'Ausführungs-Bedingung (Feature 4)' : 'Schedule Condition'}</span>
+              <span className="text-[10px] text-indigo-400 font-mono">Hydrodactyl Smart Trigger</span>
+            </label>
+            <select
+              value={scheduleCondition}
+              onChange={(e) => setScheduleCondition(e.target.value as any)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white font-mono focus:outline-none focus:border-[var(--theme-accent,#e5a93c)]"
+            >
+              <option value="none">
+                {language === 'de' ? 'Keine Bedingung (Immer ausführen)' : 'None (Always execute)'}
+              </option>
+              <option value="players_zero">
+                {language === 'de'
+                  ? 'Nur ausführen wenn 0 Spieler online sind (Idle-Schutz)'
+                  : 'Only execute when 0 players online (Idle protect)'}
+              </option>
+              <option value="server_running">
+                {language === 'de'
+                  ? 'Nur ausführen wenn der Server online läuft'
+                  : 'Only execute when server is actively running'}
+              </option>
+              <option value="cpu_low">
+                {language === 'de'
+                  ? 'Nur ausführen wenn CPU-Auslastung < 30 % liegt'
+                  : 'Only execute when CPU usage < 30%'}
+              </option>
+              <option value="ram_high">
+                {language === 'de'
+                  ? 'Nur ausführen wenn RAM-Auslastung > 85 % liegt'
+                  : 'Only execute when RAM usage > 85%'}
+              </option>
+            </select>
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
