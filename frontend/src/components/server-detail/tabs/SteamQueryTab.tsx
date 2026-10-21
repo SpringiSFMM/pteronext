@@ -80,31 +80,22 @@ export const SteamQueryTab: React.FC = () => {
 
   const [serverInfo, setServerInfo] = useState<SteamServerInfo>({
     name: selectedServer?.name || 'Steam Dedicated Server',
-    map: detectedGame === 'Rust' ? 'Procedural Map (Size 4500)' : detectedGame === 'Counter-Strike 2' ? 'de_mirage' : 'Meadows_Default',
+    map: detectedGame === 'Rust' ? 'Procedural Map' : detectedGame === 'Counter-Strike 2' ? 'de_mirage' : 'Dedicated Map',
     game: detectedGame,
-    version: '2026.10.14-v2',
-    players: 18,
-    maxPlayers: 100,
+    version: 'Latest Release',
+    players: 0,
+    maxPlayers: 64,
     bots: 0,
     serverType: 'Dedicated',
     environment: 'Linux',
     visibility: 'public',
     vac: true,
-    ping: 28,
-    seed: detectedGame === 'Rust' ? '82947192' : undefined,
-    wipeTime: detectedGame === 'Rust' ? 'Force Wipe in 6d 14h' : undefined,
+    ping: 0,
+    seed: undefined,
+    wipeTime: undefined,
   });
 
-  const [playersList, setPlayersList] = useState<SteamPlayer[]>([
-    { index: 1, name: 'ShadowStriker', score: 24, duration: 4210, ping: 24 },
-    { index: 2, name: 'xX_GamerPro_Xx', score: 19, duration: 3890, ping: 31 },
-    { index: 3, name: 'KaiserWilhelm', score: 15, duration: 3200, ping: 18 },
-    { index: 4, name: 'RustFarmer99', score: 12, duration: 2950, ping: 42 },
-    { index: 5, name: 'VikingLover', score: 9, duration: 2100, ping: 35 },
-    { index: 6, name: 'CyberSamurai', score: 8, duration: 1840, ping: 29 },
-    { index: 7, name: 'NoobMaster69', score: 4, duration: 1120, ping: 55 },
-    { index: 8, name: 'SilentSniper', score: 3, duration: 940, ping: 22 },
-  ]);
+  const [playersList, setPlayersList] = useState<SteamPlayer[]>([]);
 
   const [activeTab, setActiveTab] = useState<'players' | 'rules' | 'rcon'>('players');
 
@@ -309,26 +300,34 @@ export const SteamQueryTab: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
-                {filteredPlayers.map((player) => (
-                  <tr key={player.index} className="hover:bg-slate-800/20 transition-colors">
-                    <td className="py-2.5 text-slate-400">{player.index}</td>
-                    <td className="py-2.5 font-bold text-white flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                      {player.name}
-                    </td>
-                    <td className="py-2.5 text-indigo-300 font-semibold">{player.score}</td>
-                    <td className="py-2.5 text-slate-300">{formatDuration(player.duration)}</td>
-                    <td className="py-2.5 text-emerald-400">{player.ping ?? 24}ms</td>
-                    <td className="py-2.5 text-right">
-                      <button
-                        onClick={() => handleKickPlayer(player)}
-                        className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-[11px] font-mono transition-colors"
-                      >
-                        Kick
-                      </button>
+                {filteredPlayers.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-slate-500 text-xs font-mono">
+                      {isDe ? 'Keine aktiven Spieler auf diesem Steam-Server online' : 'No active players currently online on this Steam server'}
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  filteredPlayers.map((player) => (
+                    <tr key={player.index} className="hover:bg-slate-800/20 transition-colors">
+                      <td className="py-2.5 text-slate-400">{player.index}</td>
+                      <td className="py-2.5 font-bold text-white flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                        {player.name}
+                      </td>
+                      <td className="py-2.5 text-indigo-300 font-semibold">{player.score}</td>
+                      <td className="py-2.5 text-slate-300">{formatDuration(player.duration)}</td>
+                      <td className="py-2.5 text-emerald-400">{player.ping ?? 24}ms</td>
+                      <td className="py-2.5 text-right">
+                        <button
+                          onClick={() => handleKickPlayer(player)}
+                          className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-[11px] font-mono transition-colors"
+                        >
+                          Kick
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

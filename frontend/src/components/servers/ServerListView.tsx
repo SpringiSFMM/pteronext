@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { ServerCard } from './ServerCard';
 import { ServerCardSkeleton, ServerTableRowSkeleton } from './ServerCardSkeleton';
-import { ServerStatus, PowerAction } from '../../types';
+import { Server, ServerStatus, PowerAction } from '../../types';
 import {
-  Server,
+  Server as ServerIcon,
   Search,
   Filter,
   Plus,
@@ -23,8 +23,11 @@ import {
   X,
   Layers,
   Loader2,
+  UserCheck,
+  Users,
 } from 'lucide-react';
 import { StatusBadge } from '../common/StatusBadge';
+import { useTranslation } from '../../i18n/useTranslation';
 
 export const ServerListView: React.FC = () => {
   const {
@@ -38,8 +41,33 @@ export const ServerListView: React.FC = () => {
     setIsImportModalOpen,
     bulkPowerAction,
     pendingPowerActions,
+    currentUser,
   } = useApp();
 
+  const { language } = useTranslation();
+  const isDe = language === 'de';
+
+  // Helper to determine ownership
+  const isMyServer = (server: Server) => {
+    if (!currentUser) return true;
+    if (server.ownerId && currentUser.id) {
+      return server.ownerId === currentUser.id;
+    }
+    const username = currentUser.username?.toLowerCase();
+    const email = currentUser.email?.toLowerCase();
+    const owner = server.owner?.toLowerCase();
+    const ownerEmail = server.ownerEmail?.toLowerCase();
+
+    // If server has no owner set, treat as own for non-admin clients
+    if (!owner && !ownerEmail) return true;
+    return (owner && owner === username) || Boolean(ownerEmail && email && ownerEmail === email);
+  };
+
+  const myServersCount = servers.filter(isMyServer).length;
+  const otherServersCount = servers.filter((s) => !isMyServer(s)).length;
+
+  // Ownership filter: 'mine' | 'others' | 'all'
+  const [ownershipFilter, setOwnershipFilter] = useState<'mine' | 'others' | 'all'>('mine');
   const [statusFilter, setStatusFilter] = useState<ServerStatus | 'all'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
@@ -55,6 +83,7 @@ export const ServerListView: React.FC = () => {
       server.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       server.egg.toLowerCase().includes(searchQuery.toLowerCase()) ||
       server.allocation.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (server.owner && server.owner.toLowerCase().includes(searchQuery.toLowerCase())) ||
       server.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()));
 
     const matchesStatus =
@@ -63,7 +92,15 @@ export const ServerListView: React.FC = () => {
     const matchesCategory =
       categoryFilter === 'all' ? true : server.category === categoryFilter;
 
-    return matchesSearch && matchesStatus && matchesCategory;
+    const isMine = isMyServer(server);
+    const matchesOwnership =
+      ownershipFilter === 'all'
+        ? true
+        : ownershipFilter === 'mine'
+        ? isMine
+        : !isMine;
+
+    return matchesSearch && matchesStatus && matchesCategory && matchesOwnership;
   });
 
   const categories = ['all', 'Gaming', 'Database', 'Applications'];
@@ -110,8 +147,17 @@ export const ServerListView: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#30363d]/80">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">
-              Servers
+            <h1 className="text-xl sm:text-2xl font-semibold text-white tracking-tight flex items-center gap-2">
+              <span>
+                {ownershipFilter === 'mine'
+                  ? (isDe ? 'Meine Server' : 'My Servers')
+                  : ownershipFilter === 'others'
+                  ? (isDe ? 'Server von anderen' : 'Shared Servers')
+                  : (isDe ? 'Alle Server' : 'All Server Instances')}
+              </span>
+              <span className="text-xs font-mono text-slate-400 bg-[#161b22] px-2.5 py-0.5 rounded-full border border-[#30363d]">
+                {filteredServers.length}
+              </span>
             </h1>
             {isBulkMode && (
               <span className="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 font-semibold animate-pulse">
@@ -122,7 +168,11 @@ export const ServerListView: React.FC = () => {
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
             {isLoadingServers
               ? 'Loading active instances from cluster...'
-              : `${filteredServers.length} of ${servers.length} instances configured across nodes`}
+              : ownershipFilter === 'mine'
+              ? (isDe ? 'Verwalte deine zugewiesenen Server & Workloads' : 'Manage your dedicated servers and workloads')
+              : ownershipFilter === 'others'
+              ? (isDe ? 'Server und Instanzen, die von anderen Nutzern freigegeben wurden' : 'Instances shared with you by other project owners')
+              : (isDe ? 'Vollständige Übersicht aller zugewiesenen und freigegebenen Server' : 'Complete overview of all instances across the cluster')}
           </p>
         </div>
 
@@ -183,6 +233,71 @@ export const ServerListView: React.FC = () => {
             <Plus className="w-4 h-4" />
             <span>Deploy Instance</span>
           </button>
+        </div>
+      </div>
+
+      {/* Ownership Segmented Filter: Eigene Server vs Server von anderen vs Alle */}
+      <div className="flex flex-wrap items-center justify-between gap-3 p-2 bg-[#161b22] border border-[#30363d] rounded-2xl">
+        <div className="flex items-center gap-1.5 p-1 bg-[#0d1117] border border-[#30363d]/80 rounded-xl">
+          <button
+            type="button"
+            onClick={() => setOwnershipFilter('mine')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono font-medium transition-all ${
+              ownershipFilter === 'mine'
+                ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white font-bold shadow-md'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            }`}
+          >
+            <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
+            <span>{isDe ? 'Eigene Server' : 'My Servers'}</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+              ownershipFilter === 'mine' ? 'bg-indigo-700 text-white' : 'bg-slate-800 text-slate-400'
+            }`}>
+              {myServersCount}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setOwnershipFilter('others')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono font-medium transition-all ${
+              ownershipFilter === 'others'
+                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold shadow-md'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5 text-purple-400" />
+            <span>{isDe ? 'Server von anderen' : 'Shared with Me'}</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+              ownershipFilter === 'others' ? 'bg-purple-700 text-white' : 'bg-slate-800 text-slate-400'
+            }`}>
+              {otherServersCount}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setOwnershipFilter('all')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono font-medium transition-all ${
+              ownershipFilter === 'all'
+                ? 'bg-slate-700 text-white font-bold shadow-md'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            }`}
+          >
+            <ServerIcon className="w-3.5 h-3.5 text-slate-300" />
+            <span>{isDe ? 'Alle Server' : 'All Servers'}</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+              ownershipFilter === 'all' ? 'bg-slate-600 text-white' : 'bg-slate-800 text-slate-400'
+            }`}>
+              {servers.length}
+            </span>
+          </button>
+        </div>
+
+        <div className="text-xs text-slate-400 font-mono px-2">
+          {ownershipFilter === 'mine' && (isDe ? 'Zeigt nur Server, deren Eigentümer du bist' : 'Showing servers owned by your account')}
+          {ownershipFilter === 'others' && (isDe ? 'Zeigt geteilte Server und Gast-Instanzen' : 'Showing shared or guest instances')}
+          {ownershipFilter === 'all' && (isDe ? 'Gesamte Flottenübersicht' : 'Complete fleet overview')}
         </div>
       </div>
 
@@ -395,22 +510,35 @@ export const ServerListView: React.FC = () => {
       {/* Empty State */}
       {!isLoadingServers && filteredServers.length === 0 && (
         <div className="py-16 text-center bg-[#161b22] rounded-xl border border-[#30363d]">
-          <Server className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+          <ServerIcon className="w-10 h-10 text-slate-600 mx-auto mb-3" />
           <h3 className="text-sm font-semibold text-white">
-            No servers found
+            {ownershipFilter === 'others'
+              ? isDe
+                ? 'Keine Server von anderen Benutzern freigegeben'
+                : 'No servers from other users found'
+              : isDe
+              ? 'Keine Server gefunden'
+              : 'No servers found'}
           </h3>
           <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-            No servers matched your current filter query. Try clearing your search or status filters.
+            {ownershipFilter === 'others'
+              ? isDe
+                ? 'Aktuell wurden dir keine Server von anderen Benutzern freigegeben.'
+                : 'No shared servers or instances from other users are currently available.'
+              : isDe
+              ? 'Keine Server entsprechen deinen aktuellen Filtern.'
+              : 'No servers matched your current filter query.'}
           </p>
           <button
             onClick={() => {
               setSearchQuery('');
               setStatusFilter('all');
               setCategoryFilter('all');
+              setOwnershipFilter('all');
             }}
             className="mt-4 px-3.5 py-1.5 rounded-lg bg-[#21262d] hover:bg-[#30363d] text-xs text-slate-300 border border-[#30363d] transition-colors"
           >
-            Reset Filters
+            {isDe ? 'Filter zurücksetzen' : 'Reset Filters'}
           </button>
         </div>
       )}

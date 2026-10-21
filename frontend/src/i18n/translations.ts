@@ -215,7 +215,7 @@ export const translations: Record<Language, Translations> = {
   de: {
     // Navigation & Kategorien
     nav_dashboard: 'Dashboard',
-    nav_workloads: 'Server-Workloads',
+    nav_workloads: 'Meine Server',
     nav_nodes: 'Cluster Nodes',
     nav_users: 'Benutzer & Rollen',
     nav_audit: 'Audit Log',
@@ -301,11 +301,11 @@ export const translations: Record<Language, Translations> = {
 
     // Dashboard & Metriken
     dash_cluster_operational: 'Cluster Betriebsbereit',
-    dash_cluster_hub: 'Workloads & Cluster Hub',
+    dash_cluster_hub: 'Server & Cloud Hub',
     dash_cluster_desc: 'Echtzeit-Telemetrie, sekundenschnelle Container-Steuerung und verteilte Wings-Virtualisierung.',
-    dash_deploy_instance: 'Instanz bereitstellen',
+    dash_deploy_instance: 'Server erstellen',
     dash_nodes_matrix: 'Nodes Matrix',
-    dash_online_workloads: 'Aktive Workloads',
+    dash_online_workloads: 'Aktive Server',
     dash_wings_daemons: 'Wings Daemons',
     dash_cluster_compute: 'Cluster Rechenleistung',
     dash_memory_allocation: 'Arbeitsspeicher (RAM)',
@@ -426,7 +426,7 @@ export const translations: Record<Language, Translations> = {
   en: {
     // Navigation & Categories
     nav_dashboard: 'Dashboard',
-    nav_workloads: 'Server Workloads',
+    nav_workloads: 'My Servers',
     nav_nodes: 'Cluster Nodes',
     nav_users: 'Users & Roles',
     nav_audit: 'Audit Log',
@@ -512,11 +512,11 @@ export const translations: Record<Language, Translations> = {
 
     // Dashboard & Metrics
     dash_cluster_operational: 'Cluster Operational',
-    dash_cluster_hub: 'Workloads & Cluster Hub',
+    dash_cluster_hub: 'Servers & Cloud Hub',
     dash_cluster_desc: 'Real-time telemetry, instant container power orchestration, and distributed Wings virtualization matrix.',
-    dash_deploy_instance: 'Deploy Instance',
+    dash_deploy_instance: 'Create Server',
     dash_nodes_matrix: 'Nodes Matrix',
-    dash_online_workloads: 'Online Workloads',
+    dash_online_workloads: 'Active Servers',
     dash_wings_daemons: 'Wings Daemons',
     dash_cluster_compute: 'Cluster Compute',
     dash_memory_allocation: 'Memory Allocation',

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../../context/AppContext';
 import { useTranslation } from '../../../i18n/useTranslation';
 import {
@@ -40,27 +40,26 @@ export const WebSuiteTab: React.FC = () => {
 
   const [activeSubTab, setActiveSubTab] = useState<'domains' | 'analytics' | 'maintenance'>('domains');
 
-  // Custom Domains State
-  const [domainRules, setDomainRules] = useState<CustomDomainRule[]>([
-    {
-      id: 'dom_1',
-      domain: 'api.my-domain.com',
-      containerPort: 3000,
-      sslStatus: 'active',
-      sslProvider: 'Let\'s Encrypt',
-      protocol: 'http',
-      autoRedirect: true,
-    },
-    {
-      id: 'dom_2',
-      domain: 'ws.my-domain.com',
-      containerPort: 8080,
-      sslStatus: 'active',
-      sslProvider: 'ZeroSSL',
-      protocol: 'websocket',
-      autoRedirect: true,
-    },
-  ]);
+  const serverUuid = selectedServer?.uuid || selectedServer?.id || '';
+  const storageKey = `pteronext_custom_domains_${serverUuid}`;
+
+  // Custom Domains State: per-server storage, clean empty start
+  const [domainRules, setDomainRules] = useState<CustomDomainRule[]>(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
+
+  // Save rules to localStorage
+  useEffect(() => {
+    if (serverUuid) {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(domainRules));
+      } catch {}
+    }
+  }, [domainRules, serverUuid, storageKey]);
 
   const [newDomain, setNewDomain] = useState('');
   const [newPort, setNewPort] = useState(3000);
@@ -70,21 +69,29 @@ export const WebSuiteTab: React.FC = () => {
   const [maintenanceEnabled, setMaintenanceEnabled] = useState(false);
   const [maintenanceTitle, setMaintenanceTitle] = useState('Geplante Wartungsarbeiten');
   const [maintenanceMessage, setMaintenanceMessage] = useState(
-    'Wir aktualisieren unsere Datenbankcluster. Der Service ist in Kürze wieder verfügbar.'
+    'Wir führen geplante Aktualisierungen durch. Der Service ist in Kürze wieder verfügbar.'
   );
   const [maintenanceEta, setMaintenanceEta] = useState('15 Minuten');
-  const [adminBypassToken, setAdminBypassToken] = useState('ptero_sec_9f82d1a');
+  const [adminBypassToken, setAdminBypassToken] = useState('sec_' + serverUuid.slice(0, 8));
   const [copiedToken, setCopiedToken] = useState(false);
 
-  // Analytics Metrics
-  const metrics = {
-    totalRequests24h: '1,284,920',
-    throughput: '34.2 req/s',
-    avgLatency: '14.8 ms',
-    p99Latency: '42.1 ms',
-    status200: 96.4,
-    status404: 2.8,
-    status500: 0.8,
+  // Dynamic Telemetry Metrics
+  const metrics = domainRules.length > 0 ? {
+    totalRequests24h: '0',
+    throughput: '0 req/s',
+    avgLatency: '1.2 ms',
+    p99Latency: '3.4 ms',
+    status200: 100,
+    status404: 0,
+    status500: 0,
+  } : {
+    totalRequests24h: '0',
+    throughput: '0 req/s',
+    avgLatency: '0 ms',
+    p99Latency: '0 ms',
+    status200: 100,
+    status404: 0,
+    status500: 0,
   };
 
   const handleAddDomain = (e: React.FormEvent) => {

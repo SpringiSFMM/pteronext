@@ -16,6 +16,8 @@ import {
   ChevronRight,
   Terminal,
   Loader2,
+  UserCheck,
+  Users,
 } from 'lucide-react';
 
 interface ServerCardProps {
@@ -31,8 +33,22 @@ export const ServerCard: React.FC<ServerCardProps> = ({
   onToggleSelect,
   isBulkMode = false,
 }) => {
-  const { selectServerAndNavigate, handlePowerAction, addToast, pendingPowerActions } = useApp();
+  const { selectServerAndNavigate, handlePowerAction, addToast, pendingPowerActions, currentUser } = useApp();
   const [copied, setCopied] = useState(false);
+
+  const isMine = (() => {
+    if (!currentUser) return true;
+    if (server.ownerId && currentUser.id) {
+      return server.ownerId === currentUser.id;
+    }
+    const username = currentUser.username?.toLowerCase();
+    const email = currentUser.email?.toLowerCase();
+    const owner = server.owner?.toLowerCase();
+    const ownerEmail = server.ownerEmail?.toLowerCase();
+
+    if (!owner && !ownerEmail) return true;
+    return (owner && owner === username) || Boolean(ownerEmail && email && ownerEmail === email);
+  })();
 
   const pendingAction = pendingPowerActions[server.id] || pendingPowerActions[server.uuid];
   const isActionPending = Boolean(pendingAction);
@@ -116,6 +132,18 @@ export const ServerCard: React.FC<ServerCardProps> = ({
               <span className="text-[11px] text-slate-400 font-mono">
                 {server.nodeLocation}
               </span>
+              {/* Visual Ownership Badge */}
+              {!isMine && server.owner ? (
+                <span className="flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                  <Users className="w-3 h-3 text-purple-400" />
+                  <span>Inhaber: {server.owner}</span>
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                  <UserCheck className="w-3 h-3 text-emerald-400" />
+                  <span>Eigentümer</span>
+                </span>
+              )}
             </div>
             <h3 className="text-sm font-bold text-white group-hover:text-indigo-300 transition-colors truncate font-sans">
               {server.name}

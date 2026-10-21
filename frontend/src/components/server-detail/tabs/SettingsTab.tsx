@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../../api/client';
 import { DeleteConfirmModal } from '../../common/DeleteConfirmModal';
+import { isMinecraft } from '../../../types';
 
 interface VersionGroup {
   group: string;
@@ -191,10 +192,9 @@ export const SettingsTab: React.FC = () => {
   const [includePreReleases, setIncludePreReleases] = useState(false);
   const [rawApiVersions, setRawApiVersions] = useState<Record<string, string[]> | null>(null);
 
-  // Modulare Sub-Sektionen Tabs
-  const [activeSubTab, setActiveSubTab] = useState<
-    'all' | 'general' | 'sftp' | 'versions' | 'startup' | 'advanced' | 'danger'
-  >('all');
+  // Modulare Sub-Sektionen Tabs (keine unübersichtliche All-In-One Seite mehr)
+  type SettingsCategory = 'general' | 'sftp' | 'versions' | 'startup' | 'advanced' | 'danger';
+  const [activeSubTab, setActiveSubTab] = useState<SettingsCategory>('general');
 
   // Sleep Mode / Auto-Scaler State
   const [sleepModeEnabled, setSleepModeEnabled] = useState(false);
@@ -467,74 +467,127 @@ export const SettingsTab: React.FC = () => {
     }
   };
 
+  const isMC = isMinecraft(selectedServer);
+  const isDe = language === 'de';
+
+  // Auto-fallback if server does not support Minecraft versions tab
+  useEffect(() => {
+    if (!isMC && activeSubTab === 'versions') {
+      setActiveSubTab('general');
+    }
+  }, [isMC, activeSubTab]);
+
+  const categories = useMemo(() => {
+    const list: Array<{
+      id: SettingsCategory;
+      label: string;
+      desc: string;
+      icon: any;
+      danger?: boolean;
+    }> = [
+      {
+        id: 'general',
+        label: isDe ? 'Allgemein & Quotas' : 'General & Quotas',
+        desc: isDe ? 'Name, Beschreibung & Ressourcen-Limits' : 'Name, description & resource quotas',
+        icon: Settings,
+      },
+      {
+        id: 'sftp',
+        label: isDe ? 'SFTP & Zugangsdaten' : 'SFTP & Access',
+        desc: isDe ? 'Host, Port, Direktverbindung & Guest-Keys' : 'Host, port, direct launch & guest keys',
+        icon: Key,
+      },
+    ];
+
+    if (isMC) {
+      list.push({
+        id: 'versions',
+        label: isDe ? 'Game Versionen & Jar' : 'Game Versions & Jar',
+        desc: isDe ? 'PaperMC, Purpur, Minecraft-Versionen & EULA' : 'PaperMC, Purpur, builds & EULA acceptance',
+        icon: Package,
+      });
+    }
+
+    list.push(
+      {
+        id: 'startup',
+        label: isDe ? 'Startup & Variablen' : 'Startup & Boot',
+        desc: isDe ? 'Startbefehl, Docker-Image & Umgebungsvariablen' : 'Startup command, Docker image & env vars',
+        icon: Terminal,
+      },
+      {
+        id: 'advanced',
+        label: isDe ? 'Auto-Scaler & Migration' : 'Auto-Scaler & Migration',
+        desc: isDe ? 'Multi-Node Live-Migration & Standby-Sleep-Mode' : 'Multi-node live migration & sleep mode',
+        icon: Zap,
+      },
+      {
+        id: 'danger',
+        label: isDe ? 'Gefahrenzone' : 'Danger Zone',
+        desc: isDe ? 'Container neu installieren oder Server löschen' : 'Reinstall container or delete server permanently',
+        icon: AlertTriangle,
+        danger: true,
+      }
+    );
+
+    return list;
+  }, [isMC, isDe]);
+
+  const activeCategory = categories.find((c) => c.id === activeSubTab) || categories[0];
+
   return (
     <div className="space-y-6 max-w-5xl">
-      {/* Elegant Settings Sub-Section Dropdown & Icon Tabs Selector */}
-      <div className="flex flex-col gap-3 p-4 rounded-2xl bg-[#11141a] border border-[#30363d] shadow-lg">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      {/* Category Dropdown & Navigation Header */}
+      <div className="flex flex-col gap-4 p-5 rounded-2xl bg-[#11141a] border border-[#30363d] shadow-lg">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
-              <Sliders className="w-4 h-4 text-[var(--theme-accent,#e5a93c)]" />
+            <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+              <Sliders className="w-5 h-5 text-[var(--theme-accent,#e5a93c)]" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white font-sans">
-                {language === 'de' ? 'Server-Einstellungen & Module' : 'Server Settings & Modules'}
+              <h2 className="text-sm sm:text-base font-bold text-white font-sans flex items-center gap-2">
+                <span>{language === 'de' ? 'Server-Einstellungen' : 'Server Settings'}</span>
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-[var(--theme-accent)]/15 text-[var(--theme-accent)] border border-[var(--theme-accent)]/30 font-semibold">
+                  {activeCategory?.label}
+                </span>
               </h2>
-              <p className="text-xs text-slate-400 font-mono">
-                {language === 'de' ? 'Wähle einen Bereich zur schnellen Konfiguration' : 'Select a category for targeted configuration'}
+              <p className="text-xs text-slate-400 font-mono mt-0.5">
+                {activeCategory?.desc}
               </p>
             </div>
           </div>
 
-          {/* Quick Dropdown for compact / mobile screens */}
-          <div className="relative w-full sm:w-60 sm:hidden">
-            <div className="relative">
-              <select
-                value={activeSubTab}
-                onChange={(e) => setActiveSubTab(e.target.value as any)}
-                className="w-full appearance-none bg-[#0d1117] hover:bg-[#161b22] border border-[#30363d] focus:border-[var(--theme-accent)] rounded-xl px-4 py-2.5 pr-10 text-xs font-mono text-white focus:outline-none transition-all cursor-pointer shadow-sm"
-              >
-                {[
-                  { id: 'all', label: language === 'de' ? 'Alle Optionen' : 'All Options' },
-                  { id: 'general', label: language === 'de' ? 'Allgemein & Quotas' : 'General & Quotas' },
-                  { id: 'sftp', label: language === 'de' ? 'SFTP & Zugangsdaten' : 'SFTP & Access' },
-                  { id: 'versions', label: language === 'de' ? 'Game Versionen' : 'Game Versions' },
-                  { id: 'startup', label: language === 'de' ? 'Startup & Boot' : 'Startup & Boot' },
-                  { id: 'advanced', label: language === 'de' ? 'Auto-Scaler & Migration' : 'Auto-Scaler & Migration' },
-                  { id: 'danger', label: language === 'de' ? 'Danger Zone' : 'Danger Zone' },
-                ].map((opt) => (
-                  <option key={opt.id} value={opt.id} className="bg-[#161b22] text-white py-1">
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
+          {/* Prominent Category Dropdown Selector (Works seamlessly on Mobile & Desktop) */}
+          <div className="relative w-full sm:w-72">
+            <select
+              value={activeSubTab}
+              onChange={(e) => setActiveSubTab(e.target.value as SettingsCategory)}
+              className="w-full appearance-none bg-[#0d1117] hover:bg-[#161b22] border border-[#30363d] focus:border-[var(--theme-accent)] rounded-xl px-4 py-2.5 pr-10 text-xs font-mono font-medium text-white focus:outline-none transition-all cursor-pointer shadow-md"
+            >
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id} className="bg-[#161b22] text-white py-1.5 font-mono">
+                  {cat.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
         </div>
 
-        {/* Desktop / Tablet Icon Tab Bar */}
-        <div className="hidden sm:flex flex-wrap items-center gap-1.5 pt-2 border-t border-white/5">
-          {[
-            { id: 'all', label: language === 'de' ? 'Alle' : 'All', icon: Sliders },
-            { id: 'general', label: language === 'de' ? 'Allgemein' : 'General', icon: Settings },
-            { id: 'sftp', label: 'SFTP', icon: Key },
-            { id: 'versions', label: language === 'de' ? 'Versionen' : 'Versions', icon: Package },
-            { id: 'startup', label: 'Startup', icon: Terminal },
-            { id: 'advanced', label: language === 'de' ? 'Auto-Scaler / Migration' : 'Advanced & Scale', icon: Zap },
-            { id: 'danger', label: 'Danger Zone', icon: AlertTriangle, danger: true },
-          ].map((tab) => {
+        {/* Desktop / Tablet Icon Tab Bar for 1-Click Fast Navigation */}
+        <div className="hidden sm:flex flex-wrap items-center gap-1.5 pt-3 border-t border-white/5">
+          {categories.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeSubTab === tab.id;
             return (
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => setActiveSubTab(tab.id as any)}
+                onClick={() => setActiveSubTab(tab.id)}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
                   isActive
                     ? tab.danger
-                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30 shadow-sm'
+                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30 shadow-sm font-semibold'
                       : 'bg-[var(--theme-accent)]/15 text-[var(--theme-accent)] border border-[var(--theme-accent)]/30 shadow-sm font-semibold'
                     : tab.danger
                     ? 'text-rose-400/80 hover:bg-rose-500/10 hover:text-rose-300 border border-transparent'
@@ -550,7 +603,7 @@ export const SettingsTab: React.FC = () => {
       </div>
 
       {/* General Settings */}
-      {(activeSubTab === 'all' || activeSubTab === 'general') && (
+      {activeSubTab === 'general' && (
         <div className="bg-[#11141a] rounded-2xl p-6 border border-slate-800 shadow-xl space-y-5 animate-in fade-in">
           <div className="flex items-center justify-between border-b border-slate-800/80 pb-4">
           <div className="flex items-center gap-3">
@@ -687,7 +740,7 @@ export const SettingsTab: React.FC = () => {
       )}
 
       {/* SFTP Connection Details & 1-Click Launch */}
-      {(activeSubTab === 'all' || activeSubTab === 'sftp') && (
+      {activeSubTab === 'sftp' && (
       <div className="bg-[#11141a] rounded-2xl p-6 border border-slate-800 shadow-xl space-y-5 animate-in fade-in">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
           <div className="flex items-center gap-3">
@@ -1012,7 +1065,7 @@ export const SettingsTab: React.FC = () => {
       )}
 
       {/* Minecraft Version & Server Jar Installer */}
-      {(activeSubTab === 'all' || activeSubTab === 'versions') && (
+      {activeSubTab === 'versions' && isMC && (
       <div className="bg-[#11141a] rounded-2xl p-6 border border-slate-800 shadow-xl space-y-5 animate-in fade-in">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800/80 pb-4 gap-3">
           <div className="flex items-center gap-3">
@@ -1140,7 +1193,7 @@ export const SettingsTab: React.FC = () => {
       )}
 
       {/* Startup Parameters & Save Command */}
-      {(activeSubTab === 'all' || activeSubTab === 'startup') && (
+      {activeSubTab === 'startup' && (
       <div className="bg-[#11141a] rounded-2xl p-6 border border-slate-800 shadow-xl space-y-5 animate-in fade-in">
         <div className="flex items-center justify-between border-b border-slate-800/80 pb-4">
           <div className="flex items-center gap-3">
@@ -1199,7 +1252,7 @@ export const SettingsTab: React.FC = () => {
       )}
 
       {/* Advanced Tools: Server Resource Auto-Scaler & Multi-Node Live-Migration */}
-      {(activeSubTab === 'all' || activeSubTab === 'advanced') && (
+      {activeSubTab === 'advanced' && (
       <>
       {/* Server Resource Auto-Scaler / Sleep Mode */}
       <div className="bg-[#11141a] rounded-2xl p-6 border border-slate-800 shadow-xl space-y-4 animate-in fade-in">
@@ -1440,7 +1493,7 @@ export const SettingsTab: React.FC = () => {
       )}
 
       {/* Danger Zone */}
-      {(activeSubTab === 'all' || activeSubTab === 'danger') && (
+      {activeSubTab === 'danger' && (
       <div className="rounded-2xl p-6 border border-rose-500/20 bg-rose-500/[0.03] space-y-4 animate-in fade-in">
         <div className="flex items-center gap-2 text-rose-400 font-mono text-sm font-bold uppercase">
           <AlertTriangle className="w-4 h-4" />

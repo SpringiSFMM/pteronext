@@ -192,20 +192,26 @@ export const Sidebar: React.FC = () => {
 
   const isServerMode = activeView === 'server-detail' && !!selectedServer;
 
-  // Context-aware auto-fallback if selectedServer is not Minecraft and tab is MC-specific
+  // Context-aware auto-fallback if selectedServer workload doesn't support active tab
   useEffect(() => {
-    if (isServerMode && selectedServer && !isMC) {
-      if (['players', 'plugin-store'].includes(activeServerTab)) {
-        if (isSteam) {
-          selectServerAndNavigate(selectedServer, 'steam-query');
-        } else if (isVoiceApp) {
-          selectServerAndNavigate(selectedServer, 'voice-dashboard');
-        } else if (isWebApp) {
-          selectServerAndNavigate(selectedServer, 'web-suite');
-        } else if (isBotApp) {
-          selectServerAndNavigate(selectedServer, 'bot-suite');
-        } else {
-          selectServerAndNavigate(selectedServer, 'console');
+    if (isServerMode && selectedServer) {
+      if (isVoiceApp && ['files', 'players', 'plugin-store', 'world-manager', 'game-config', 'env-vault', 'git-deploy', 'diagnostics'].includes(activeServerTab)) {
+        selectServerAndNavigate(selectedServer, 'voice-dashboard');
+        return;
+      }
+      if (!isMC) {
+        if (['players', 'plugin-store', 'world-manager'].includes(activeServerTab)) {
+          if (isSteam) {
+            selectServerAndNavigate(selectedServer, 'steam-query');
+          } else if (isVoiceApp) {
+            selectServerAndNavigate(selectedServer, 'voice-dashboard');
+          } else if (isWebApp) {
+            selectServerAndNavigate(selectedServer, 'web-suite');
+          } else if (isBotApp) {
+            selectServerAndNavigate(selectedServer, 'bot-suite');
+          } else {
+            selectServerAndNavigate(selectedServer, 'console');
+          }
         }
       }
     }
@@ -306,7 +312,7 @@ export const Sidebar: React.FC = () => {
     }
 
     if (isVoiceApp) {
-      // Voice Server Category Layout (TeamSpeak, Mumble)
+      // Voice Server Category Layout (TeamSpeak, Mumble - No File Manager needed)
       return [
         {
           id: 'core',
@@ -314,7 +320,6 @@ export const Sidebar: React.FC = () => {
           tabs: [
             { id: 'console', label: 'Console', icon: Terminal },
             { id: 'voice-dashboard', label: 'Voice Dashboard', icon: PhoneCall },
-            { id: 'files', label: 'File Manager', icon: FolderTree },
             { id: 'backups', label: 'Backups', icon: Archive },
           ],
         },

@@ -24,6 +24,7 @@ import { VoiceDashboardTab } from './tabs/VoiceDashboardTab';
 import { WebSuiteTab } from './tabs/WebSuiteTab';
 import { BotSuiteTab } from './tabs/BotSuiteTab';
 import { WorldManagerTab } from './tabs/WorldManagerTab';
+import { isVoice } from '../../types';
 
 export const ServerDetailView: React.FC = () => {
   const { activeServerTab, selectedServer, canAccessServerTab } = useApp();
@@ -61,7 +62,9 @@ export const ServerDetailView: React.FC = () => {
         /* Active Tab View */
         <div className="animate-in fade-in duration-150">
           {activeServerTab === 'console' && <ConsoleTab key={`console-${serverKey}`} />}
-          {activeServerTab === 'files' && <FileManagerTab key={`files-${serverKey}`} />}
+          {activeServerTab === 'files' && (
+            isVoice(selectedServer) ? <VoiceDashboardTab key={`voice-dashboard-${serverKey}`} /> : <FileManagerTab key={`files-${serverKey}`} />
+          )}
           {activeServerTab === 'players' && <PlayersTab key={`players-${serverKey}`} />}
           {activeServerTab === 'network' && <NetworkTab key={`network-${serverKey}`} />}
           {activeServerTab === 'sidecars' && <SidecarsTab key={`sidecars-${serverKey}`} />}

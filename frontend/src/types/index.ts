@@ -61,6 +61,7 @@ export interface Server {
   startup?: string;
   owner?: string;
   ownerEmail?: string;
+  ownerId?: number;
   sftpDetails: {
     host: string;
     port: number;
@@ -438,8 +439,36 @@ export const COLOR_THEMES: ColorThemeOption[] = [
 /**
  * Context-aware workload detection helpers
  */
+export function isVoice(server?: Server | null): boolean {
+  if (!server) return false;
+  const egg = (server.egg || '').toLowerCase();
+  const name = (server.name || '').toLowerCase();
+  const nest = (server.nest || '').toLowerCase();
+  const desc = (server.description || '').toLowerCase();
+  const dockerImage = (server.dockerImage || '').toLowerCase();
+
+  return (
+    egg.includes('teamspeak') ||
+    egg.includes('ts3') ||
+    egg.includes('mumble') ||
+    egg.includes('murmur') ||
+    egg.includes('voice') ||
+    nest.includes('voice') ||
+    name.includes('teamspeak') ||
+    name.includes('ts3') ||
+    name.includes('mumble') ||
+    desc.includes('teamspeak') ||
+    desc.includes('ts3') ||
+    desc.includes('mumble') ||
+    dockerImage.includes('teamspeak') ||
+    dockerImage.includes('ts3') ||
+    dockerImage.includes('mumble')
+  );
+}
+
 export function isMinecraft(server?: Server | null): boolean {
   if (!server) return false;
+  if (isVoice(server)) return false;
   const egg = (server.egg || '').toLowerCase();
   const name = (server.name || '').toLowerCase();
   const nest = (server.nest || '').toLowerCase();
@@ -481,6 +510,7 @@ export function isMinecraft(server?: Server | null): boolean {
 
 export function isBot(server?: Server | null): boolean {
   if (!server) return false;
+  if (isVoice(server)) return false;
   if (isMinecraft(server)) return false;
   const egg = (server.egg || '').toLowerCase();
   const name = (server.name || '').toLowerCase();
@@ -502,6 +532,7 @@ export function isBot(server?: Server | null): boolean {
 
 export function isWeb(server?: Server | null): boolean {
   if (!server) return false;
+  if (isVoice(server)) return false;
   if (isMinecraft(server)) return false;
   const egg = (server.egg || '').toLowerCase();
   const name = (server.name || '').toLowerCase();
@@ -534,6 +565,7 @@ export function isWeb(server?: Server | null): boolean {
 
 export function isSteamGame(server?: Server | null): boolean {
   if (!server) return false;
+  if (isVoice(server)) return false;
   if (isMinecraft(server)) return false;
   const egg = (server.egg || '').toLowerCase();
   const name = (server.name || '').toLowerCase();
@@ -565,29 +597,6 @@ export function isSteamGame(server?: Server | null): boolean {
     name.includes('palworld') ||
     dockerImage.includes('steamcmd') ||
     desc.includes('steam')
-  );
-}
-
-export function isVoice(server?: Server | null): boolean {
-  if (!server) return false;
-  if (isMinecraft(server)) return false;
-  const egg = (server.egg || '').toLowerCase();
-  const name = (server.name || '').toLowerCase();
-  const nest = (server.nest || '').toLowerCase();
-  const desc = (server.description || '').toLowerCase();
-
-  return (
-    egg.includes('teamspeak') ||
-    egg.includes('ts3') ||
-    egg.includes('mumble') ||
-    egg.includes('murmur') ||
-    egg.includes('voice') ||
-    nest.includes('voice') ||
-    name.includes('teamspeak') ||
-    name.includes('ts3') ||
-    name.includes('mumble') ||
-    desc.includes('teamspeak') ||
-    desc.includes('mumble')
   );
 }
 

@@ -76,9 +76,18 @@ function mapBackendServerToFrontend(bServer: BackendServer): Server {
     : 'Container'
   );
 
-  let category: 'Gaming' | 'Database' | 'Applications' | 'Infrastructure' = 'Applications';
+  let category: 'Gaming' | 'Database' | 'Applications' | 'Infrastructure' | 'Voice' | string = 'Applications';
   const lowerName = `${bServer.name} ${bServer.image || ''} ${eggNameFromBackend || ''} ${eggCategory || ''} ${nestName || ''}`.toLowerCase();
-  if (
+  const isVoiceServer =
+    lowerName.includes('voice') ||
+    lowerName.includes('teamspeak') ||
+    lowerName.includes('ts3') ||
+    lowerName.includes('mumble') ||
+    lowerName.includes('murmur');
+
+  if (isVoiceServer) {
+    category = 'Voice';
+  } else if (
     lowerName.includes('bot') ||
     lowerName.includes('discord')
   ) {
@@ -151,22 +160,23 @@ function mapBackendServerToFrontend(bServer: BackendServer): Server {
       networkTx: 0,
       uptime: 0,
     },
-    dockerImage: bServer.image || (category === 'Gaming' ? 'ghcr.io/pterodactyl/yolks:java_21' : 'ghcr.io/pterodactyl/yolks:nodejs_20'),
-    startup: bServer.startup || (category === 'Gaming' ? 'java -jar server.jar' : 'node index.js'),
+    dockerImage: bServer.image || (isVoiceServer ? 'ghcr.io/pterodactyl/yolks:teamspeak3' : category === 'Gaming' ? 'ghcr.io/pterodactyl/yolks:java_21' : 'ghcr.io/pterodactyl/yolks:nodejs_20'),
+    startup: bServer.startup || (isVoiceServer ? './ts3server' : category === 'Gaming' ? 'java -jar server.jar' : 'node index.js'),
     cpuLimit: bServer.cpu || 200,
     swapLimit: bServer.swap || 0,
     ioLimit: bServer.io || 500,
     backupsLimit: bServer.backup_limit !== undefined ? bServer.backup_limit : 5,
     isSuspended: Boolean(bServer.suspended),
     suspended: Boolean(bServer.suspended),
-    owner: bServer.owner?.username || 'admin',
+    owner: bServer.owner?.username || (bServer.owner_id ? `User #${bServer.owner_id}` : undefined),
     ownerEmail: bServer.owner?.email || '',
+    ownerId: bServer.owner_id || bServer.owner?.id,
     identifier: bServer.identifier || '',
     tags: [category.toLowerCase(), bServer.identifier || 'ptero'],
     sftpDetails: {
       host: bServer.node?.fqdn || '127.0.0.1',
       port: bServer.node?.daemon_sftp || 2022,
-      user: `${bServer.owner?.username || 'admin'}.${bServer.identifier || 'srv'}`,
+      user: `${bServer.owner?.username || 'user'}.${bServer.identifier || 'srv'}`,
     },
   };
 }
