@@ -31,6 +31,15 @@ import {
 } from 'lucide-react';
 import { COLOR_THEMES } from '../../types';
 
+const formatResourceMB = (mb: number): string => {
+  if (isNaN(mb) || mb < 0) return '0 MB';
+  if (mb >= 1024) {
+    const gb = mb / 1024;
+    return `${gb % 1 === 0 ? gb.toFixed(0) : gb.toFixed(1)} GB`;
+  }
+  return `${Math.round(mb)} MB`;
+};
+
 export const AdminDashboardView: React.FC = () => {
   const {
     adminNodes,
@@ -551,14 +560,19 @@ export const AdminDashboardView: React.FC = () => {
                     <div className="flex justify-between text-slate-400 mb-1">
                       <span>RAM Allocation</span>
                       <span className="text-slate-200">
-                        {(node.ramAllocatedMB / 1024).toFixed(0)} /{' '}
-                        {(node.ramTotalMB / 1024).toFixed(0)} GB ({node.ramUsage}%)
+                        {formatResourceMB(node.ramAllocatedMB)} / {formatResourceMB(node.ramTotalMB)} ({node.ramUsage}%)
                       </span>
                     </div>
                     <div className="w-full bg-[#161b22] rounded-full h-1.5 overflow-hidden">
                       <div
-                        className="bg-zinc-300 h-full rounded-full transition-all duration-500"
-                        style={{ width: `${node.ramUsage}%` }}
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          node.ramUsage > 100
+                            ? 'bg-amber-400'
+                            : node.ramUsage >= 90
+                            ? 'bg-rose-400'
+                            : 'bg-zinc-300'
+                        }`}
+                        style={{ width: `${Math.min(100, Math.max(0, node.ramUsage))}%` }}
                       />
                     </div>
                   </div>
@@ -567,14 +581,19 @@ export const AdminDashboardView: React.FC = () => {
                     <div className="flex justify-between text-slate-400 mb-1">
                       <span>Disk Allocation</span>
                       <span className="text-slate-200">
-                        {(node.diskAllocatedMB / 1024).toFixed(0)} /{' '}
-                        {(node.diskTotalMB / 1024).toFixed(0)} GB ({node.diskUsage}%)
+                        {formatResourceMB(node.diskAllocatedMB)} / {formatResourceMB(node.diskTotalMB)} ({node.diskUsage}%)
                       </span>
                     </div>
                     <div className="w-full bg-[#161b22] rounded-full h-1.5 overflow-hidden">
                       <div
-                        className="bg-purple-500 h-full rounded-full transition-all duration-500"
-                        style={{ width: `${node.diskUsage}%` }}
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          node.diskUsage > 100
+                            ? 'bg-amber-400'
+                            : node.diskUsage >= 90
+                            ? 'bg-rose-400'
+                            : 'bg-purple-500'
+                        }`}
+                        style={{ width: `${Math.min(100, Math.max(0, node.diskUsage))}%` }}
                       />
                     </div>
                   </div>

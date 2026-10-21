@@ -35,6 +35,9 @@ type Node struct {
 	DaemonToken        string         `gorm:"type:varchar(255);not null" json:"daemon_token"`
 	Allocations        []Allocation   `gorm:"foreignKey:NodeID;constraint:OnDelete:CASCADE" json:"allocations,omitempty"`
 	Servers            []Server       `gorm:"foreignKey:NodeID" json:"servers,omitempty"`
+	AllocatedMemory    int64          `gorm:"-" json:"allocated_memory"`
+	AllocatedDisk      int64          `gorm:"-" json:"allocated_disk"`
+	ServersCount       int64          `gorm:"-" json:"servers_count"`
 	CreatedAt          time.Time      `json:"created_at"`
 	UpdatedAt          time.Time      `json:"updated_at"`
 	DeletedAt          gorm.DeletedAt `gorm:"index" json:"-"`

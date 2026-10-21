@@ -67,11 +67,11 @@ func (s *StatsService) GetSystemStats() (*SystemStatsResponse, error) {
 
 	// Sum allocated RAM across servers
 	var allocatedServerRAMMB int64
-	s.db.Model(&models.Server{}).Select("COALESCE(SUM(memory_mb), 0)").Scan(&allocatedServerRAMMB)
+	s.db.Model(&models.Server{}).Where("deleted_at IS NULL").Select("COALESCE(SUM(memory_mb), 0)").Scan(&allocatedServerRAMMB)
 
 	// Sum node RAM across configured nodes
 	var totalNodeRAMMB int64
-	s.db.Model(&models.Node{}).Select("COALESCE(SUM(memory), 0)").Scan(&totalNodeRAMMB)
+	s.db.Model(&models.Node{}).Where("deleted_at IS NULL").Select("COALESCE(SUM(memory_mb), 0)").Scan(&totalNodeRAMMB)
 
 	// Host memory detection via /proc/meminfo if running on Linux
 	hostTotalMB, hostFreeMB, hostUsedMB := s.readHostMemory()

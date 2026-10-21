@@ -185,7 +185,14 @@ function mapBackendNodeToFrontend(node: BackendNode): NodeInfo {
   const uniqueServerIds = new Set(
     (node.allocations || []).filter((a) => a.server_id && a.server_id > 0).map((a) => a.server_id)
   );
-  const activeSrv = uniqueServerIds.size > 0 ? uniqueServerIds.size : (node.servers?.length || 1);
+  const srvCount = typeof node.servers_count === 'number'
+    ? node.servers_count
+    : (uniqueServerIds.size > 0 ? uniqueServerIds.size : (node.servers?.length || 0));
+
+  const ramAlloc = typeof node.allocated_memory === 'number' ? node.allocated_memory : 0;
+  const ramTotal = node.memory || 8192;
+  const diskAlloc = typeof node.allocated_disk === 'number' ? node.allocated_disk : 0;
+  const diskTotal = node.disk || 51200;
 
   return {
     id: String(node.id),
@@ -195,9 +202,9 @@ function mapBackendNodeToFrontend(node: BackendNode): NodeInfo {
     ip: node.fqdn || '127.0.0.1',
     status: node.maintenance_mode ? 'warning' : 'healthy',
     cpuUsage: 14,
-    ramUsage: Math.min(100, Math.round(((node.memory || 8192) / 8192) * 25)),
-    diskUsage: Math.min(100, Math.round(((node.disk || 51200) / 51200) * 15)),
-    activeServers: activeSrv,
+    ramUsage: ramTotal > 0 ? Math.round((ramAlloc / ramTotal) * 100) : 0,
+    diskUsage: diskTotal > 0 ? Math.round((diskAlloc / diskTotal) * 100) : 0,
+    activeServers: srvCount,
     latencyMs: 12,
   };
 }
@@ -276,8 +283,12 @@ function mapBackendNodeToAdmin(
 ): AdminNode {
   const ramTotal = node.memory || 1;
   const diskTotal = node.disk || 1;
-  const ramAlloc = Math.min(ramTotal, stats?.memoryMB || 0);
-  const diskAlloc = Math.min(diskTotal, stats?.diskMB || 0);
+  const ramAlloc = typeof node.allocated_memory === 'number' ? node.allocated_memory : (stats?.memoryMB || 0);
+  const diskAlloc = typeof node.allocated_disk === 'number' ? node.allocated_disk : (stats?.diskMB || 0);
+  const srvCount = typeof node.servers_count === 'number' ? node.servers_count : (stats?.count || 0);
+
+  const ramUsagePercent = ramTotal > 0 ? Math.round((ramAlloc / ramTotal) * 100) : 0;
+  const diskUsagePercent = diskTotal > 0 ? Math.round((diskAlloc / diskTotal) * 100) : 0;
 
   return {
     id: String(node.id),
@@ -288,9 +299,9 @@ function mapBackendNodeToAdmin(
     ip: node.fqdn,
     status: node.maintenance_mode ? 'warning' : 'healthy',
     cpuUsage: 0,
-    ramUsage: Math.min(100, Math.round((ramAlloc / ramTotal) * 100)),
-    diskUsage: Math.min(100, Math.round((diskAlloc / diskTotal) * 100)),
-    activeServers: stats?.count || 0,
+    ramUsage: ramUsagePercent,
+    diskUsage: diskUsagePercent,
+    activeServers: srvCount,
     latencyMs: 0,
     fqdn: node.fqdn,
     daemonPort: node.daemon_listen || 8080,

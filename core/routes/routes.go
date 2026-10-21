@@ -340,6 +340,17 @@ func SetupRouter(
 			nodesGroup.GET("/:id/configuration", nodeCtrl.GetConfiguration)
 		}
 
+		adminNodesGroup := apiGroup.Group("/admin/nodes")
+		adminNodesGroup.Use(middleware.RequireAdmin())
+		{
+			adminNodesGroup.GET("", nodeCtrl.ListNodes)
+			adminNodesGroup.POST("", nodeCtrl.CreateNode)
+			adminNodesGroup.GET("/:id", nodeCtrl.GetNode)
+			adminNodesGroup.PATCH("/:id", nodeCtrl.UpdateNode)
+			adminNodesGroup.DELETE("/:id", nodeCtrl.DeleteNode)
+			adminNodesGroup.GET("/:id/configuration", nodeCtrl.GetConfiguration)
+		}
+
 		// Account API (Settings, 2FA, API Keys, Activity)
 		accountGroup := apiGroup.Group("/account")
 		{

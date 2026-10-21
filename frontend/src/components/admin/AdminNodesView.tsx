@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { api } from '../../api/client';
 import {
@@ -17,11 +17,21 @@ import {
   Activity,
   Server,
   Save,
+  RefreshCw,
 } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { DeleteConfirmModal } from '../common/DeleteConfirmModal';
 import { useTranslation } from '../../i18n/useTranslation';
 import { AdminNode } from '../../types';
+
+const formatResourceMB = (mb: number): string => {
+  if (isNaN(mb) || mb < 0) return '0 MB';
+  if (mb >= 1024) {
+    const gb = mb / 1024;
+    return `${gb % 1 === 0 ? gb.toFixed(0) : gb.toFixed(1)} GB`;
+  }
+  return `${Math.round(mb)} MB`;
+};
 
 export const AdminNodesView: React.FC = () => {
   const {
@@ -30,9 +40,14 @@ export const AdminNodesView: React.FC = () => {
     createAdminNode,
     deleteAdminNode,
     updateAdminNode,
+    refreshAdminData,
     addToast,
   } = useApp();
   const { language } = useTranslation();
+
+  useEffect(() => {
+    refreshAdminData();
+  }, [refreshAdminData]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deleteTargetNode, setDeleteTargetNode] = useState<AdminNode | null>(null);
@@ -193,13 +208,25 @@ export const AdminNodesView: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-100 hover:bg-white text-zinc-900 text-xs font-bold font-mono transition-all shadow-md active:scale-95 self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Deploy Node</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={() => refreshAdminData()}
+            disabled={adminLoading}
+            title="Refresh Node Metrics"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#21262d] hover:bg-[#30363d] text-slate-300 hover:text-white border border-[#30363d] text-xs font-mono transition-all disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${adminLoading ? 'animate-spin text-zinc-300' : ''}`} />
+            <span>Refresh</span>
+          </button>
+
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-100 hover:bg-white text-zinc-900 text-xs font-bold font-mono transition-all shadow-md active:scale-95"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Deploy Node</span>
+          </button>
+        </div>
       </div>
 
       {/* Loading skeleton */}
@@ -238,62 +265,127 @@ export const AdminNodesView: React.FC = () => {
                 <tr>
                   <th className="py-3 px-4">Node Identity</th>
                   <th className="py-3 px-4">FQDN / Daemon</th>
-                  <th className="py-3 px-4">Memory Limit</th>
-                  <th className="py-3 px-4">Disk Volume</th>
+                  <th className="py-3 px-4">Memory Allocation</th>
+                  <th className="py-3 px-4">Disk Allocation</th>
                   <th className="py-3 px-4">Containers</th>
                   <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#30363d]/70">
-                {adminNodes.map((node) => (
-                  <tr key={node.id} className="hover:bg-[#161b22] transition-colors">
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-[#161b22] border border-[#30363d] flex items-center justify-center text-slate-400 flex-shrink-0">
-                          <Globe className="w-4 h-4" />
+                {adminNodes.map((node) => {
+                  const ramAlloc = node.ramAllocatedMB || 0;
+                  const ramTotal = node.ramTotalMB || 1;
+                  const ramPercent = ramTotal > 0 ? Math.round((ramAlloc / ramTotal) * 100) : 0;
+                  const ramBarWidth = Math.min(100, Math.max(0, ramPercent));
+                  const isRamOver = ramPercent > 100;
+
+                  const diskAlloc = node.diskAllocatedMB || 0;
+                  const diskTotal = node.diskTotalMB || 1;
+                  const diskPercent = diskTotal > 0 ? Math.round((diskAlloc / diskTotal) * 100) : 0;
+                  const diskBarWidth = Math.min(100, Math.max(0, diskPercent));
+                  const isDiskOver = diskPercent > 100;
+
+                  return (
+                    <tr key={node.id} className="hover:bg-[#161b22] transition-colors">
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-lg bg-[#161b22] border border-[#30363d] flex items-center justify-center text-slate-400 flex-shrink-0">
+                            <Globe className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-white">{node.name}</p>
+                            <p className="text-[10px] text-slate-500 font-mono">ID #{node.id}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-semibold text-white">{node.name}</p>
-                          <p className="text-[10px] text-slate-500 font-mono">ID #{node.id}</p>
+                      </td>
+
+                      <td className="py-3.5 px-4 font-mono text-[11px]">
+                        <p className="text-slate-200">
+                          {node.fqdn}:{node.daemonPort}
+                        </p>
+                        <p className="text-slate-500 text-[10px]">
+                          SFTP {node.sftpPort} {node.sslEnabled ? '(TLS)' : '(HTTP)'}
+                        </p>
+                      </td>
+
+                      <td className="py-3.5 px-4 font-mono text-[11px]">
+                        <div className="min-w-[130px]">
+                          <div className="flex items-center justify-between gap-1.5">
+                            <span className="text-slate-200 font-medium">
+                              {formatResourceMB(ramAlloc)} / {formatResourceMB(ramTotal)}
+                            </span>
+                            <span
+                              className={`text-[10px] font-semibold ${
+                                isRamOver
+                                  ? 'text-amber-400 font-bold'
+                                  : ramPercent >= 90
+                                  ? 'text-rose-400'
+                                  : 'text-slate-400'
+                              }`}
+                            >
+                              {ramPercent}%
+                            </span>
+                          </div>
+                          <div className="w-full bg-[#0d1117] rounded-full h-1.5 mt-1 overflow-hidden border border-[#30363d]/60">
+                            <div
+                              className={`h-full rounded-full transition-all duration-300 ${
+                                isRamOver
+                                  ? 'bg-amber-400'
+                                  : ramPercent >= 90
+                                  ? 'bg-rose-400'
+                                  : 'bg-zinc-300'
+                              }`}
+                              style={{ width: `${ramBarWidth}%` }}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between text-[9px] text-slate-500 mt-0.5">
+                            <span>Allocated Quota</span>
+                            {node.memoryOverallocate ? (
+                              <span className="text-zinc-400">+{node.memoryOverallocate}% ovr</span>
+                            ) : null}
+                          </div>
                         </div>
-                      </div>
-                    </td>
+                      </td>
 
-                    <td className="py-3.5 px-4 font-mono text-[11px]">
-                      <p className="text-slate-200">
-                        {node.fqdn}:{node.daemonPort}
-                      </p>
-                      <p className="text-slate-500 text-[10px]">
-                        SFTP {node.sftpPort} {node.sslEnabled ? '(TLS)' : '(HTTP)'}
-                      </p>
-                    </td>
-
-                    <td className="py-3.5 px-4 font-mono text-[11px]">
-                      <span className="text-slate-300">
-                        {(node.ramAllocatedMB / 1024).toFixed(0)} /{' '}
-                        {(node.ramTotalMB / 1024).toFixed(0)} GB
-                      </span>
-                      <div className="w-20 bg-[#0d1117] rounded-full h-1 mt-1 overflow-hidden">
-                        <div
-                          className="bg-zinc-300 h-full rounded-full transition-all"
-                          style={{ width: `${node.ramUsage}%` }}
-                        />
-                      </div>
-                    </td>
-
-                    <td className="py-3.5 px-4 font-mono text-[11px]">
-                      <span className="text-slate-300">
-                        {(node.diskAllocatedMB / 1024).toFixed(0)} /{' '}
-                        {(node.diskTotalMB / 1024).toFixed(0)} GB
-                      </span>
-                      <div className="w-20 bg-[#0d1117] rounded-full h-1 mt-1 overflow-hidden">
-                        <div
-                          className="bg-purple-500 h-full rounded-full transition-all"
-                          style={{ width: `${node.diskUsage}%` }}
-                        />
-                      </div>
-                    </td>
+                      <td className="py-3.5 px-4 font-mono text-[11px]">
+                        <div className="min-w-[130px]">
+                          <div className="flex items-center justify-between gap-1.5">
+                            <span className="text-slate-200 font-medium">
+                              {formatResourceMB(diskAlloc)} / {formatResourceMB(diskTotal)}
+                            </span>
+                            <span
+                              className={`text-[10px] font-semibold ${
+                                isDiskOver
+                                  ? 'text-amber-400 font-bold'
+                                  : diskPercent >= 90
+                                  ? 'text-rose-400'
+                                  : 'text-slate-400'
+                              }`}
+                            >
+                              {diskPercent}%
+                            </span>
+                          </div>
+                          <div className="w-full bg-[#0d1117] rounded-full h-1.5 mt-1 overflow-hidden border border-[#30363d]/60">
+                            <div
+                              className={`h-full rounded-full transition-all duration-300 ${
+                                isDiskOver
+                                  ? 'bg-amber-400'
+                                  : diskPercent >= 90
+                                  ? 'bg-rose-400'
+                                  : 'bg-purple-500'
+                              }`}
+                              style={{ width: `${diskBarWidth}%` }}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between text-[9px] text-slate-500 mt-0.5">
+                            <span>Allocated Storage</span>
+                            {node.diskOverallocate ? (
+                              <span className="text-zinc-400">+{node.diskOverallocate}% ovr</span>
+                            ) : null}
+                          </div>
+                        </div>
+                      </td>
 
                     <td className="py-3.5 px-4 font-mono text-[11px] text-slate-300">
                       {node.activeServers} / {node.totalAllocations}
@@ -349,7 +441,8 @@ export const AdminNodesView: React.FC = () => {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

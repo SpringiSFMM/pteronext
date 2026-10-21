@@ -31,6 +31,22 @@ func (n *NodeController) ListNodes(c *gin.Context) {
 		return
 	}
 
+	for i := range nodes {
+		var stat struct {
+			Count         int64
+			AllocatedMem  int64
+			AllocatedDisk int64
+		}
+		n.db.Model(&models.Server{}).
+			Where("node_id = ? AND deleted_at IS NULL", nodes[i].ID).
+			Select("COUNT(id) as count, COALESCE(SUM(memory_mb), 0) as allocated_mem, COALESCE(SUM(disk_mb), 0) as allocated_disk").
+			Scan(&stat)
+
+		nodes[i].ServersCount = stat.Count
+		nodes[i].AllocatedMemory = stat.AllocatedMem
+		nodes[i].AllocatedDisk = stat.AllocatedDisk
+	}
+
 	c.JSON(http.StatusOK, gin.H{"data": nodes})
 }
 
@@ -42,6 +58,20 @@ func (n *NodeController) GetNode(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Node not found."})
 		return
 	}
+
+	var stat struct {
+		Count         int64
+		AllocatedMem  int64
+		AllocatedDisk int64
+	}
+	n.db.Model(&models.Server{}).
+		Where("node_id = ? AND deleted_at IS NULL", node.ID).
+		Select("COUNT(id) as count, COALESCE(SUM(memory_mb), 0) as allocated_mem, COALESCE(SUM(disk_mb), 0) as allocated_disk").
+		Scan(&stat)
+
+	node.ServersCount = stat.Count
+	node.AllocatedMemory = stat.AllocatedMem
+	node.AllocatedDisk = stat.AllocatedDisk
 
 	c.JSON(http.StatusOK, gin.H{"node": node, "data": node})
 }

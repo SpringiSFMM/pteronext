@@ -137,7 +137,7 @@ func (s *StatsController) GetStorageHealth(c *gin.Context) {
 
 	for _, n := range nodes {
 		var allocated int64
-		s.db.Model(&models.Server{}).Where("node_id = ?", n.ID).Select("COALESCE(SUM(disk_mb), 0)").Scan(&allocated)
+		s.db.Model(&models.Server{}).Where("node_id = ? AND deleted_at IS NULL", n.ID).Select("COALESCE(SUM(disk_mb), 0)").Scan(&allocated)
 
 		var pct float64
 		if n.DiskMB > 0 {

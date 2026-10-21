@@ -232,8 +232,11 @@ export interface BackendNode {
   maintenance_mode: boolean;
   memory: number;
   memory_overallocate: number;
+  allocated_memory?: number;
   disk: number;
   disk_overallocate: number;
+  allocated_disk?: number;
+  servers_count?: number;
   upload_size: number;
   daemon_listen: number;
   daemon_sftp: number;
