@@ -15,6 +15,8 @@ import {
   GitBranch,
   Layers,
   Search,
+  Globe,
+  ExternalLink,
 } from 'lucide-react';
 
 export const ModernNavbar: React.FC = () => {
@@ -146,6 +148,19 @@ export const ModernNavbar: React.FC = () => {
               <span className="hidden sm:inline">{language === 'de' ? 'Server erstellen' : 'New Server'}</span>
             </button>
           )}
+
+          {/* Official PteroNext Website Link */}
+          <a
+            href="https://pteronext.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#161b22] hover:bg-slate-800 text-slate-300 hover:text-indigo-400 border border-[#30363d] hover:border-indigo-500/40 text-xs font-medium transition-all shadow-sm"
+            title="PteroNext Website öffnen (pteronext.com)"
+          >
+            <Globe className="w-3.5 h-3.5 text-indigo-400" />
+            <span className="font-sans font-medium">pteronext.com</span>
+            <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+          </a>
 
           {/* User Avatar & Settings Trigger */}
           <button

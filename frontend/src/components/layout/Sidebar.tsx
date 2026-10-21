@@ -37,6 +37,9 @@ import {
   PhoneCall,
   Globe,
   Bot,
+  ExternalLink,
+  MessageSquare,
+  BookOpen,
 } from 'lucide-react';
 import {
   ServerDetailTab,
@@ -950,6 +953,70 @@ export const Sidebar: React.FC = () => {
 
       {/* ── Footer / User Menu & Quick Language Selector ── */}
       <div className={`${isSidebarCollapsed ? 'p-2' : 'p-3'} border-t border-[#30363d] relative`} ref={userMenuRef}>
+        {/* PteroNext Ecosystem Quick Links */}
+        {!isSidebarCollapsed ? (
+          <div className="mb-2.5 p-2 rounded-xl bg-[#161b22]/90 border border-slate-800/80 space-y-1.5 text-xs">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500 font-semibold px-1 block">
+              PteroNext Ecosystem
+            </span>
+            <div className="grid grid-cols-2 gap-1.5 font-sans">
+              <a
+                href="https://pteronext.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#0d1117] hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-[11px] transition-colors"
+                title="PteroNext Official Website"
+              >
+                <Globe className="w-3 h-3 text-indigo-400" />
+                <span className="truncate">Website</span>
+              </a>
+              <a
+                href="https://pteronext.com/docs"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#0d1117] hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-[11px] transition-colors"
+                title="PteroNext Documentation & API"
+              >
+                <BookOpen className="w-3 h-3 text-cyan-400" />
+                <span className="truncate">Docs</span>
+              </a>
+            </div>
+            <a
+              href="https://discord.gg/MUdxGv6FcD"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-between px-2 py-1 rounded-lg bg-[#5865F2]/10 hover:bg-[#5865F2]/20 text-[#5865F2] hover:text-white border border-[#5865F2]/30 text-[11px] font-medium transition-colors"
+              title="PteroNext Discord Community"
+            >
+              <div className="flex items-center gap-1.5">
+                <MessageSquare className="w-3 h-3" />
+                <span>Discord Community</span>
+              </div>
+              <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+            </a>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-1 mb-2">
+            <a
+              href="https://pteronext.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors"
+              title="PteroNext Website (pteronext.com)"
+            >
+              <Globe className="w-4 h-4 text-indigo-400" />
+            </a>
+            <a
+              href="https://discord.gg/MUdxGv6FcD"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-[#5865F2]/20 transition-colors"
+              title="PteroNext Discord Community"
+            >
+              <MessageSquare className="w-4 h-4 text-[#5865F2]" />
+            </a>
+          </div>
+        )}
         {!isSidebarCollapsed && (
           <div className="flex items-center justify-between px-2.5 py-1 mb-2 bg-[#161b22]/70 rounded-lg border border-[#30363d]/60 text-[11px]">
             <span className="text-slate-400 font-medium">Sprache:</span>
