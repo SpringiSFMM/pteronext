@@ -533,6 +533,115 @@ export const AdminDiscordBotView: React.FC = () => {
               Ermöglicht Benutzern, ihren Account direkt in Discord per 6-stelligem Code zu verbinden.
             </p>
           </div>
+
+          <div className="p-3.5 rounded-xl bg-[#0d1117] border border-slate-800/90 space-y-1">
+            <div className="text-rose-400 font-bold">/purge &lt;amount&gt; [user]</div>
+            <p className="text-[11px] text-slate-400 font-sans">
+              Bulk-Löschung von 1–100 Nachrichten (erfordert 'Nachrichten verwalten' Berechtigung).
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-[#0d1117] border border-slate-800/90 space-y-1">
+            <div className="text-pink-400 font-bold">/giveaway start</div>
+            <p className="text-[11px] text-slate-400 font-sans">
+              Startet Gewinnspiel mit Countdown-Embed, Teilnahme-Button und automatischer Auslosung.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-[#0d1117] border border-slate-800/90 space-y-1">
+            <div className="text-cyan-400 font-bold">/poll (oder /umfrage)</div>
+            <p className="text-[11px] text-slate-400 font-sans">
+              Interaktive Abstimmung mit Klick-Buttons und Live-Stimmenanzeige in Echtzeit.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-[#0d1117] border border-slate-800/90 space-y-1">
+            <div className="text-indigo-400 font-bold">/userinfo &amp; /serverinfo</div>
+            <p className="text-[11px] text-slate-400 font-sans">
+              Ausführliche Karten zu Profilen, Rollen, Account-Alter und Server-Statistiken.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-[#0d1117] border border-slate-800/90 space-y-1">
+            <div className="text-yellow-400 font-bold">/rank &amp; /leaderboard</div>
+            <p className="text-[11px] text-slate-400 font-sans">
+              XP-Karten &amp; Top 10 Ranglisten mit automatischer Rollenerstellung bei Level-Aufstieg.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ─────────────────────────────────────────────────────────────
+          4.1 LEVEL-SYSTEM & AUTOMATISCHE ROLLEN-ERSTELLUNG
+      ───────────────────────────────────────────────────────────── */}
+      <div className="glass-panel p-6 rounded-2xl border border-slate-800 bg-[#161b22]/90 space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
+          <div>
+            <div className="flex items-center gap-2 text-white font-bold text-sm">
+              <Zap className="w-4 h-4 text-amber-400" />
+              <span>Level-System &amp; Automatische Rollenerstellung</span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Chat-Nachrichten gewähren 15–25 XP (60s Cooldown). Erreicht ein Mitglied einen Meilenstein, wird die Rolle automatisch auf Discord angelegt &amp; zugewiesen.
+            </p>
+          </div>
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            Aktiv (Gateway Intent 513)
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 text-xs">
+          <div className="p-3.5 rounded-xl bg-[#0d1117] border border-amber-900/40 space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-amber-400">Level 5</span>
+              <span className="text-[10px] text-slate-500">1.500 XP</span>
+            </div>
+            <div className="text-slate-300 font-semibold">Bronze Rang</div>
+            <div className="text-[11px] text-emerald-400/80">Auto-Provision: Ja</div>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-[#0d1117] border border-slate-700/60 space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-slate-300">Level 10</span>
+              <span className="text-[10px] text-slate-500">5.500 XP</span>
+            </div>
+            <div className="text-slate-300 font-semibold">Silber Rang</div>
+            <div className="text-[11px] text-emerald-400/80">Auto-Provision: Ja</div>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-[#0d1117] border border-yellow-800/50 space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-yellow-400">Level 20</span>
+              <span className="text-[10px] text-slate-500">21.000 XP</span>
+            </div>
+            <div className="text-slate-300 font-semibold">Gold Rang</div>
+            <div className="text-[11px] text-emerald-400/80">Auto-Provision: Ja</div>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-[#0d1117] border border-cyan-800/50 space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-cyan-400">Level 30</span>
+              <span className="text-[10px] text-slate-500">46.500 XP</span>
+            </div>
+            <div className="text-slate-300 font-semibold">Platin Rang</div>
+            <div className="text-[11px] text-emerald-400/80">Auto-Provision: Ja</div>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-[#0d1117] border border-indigo-800/50 space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-indigo-400">Level 50</span>
+              <span className="text-[10px] text-slate-500">127.500 XP</span>
+            </div>
+            <div className="text-slate-300 font-semibold">Diamant Elite</div>
+            <div className="text-[11px] text-emerald-400/80">Auto-Provision: Ja</div>
+          </div>
+        </div>
+
+        <div className="p-3 rounded-xl bg-indigo-950/20 border border-indigo-800/30 text-[11px] text-indigo-300 flex items-center gap-2">
+          <Info className="w-4 h-4 shrink-0 text-indigo-400" />
+          <span>
+            Fehlt eine Meilenstein-Rolle auf deinem Discord-Server, generiert der Bot die Rolle über die Discord-REST-API mit farblicher Abstufung automatisch, speichert sie in der Datenbank und weist sie dem Mitglied direkt zu.
+          </span>
         </div>
       </div>
 
