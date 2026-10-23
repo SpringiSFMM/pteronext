@@ -4,13 +4,16 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -88,8 +91,18 @@ func (f *FileService) GetServerBaseDir(serverUUID string) (string, error) {
 		}
 	}
 
+	// For remote nodes, sync files from remote daemon if available
+	if f.isRemoteNode(&server) {
+		_ = f.syncFromRemoteNode(&server, baseDir)
+	}
+
 	// Seed default server files ONLY once upon initial server creation/first setup
-	f.ensureDefaultFilesOnce(&server, baseDir)
+	didSeed := f.ensureDefaultFilesOnce(&server, baseDir)
+
+	// If default files were seeded for a remote server, mirror them immediately to the remote node
+	if f.isRemoteNode(&server) && didSeed {
+		_ = f.syncToRemoteNode(&server, baseDir)
+	}
 
 	return baseDir, nil
 }
@@ -291,7 +304,7 @@ func cleanMistakenMinecraftFiles(baseDir string) {
 	}
 }
 
-func (f *FileService) ensureDefaultFilesOnce(server *models.Server, baseDir string) {
+func (f *FileService) ensureDefaultFilesOnce(server *models.Server, baseDir string) bool {
 	markerFile := filepath.Join(baseDir, ".pteronext_initialized")
 
 	// If this is NOT a Minecraft server, purge any erroneously seeded default Minecraft files
@@ -301,12 +314,12 @@ func (f *FileService) ensureDefaultFilesOnce(server *models.Server, baseDir stri
 
 	if _, err := os.Stat(markerFile); err == nil {
 		// Server has already been initialized, NEVER recreate deleted files!
-		return
+		return false
 	}
 
 	entries, err := os.ReadDir(baseDir)
 	if err != nil {
-		return
+		return false
 	}
 
 	// Filter out the marker file itself and system hidden files when checking if directory is empty
@@ -321,7 +334,7 @@ func (f *FileService) ensureDefaultFilesOnce(server *models.Server, baseDir stri
 	// If directory already has files from an existing install or upload, mark it initialized
 	if nonEmpty {
 		_ = os.WriteFile(markerFile, []byte(time.Now().Format(time.RFC3339)), 0644)
-		return
+		return false
 	}
 
 	// Seed files according to server workload type
@@ -423,6 +436,7 @@ NODE_ENV=production
 
 	// Always write initialization marker so files aren't recreated if deleted by the user
 	_ = os.WriteFile(markerFile, []byte(time.Now().Format(time.RFC3339)), 0644)
+	return true
 }
 
 // resolveSafePath verifies against directory traversal
@@ -562,7 +576,11 @@ func (f *FileService) WriteFile(serverUUID, relPath, content string) error {
 		return err
 	}
 
-	return os.WriteFile(targetPath, []byte(content), 0644)
+	if err := os.WriteFile(targetPath, []byte(content), 0644); err != nil {
+		return err
+	}
+	f.triggerRemoteSync(serverUUID, baseDir)
+	return nil
 }
 
 // DeleteFiles deletes one or more files / folders inside root.
@@ -586,6 +604,7 @@ func (f *FileService) DeleteFiles(serverUUID, root string, files []string) error
 			lastErr = removeErr
 		}
 	}
+	f.deleteRemoteFiles(serverUUID, root, files)
 	return lastErr
 }
 
@@ -601,7 +620,11 @@ func (f *FileService) CreateDirectory(serverUUID, root, name string) error {
 		return err
 	}
 
-	return os.MkdirAll(target, 0755)
+	if err := os.MkdirAll(target, 0755); err != nil {
+		return err
+	}
+	f.triggerRemoteSync(serverUUID, baseDir)
+	return nil
 }
 
 // Rename renames a file or folder.
@@ -621,7 +644,11 @@ func (f *FileService) Rename(serverUUID, root, from, to string) error {
 		return err
 	}
 
-	return os.Rename(src, dst)
+	if err := os.Rename(src, dst); err != nil {
+		return err
+	}
+	f.renameRemoteFile(serverUUID, root, from, to)
+	return nil
 }
 
 // SaveUploadedFile saves an uploaded file stream into the target folder.
@@ -652,7 +679,7 @@ func (f *FileService) SaveUploadedFile(serverUUID, root string, name string, r i
 	}
 
 	relPath := "/" + strings.TrimPrefix(filepath.Join(root, name), "/")
-	return &FileItem{
+	item := &FileItem{
 		Name:        name,
 		Path:        relPath,
 		Type:        "file",
@@ -660,7 +687,9 @@ func (f *FileService) SaveUploadedFile(serverUUID, root string, name string, r i
 		Modified:    "Just now",
 		Permissions: "-rw-r--r--",
 		Editable:    isEditableFile(name),
-	}, nil
+	}
+	f.triggerRemoteSync(serverUUID, baseDir)
+	return item, nil
 }
 
 // InstallMinecraftVersion downloads PaperMC for the selected version and configures eula.txt
@@ -751,6 +780,7 @@ func (f *FileService) InstallMinecraftVersion(serverUUID, version, jarFileName s
 		return fmt.Errorf("failed writing jar file: %w", err)
 	}
 
+	f.triggerRemoteSync(serverUUID, baseDir)
 	return nil
 }
 
@@ -824,7 +854,7 @@ func (f *FileService) DownloadRemoteFile(serverUUID, root, filename, sourceURL s
 	}
 
 	relPath := "/" + strings.TrimPrefix(filepath.Join(root, filename), "/")
-	return &FileItem{
+	item := &FileItem{
 		Name:        filename,
 		Path:        relPath,
 		Type:        "file",
@@ -832,7 +862,9 @@ func (f *FileService) DownloadRemoteFile(serverUUID, root, filename, sourceURL s
 		Modified:    "Just now",
 		Permissions: "-rw-r--r--",
 		Editable:    isEditableFile(filename),
-	}, nil
+	}
+	f.triggerRemoteSync(serverUUID, baseDir)
+	return item, nil
 }
 
 // CompressFiles archives multiple files or directories into a zip or tar.gz file.
@@ -996,7 +1028,7 @@ func (f *FileService) CompressFiles(serverUUID, root string, files []string, arc
 	}
 
 	archiveRelPath := "/" + strings.TrimPrefix(filepath.Join(root, archiveName), "/")
-	return &FileItem{
+	item := &FileItem{
 		Name:        archiveName,
 		Path:        archiveRelPath,
 		Type:        "file",
@@ -1004,7 +1036,9 @@ func (f *FileService) CompressFiles(serverUUID, root string, files []string, arc
 		Modified:    "Just now",
 		Permissions: "-rw-r--r--",
 		Editable:    false,
-	}, nil
+	}
+	f.triggerRemoteSync(serverUUID, baseDir)
+	return item, nil
 }
 
 // DecompressFile uncompresses a .zip or .tar.gz archive into root.
@@ -1083,6 +1117,7 @@ func (f *FileService) DecompressFile(serverUUID, root string, fileName string) e
 			}
 			rc.Close()
 		}
+		f.triggerRemoteSync(serverUUID, baseDir)
 		return nil
 	}
 
@@ -1154,5 +1189,223 @@ func (f *FileService) DecompressFile(serverUUID, root string, fileName string) e
 		}
 	}
 
+	f.triggerRemoteSync(serverUUID, baseDir)
 	return nil
+}
+
+// getSSHKeyOption returns the ssh identity option if a private key is found.
+func getSSHKeyOption() string {
+	candidates := []string{
+		"/var/lib/pteronext/.ssh/id_ed25519",
+		"/var/lib/pteronext/.ssh/id_rsa",
+		"/root/.ssh/id_ed25519",
+		"/root/.ssh/id_rsa",
+	}
+	for _, c := range candidates {
+		if _, err := os.Stat(c); err == nil {
+			return "-i " + c
+		}
+	}
+	return ""
+}
+
+// isRemoteNode returns true if the server is assigned to a non-local node (Node.ID != 1).
+func (f *FileService) isRemoteNode(server *models.Server) bool {
+	if server == nil || server.Node == nil || server.Node.ID == 1 {
+		return false
+	}
+	fqdn := strings.TrimSpace(server.Node.FQDN)
+	if fqdn == "" || fqdn == "127.0.0.1" || fqdn == "localhost" {
+		return false
+	}
+	return true
+}
+
+// getRemoteTargetPaths returns the remote host, remote primary directory, and daemon base directory.
+func (f *FileService) getRemoteTargetPaths(server *models.Server) (host string, primaryDir string, daemonDir string) {
+	if !f.isRemoteNode(server) {
+		return "", "", ""
+	}
+	host = server.Node.FQDN
+	daemonBase := server.Node.DaemonBaseDir
+	if daemonBase == "" {
+		daemonBase = "/var/lib/pterodactyl/volumes"
+	}
+	primaryDir = filepath.Join("/var/lib/pterodactyl", server.UUID)
+	daemonDir = filepath.Join(daemonBase, server.UUID)
+	return host, primaryDir, daemonDir
+}
+
+func (f *FileService) getSSHCommand(remoteHost, cmd string) *exec.Cmd {
+	ctx, _ := context.WithTimeout(context.Background(), 15*time.Second)
+	args := []string{
+		"-o", "StrictHostKeyChecking=no",
+		"-o", "UserKnownHostsFile=/dev/null",
+		"-o", "ConnectTimeout=5",
+		"-o", "BatchMode=yes",
+		"-o", "LogLevel=ERROR",
+	}
+	keyOpt := getSSHKeyOption()
+	if keyOpt != "" {
+		parts := strings.Split(keyOpt, " ")
+		if len(parts) == 2 {
+			args = append(args, parts[0], parts[1])
+		}
+	}
+	args = append(args, "root@"+remoteHost, cmd)
+	return exec.CommandContext(ctx, "ssh", args...)
+}
+
+func (f *FileService) triggerRemoteSync(serverUUID, baseDir string) {
+	var server models.Server
+	if err := f.db.Preload("Node").Where("uuid = ?", serverUUID).First(&server).Error; err == nil {
+		if f.isRemoteNode(&server) {
+			_ = f.syncToRemoteNode(&server, baseDir)
+		}
+	}
+}
+
+func (f *FileService) syncToRemoteNode(server *models.Server, baseDir string) error {
+	host, primaryDir, daemonDir := f.getRemoteTargetPaths(server)
+	if host == "" {
+		return nil
+	}
+
+	// 1. Ensure remote directories exist and symlink them if necessary
+	remotePrepCmd := fmt.Sprintf(
+		"mkdir -p %s %s && if [ '%s' != '%s' ]; then ln -sfn %s %s 2>/dev/null || true; fi",
+		primaryDir, daemonDir, primaryDir, daemonDir, primaryDir, daemonDir,
+	)
+	_ = f.getSSHCommand(host, remotePrepCmd).Run()
+
+	// 2. Perform rsync
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	sshRsyncE := "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 -o BatchMode=yes -o LogLevel=ERROR"
+	keyOpt := getSSHKeyOption()
+	if keyOpt != "" {
+		sshRsyncE += " " + keyOpt
+	}
+
+	src := filepath.Clean(baseDir) + "/"
+	dst := fmt.Sprintf("root@%s:%s/", host, primaryDir)
+	rsyncCmd := exec.CommandContext(ctx, "rsync", "-az", "-e", sshRsyncE, src, dst)
+	out, err := rsyncCmd.CombinedOutput()
+	if err != nil {
+		log.Printf("[MULTI-NODE] rsync to %s failed: %v, out: %s. Falling back to scp...", host, err, string(out))
+		scpArgs := []string{
+			"-r",
+			"-o", "StrictHostKeyChecking=no",
+			"-o", "UserKnownHostsFile=/dev/null",
+			"-o", "ConnectTimeout=5",
+			"-o", "BatchMode=yes",
+		}
+		if keyOpt != "" {
+			parts := strings.Split(keyOpt, " ")
+			if len(parts) == 2 {
+				scpArgs = append(scpArgs, parts[0], parts[1])
+			}
+		}
+		scpArgs = append(scpArgs, filepath.Clean(baseDir)+"/.", fmt.Sprintf("root@%s:%s/", host, primaryDir))
+		scpCmd := exec.CommandContext(ctx, "scp", scpArgs...)
+		if scpOut, scpErr := scpCmd.CombinedOutput(); scpErr != nil {
+			log.Printf("[MULTI-NODE] scp fallback to %s failed: %v, out: %s", host, scpErr, string(scpOut))
+			return scpErr
+		}
+	}
+
+	// 3. Fix remote permissions so Wings and Docker container (uid 999 gid 995) have access
+	chownCmd := fmt.Sprintf("chown -R 999:995 %s %s 2>/dev/null || true", primaryDir, daemonDir)
+	_ = f.getSSHCommand(host, chownCmd).Run()
+
+	log.Printf("[MULTI-NODE] Synced volume for server %s to remote node %s (%s)", server.UUID, host, primaryDir)
+	return nil
+}
+
+func (f *FileService) syncFromRemoteNode(server *models.Server, baseDir string) error {
+	host, primaryDir, _ := f.getRemoteTargetPaths(server)
+	if host == "" {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	sshRsyncE := "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 -o BatchMode=yes -o LogLevel=ERROR"
+	keyOpt := getSSHKeyOption()
+	if keyOpt != "" {
+		sshRsyncE += " " + keyOpt
+	}
+
+	src := fmt.Sprintf("root@%s:%s/", host, primaryDir)
+	dst := filepath.Clean(baseDir) + "/"
+	rsyncCmd := exec.CommandContext(ctx, "rsync", "-az", "-e", sshRsyncE, src, dst)
+	out, err := rsyncCmd.CombinedOutput()
+	if err != nil {
+		log.Printf("[MULTI-NODE] rsync from %s failed: %v, out: %s. Falling back to scp...", host, err, string(out))
+		scpArgs := []string{
+			"-r",
+			"-o", "StrictHostKeyChecking=no",
+			"-o", "UserKnownHostsFile=/dev/null",
+			"-o", "ConnectTimeout=5",
+			"-o", "BatchMode=yes",
+		}
+		if keyOpt != "" {
+			parts := strings.Split(keyOpt, " ")
+			if len(parts) == 2 {
+				scpArgs = append(scpArgs, parts[0], parts[1])
+			}
+		}
+		scpArgs = append(scpArgs, fmt.Sprintf("root@%s:%s/.", host, primaryDir), filepath.Clean(baseDir)+"/")
+		scpCmd := exec.CommandContext(ctx, "scp", scpArgs...)
+		if scpOut, scpErr := scpCmd.CombinedOutput(); scpErr != nil {
+			log.Printf("[MULTI-NODE] scp fallback from %s failed: %v, out: %s", host, scpErr, string(scpOut))
+			return scpErr
+		}
+	}
+
+	return nil
+}
+
+func (f *FileService) deleteRemoteFiles(serverUUID, root string, files []string) {
+	var server models.Server
+	if err := f.db.Preload("Node").Where("uuid = ?", serverUUID).First(&server).Error; err != nil {
+		return
+	}
+	host, primaryDir, _ := f.getRemoteTargetPaths(&server)
+	if host == "" {
+		return
+	}
+
+	cleanRoot := filepath.Clean("/" + root)
+	var targets []string
+	for _, name := range files {
+		cleanName := strings.TrimPrefix(filepath.Clean("/"+name), "/")
+		relPath := filepath.Join(cleanRoot, cleanName)
+		target := filepath.Join(primaryDir, relPath)
+		targets = append(targets, fmt.Sprintf("'%s'", strings.ReplaceAll(target, "'", "'\\''")))
+	}
+	if len(targets) > 0 {
+		cmd := "rm -rf " + strings.Join(targets, " ")
+		_ = f.getSSHCommand(host, cmd).Run()
+	}
+}
+
+func (f *FileService) renameRemoteFile(serverUUID, root, from, to string) {
+	var server models.Server
+	if err := f.db.Preload("Node").Where("uuid = ?", serverUUID).First(&server).Error; err != nil {
+		return
+	}
+	host, primaryDir, _ := f.getRemoteTargetPaths(&server)
+	if host == "" {
+		return
+	}
+
+	cleanRoot := filepath.Clean("/" + root)
+	src := filepath.Join(primaryDir, filepath.Join(cleanRoot, strings.TrimPrefix(filepath.Clean("/"+from), "/")))
+	dst := filepath.Join(primaryDir, filepath.Join(cleanRoot, strings.TrimPrefix(filepath.Clean("/"+to), "/")))
+
+	cmd := fmt.Sprintf("mv '%s' '%s'", strings.ReplaceAll(src, "'", "'\\''"), strings.ReplaceAll(dst, "'", "'\\''"))
+	_ = f.getSSHCommand(host, cmd).Run()
 }

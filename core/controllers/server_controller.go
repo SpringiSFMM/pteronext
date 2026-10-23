@@ -286,6 +286,27 @@ func (s *ServerController) CreateServer(c *gin.Context) {
 		}
 	}
 
+	// Safeguard for Node.js / Bot workloads: ensure Node.js 20+ and proper bot startup
+	isNodeWorkload := false
+	if egg.ID > 0 {
+		eName := strings.ToLower(egg.Name)
+		if strings.Contains(eName, "node") || strings.Contains(eName, "discord") || strings.Contains(eName, "bot") {
+			isNodeWorkload = true
+		}
+	}
+	rName := strings.ToLower(req.Name)
+	if strings.Contains(rName, "bot") || strings.Contains(rName, "discord") || strings.Contains(rName, "node") {
+		isNodeWorkload = true
+	}
+	if isNodeWorkload {
+		if req.Image == "" || strings.Contains(req.Image, "nodejs_12") || strings.Contains(req.Image, "nodejs_14") || strings.Contains(req.Image, "nodejs_15") || strings.Contains(req.Image, "nodejs_16") {
+			req.Image = "ghcr.io/parkervcp/yolks:nodejs_20"
+		}
+		if req.Startup == "" || req.Startup == "npm install" || req.Startup == "npm install " || (strings.HasPrefix(req.Startup, "npm install") && !strings.Contains(req.Startup, "node ")) {
+			req.Startup = "if [ -f /home/container/package.json ]; then npm install; fi; node {{BOT_JS:-bot.js}}"
+		}
+	}
+
 	// Default fallbacks
 	if req.MemoryMB == 0 {
 		req.MemoryMB = 1024

@@ -80,7 +80,11 @@ export const CreateServerModal: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      const success = await createServer({
+      const selectedEgg = adminEggs.find((e) => String(e.id) === String(eggId));
+      const eggName = (selectedEgg?.name || '').toLowerCase();
+      const isNodeOrBot = eggName.includes('node') || eggName.includes('discord') || eggName.includes('bot');
+
+      const payload: any = {
         name: name.trim(),
         description: description.trim(),
         node_id: nodeId === 'auto' ? 0 : Number(nodeId),
@@ -91,7 +95,14 @@ export const CreateServerModal: React.FC = () => {
         disk: Number(diskMB),
         cpu: Number(cpuPercent),
         port: port || undefined,
-      });
+      };
+
+      if (isNodeOrBot) {
+        payload.image = 'ghcr.io/parkervcp/yolks:nodejs_20';
+        payload.startup = 'if [ -f /home/container/package.json ]; then npm install; fi; node {{BOT_JS:-bot.js}}';
+      }
+
+      const success = await createServer(payload);
 
       if (success) {
         setIsCreateServerOpen(false);
