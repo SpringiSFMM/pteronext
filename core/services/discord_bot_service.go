@@ -228,21 +228,21 @@ func (s *DiscordBotService) RegisterSlashCommands(clientID, guildID, token strin
 	commands := []map[string]interface{}{
 		{
 			"name":        "server",
-			"description": "PteroNext Server-Management Befehle",
+			"description": "PteroNext server management commands",
 			"options": []map[string]interface{}{
 				{
 					"name":        "list",
-					"description": "Listet alle verfügbaren Game- & App-Server auf",
+					"description": "List all available server instances",
 					"type":        1, // SUB_COMMAND
 				},
 				{
 					"name":        "status",
-					"description": "Ruft Live-Status, CPU, RAM und Port eines Servers ab",
+					"description": "Check live metrics, CPU, RAM and node",
 					"type":        1,
 					"options": []map[string]interface{}{
 						{
 							"name":        "server",
-							"description": "Name oder UUID des Servers",
+							"description": "Server identifier or name",
 							"type":        3, // STRING
 							"required":    true,
 						},
@@ -250,12 +250,12 @@ func (s *DiscordBotService) RegisterSlashCommands(clientID, guildID, token strin
 				},
 				{
 					"name":        "start",
-					"description": "Fährt den angegebenen Server hoch",
+					"description": "Power on the specified server",
 					"type":        1,
 					"options": []map[string]interface{}{
 						{
 							"name":        "server",
-							"description": "Name oder UUID des Servers",
+							"description": "Server identifier or name",
 							"type":        3,
 							"required":    true,
 						},
@@ -263,12 +263,12 @@ func (s *DiscordBotService) RegisterSlashCommands(clientID, guildID, token strin
 				},
 				{
 					"name":        "stop",
-					"description": "Stoppt den angegebenen Server sicher",
+					"description": "Gracefully stop the specified server",
 					"type":        1,
 					"options": []map[string]interface{}{
 						{
 							"name":        "server",
-							"description": "Name oder UUID des Servers",
+							"description": "Server identifier or name",
 							"type":        3,
 							"required":    true,
 						},
@@ -276,12 +276,12 @@ func (s *DiscordBotService) RegisterSlashCommands(clientID, guildID, token strin
 				},
 				{
 					"name":        "restart",
-					"description": "Startet den angegebenen Server neu",
+					"description": "Reboot the specified server",
 					"type":        1,
 					"options": []map[string]interface{}{
 						{
 							"name":        "server",
-							"description": "Name oder UUID des Servers",
+							"description": "Server identifier or name",
 							"type":        3,
 							"required":    true,
 						},
@@ -291,11 +291,11 @@ func (s *DiscordBotService) RegisterSlashCommands(clientID, guildID, token strin
 		},
 		{
 			"name":        "link",
-			"description": "Verknüpft deinen Discord-Account mit dem PteroNext Panel",
+			"description": "Link your Discord account to PteroNext Panel",
 			"options": []map[string]interface{}{
 				{
 					"name":        "code",
-					"description": "Der 6-stellige Code aus dem PteroNext Dashboard",
+					"description": "6-digit verification code from PteroNext dashboard",
 					"type":        3,
 					"required":    true,
 				},
@@ -303,15 +303,15 @@ func (s *DiscordBotService) RegisterSlashCommands(clientID, guildID, token strin
 		},
 		{
 			"name":        "panel",
-			"description": "Zeigt den Systemstatus und Link zum PteroNext Panel",
+			"description": "Display PteroNext panel overview and status",
 		},
 		{
 			"name":        "purge",
-			"description": "Löscht eine bestimmte Anzahl an Nachrichten im aktuellen Channel",
+			"description": "Bulk delete messages from this channel",
 			"options": []map[string]interface{}{
 				{
 					"name":        "amount",
-					"description": "Anzahl der zu löschenden Nachrichten (1-100)",
+					"description": "Number of messages to delete (1-100)",
 					"type":        4, // INTEGER
 					"required":    true,
 				},
@@ -319,23 +319,23 @@ func (s *DiscordBotService) RegisterSlashCommands(clientID, guildID, token strin
 		},
 		{
 			"name":        "giveaway",
-			"description": "Startet ein interaktives Gewinnspiel mit Button-Teilnahme",
+			"description": "Create and manage community giveaways",
 			"options": []map[string]interface{}{
 				{
 					"name":        "prize",
-					"description": "Der Preis / Gewinn",
+					"description": "Prize to give away",
 					"type":        3,
 					"required":    true,
 				},
 				{
 					"name":        "duration",
-					"description": "Dauer des Gewinnspiels (z.B. 10m, 1h, 24h, 3d)",
+					"description": "Giveaway duration (e.g. 10m, 1h, 24h, 3d)",
 					"type":        3,
 					"required":    true,
 				},
 				{
 					"name":        "winners",
-					"description": "Anzahl der Gewinner (Standard: 1)",
+					"description": "Number of winners (default: 1)",
 					"type":        4,
 					"required":    false,
 				},
@@ -343,35 +343,35 @@ func (s *DiscordBotService) RegisterSlashCommands(clientID, guildID, token strin
 		},
 		{
 			"name":        "poll",
-			"description": "Erstellt eine interaktive Abstimmung / Umfrage mit Buttons",
+			"description": "Create an interactive community poll with real-time voting",
 			"options": []map[string]interface{}{
 				{
 					"name":        "question",
-					"description": "Die Frage für die Abstimmung",
+					"description": "The poll question",
 					"type":        3,
 					"required":    true,
 				},
 				{
 					"name":        "option1",
-					"description": "Antwortmöglichkeit 1",
+					"description": "Option 1",
 					"type":        3,
 					"required":    true,
 				},
 				{
 					"name":        "option2",
-					"description": "Antwortmöglichkeit 2",
+					"description": "Option 2",
 					"type":        3,
 					"required":    true,
 				},
 				{
 					"name":        "option3",
-					"description": "Antwortmöglichkeit 3 (optional)",
+					"description": "Option 3 (optional)",
 					"type":        3,
 					"required":    false,
 				},
 				{
 					"name":        "option4",
-					"description": "Antwortmöglichkeit 4 (optional)",
+					"description": "Option 4 (optional)",
 					"type":        3,
 					"required":    false,
 				},
@@ -379,35 +379,35 @@ func (s *DiscordBotService) RegisterSlashCommands(clientID, guildID, token strin
 		},
 		{
 			"name":        "umfrage",
-			"description": "Erstellt eine interaktive Umfrage mit Buttons",
+			"description": "Create an interactive community poll with real-time voting",
 			"options": []map[string]interface{}{
 				{
 					"name":        "question",
-					"description": "Die Frage für die Umfrage",
+					"description": "The poll question",
 					"type":        3,
 					"required":    true,
 				},
 				{
 					"name":        "option1",
-					"description": "Antwortmöglichkeit 1",
+					"description": "Option 1",
 					"type":        3,
 					"required":    true,
 				},
 				{
 					"name":        "option2",
-					"description": "Antwortmöglichkeit 2",
+					"description": "Option 2",
 					"type":        3,
 					"required":    true,
 				},
 				{
 					"name":        "option3",
-					"description": "Antwortmöglichkeit 3 (optional)",
+					"description": "Option 3 (optional)",
 					"type":        3,
 					"required":    false,
 				},
 				{
 					"name":        "option4",
-					"description": "Antwortmöglichkeit 4 (optional)",
+					"description": "Option 4 (optional)",
 					"type":        3,
 					"required":    false,
 				},
@@ -415,11 +415,11 @@ func (s *DiscordBotService) RegisterSlashCommands(clientID, guildID, token strin
 		},
 		{
 			"name":        "userinfo",
-			"description": "Zeigt detaillierte Discord- & Panel-Informationen eines Benutzers",
+			"description": "Display detailed profile, roles and activity stats for a member",
 			"options": []map[string]interface{}{
 				{
 					"name":        "user",
-					"description": "Der zu inspizierende Benutzer",
+					"description": "The user to inspect",
 					"type":        6, // USER
 					"required":    false,
 				},
@@ -427,15 +427,15 @@ func (s *DiscordBotService) RegisterSlashCommands(clientID, guildID, token strin
 		},
 		{
 			"name":        "serverinfo",
-			"description": "Zeigt detaillierte Statistiken und Informationen über diesen Server",
+			"description": "Display detailed server overview, member counts and boost stats",
 		},
 		{
 			"name":        "rank",
-			"description": "Zeigt dein aktuelles Level, gesammelte XP und Rang-Position",
+			"description": "Display activity rank, current level and XP progression",
 			"options": []map[string]interface{}{
 				{
 					"name":        "user",
-					"description": "Benutzer dessen Level angezeigt werden soll",
+					"description": "User to display level and rank for",
 					"type":        6, // USER
 					"required":    false,
 				},
@@ -443,7 +443,7 @@ func (s *DiscordBotService) RegisterSlashCommands(clientID, guildID, token strin
 		},
 		{
 			"name":        "leaderboard",
-			"description": "Zeigt die Top 10 aktivsten Discord-Mitglieder nach Chat-XP",
+			"description": "Display top 10 most active members by XP",
 		},
 	}
 
@@ -763,19 +763,19 @@ func (s *DiscordBotService) handleInteraction(raw json.RawMessage, botToken stri
 	case "panel":
 		var serverCount int64
 		s.db.Model(&models.Server{}).Count(&serverCount)
-		respMsg := fmt.Sprintf("⚡ **PteroNext Panel Core v2.9.0**\n🟢 System Status: Online & Operational\n🖥️ Aktive Serverinstanzen: **%d**\n🔗 Web-Zugang: [PteroNext Dashboard](https://pteronext.com)", serverCount)
+		respMsg := fmt.Sprintf("⚡ **PteroNext Panel Core v2.9.0**\n🟢 System Status: Online & Operational\n🖥️ Active Server Instances: **%d**\n🔗 Web Access: [PteroNext Dashboard](https://pteronext.com)", serverCount)
 		s.sendInteractionResponse(interaction.ID, interaction.Token, respMsg, false)
 
 	case "link":
 		code := getOptionString(interaction.Data.Options, "code")
 		if code == "" {
-			s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Bitte gib den 6-stelligen Verifizierungs-Code an: `/link code:123456`", true)
+			s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Please provide the 6-digit verification code: `/link code:123456`", true)
 			return
 		}
 
 		var verification models.DiscordLinkVerification
 		if err := s.db.Where("code = ? AND expires_at > ?", code, time.Now()).First(&verification).Error; err != nil {
-			s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Ungültiger oder abgelaufener Verifizierungs-Code. Bitte fordere im Dashboard unter Account einen neuen Code an.", true)
+			s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Invalid or expired verification code. Please request a new code under Account settings in your dashboard.", true)
 			return
 		}
 
@@ -791,7 +791,7 @@ func (s *DiscordBotService) handleInteraction(raw json.RawMessage, botToken stri
 		var panelUser models.User
 		s.db.First(&panelUser, verification.UserID)
 
-		s.sendInteractionResponse(interaction.ID, interaction.Token, fmt.Sprintf("✅ **Erfolgreich verknüpft!**\nDein Discord-Konto wurde mit PteroNext-Benutzer **%s** verknüpft.", panelUser.Username), false)
+		s.sendInteractionResponse(interaction.ID, interaction.Token, fmt.Sprintf("✅ **Successfully linked!**\nYour Discord account has been linked to PteroNext user **%s**.", panelUser.Username), false)
 
 	case "server":
 		s.handleServerCommand(interaction, discordUserID, userRoles)
@@ -824,7 +824,7 @@ func (s *DiscordBotService) handleServerCommand(interaction FullInteraction, dis
 	// Look up linked PteroNext user
 	var user models.User
 	if err := s.db.Where("discord_id = ?", discordUserID).First(&user).Error; err != nil || user.ID == 0 {
-		s.sendInteractionResponse(interaction.ID, interaction.Token, "🔒 **Discord-Konto nicht verknüpft!**\nBitte verknüpfe zuerst deinen Discord-Account im PteroNext Panel unter Account-Einstellungen oder per `/link <code>`.", true)
+		s.sendInteractionResponse(interaction.ID, interaction.Token, "🔒 **Discord account not linked!**\nPlease link your Discord account in the PteroNext Panel under Account Settings or via `/link <code>`.", true)
 		return
 	}
 
@@ -877,12 +877,12 @@ func (s *DiscordBotService) handleServerCommand(interaction FullInteraction, dis
 		}
 
 		if len(servers) == 0 {
-			s.sendInteractionResponse(interaction.ID, interaction.Token, "ℹ️ Keine Server zugewiesen oder gefunden.", true)
+			s.sendInteractionResponse(interaction.ID, interaction.Token, "ℹ️ No servers assigned or found.", true)
 			return
 		}
 
 		var sb strings.Builder
-		sb.WriteString("🖥️ **Deine verfügbaren PteroNext Server:**\n\n")
+		sb.WriteString("🖥️ **Your available PteroNext Servers:**\n\n")
 		for _, srv := range servers {
 			st := "offline"
 			if srv.Status != nil && *srv.Status != "" {
@@ -903,19 +903,19 @@ func (s *DiscordBotService) handleServerCommand(interaction FullInteraction, dis
 
 	case "status":
 		if serverQuery == "" {
-			s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Bitte Servername oder Identifier angeben: `/server status server:MeinServer`", true)
+			s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Please provide a server name or identifier: `/server status server:MyServer`", true)
 			return
 		}
 
 		var srv models.Server
 		if err := s.db.Preload("Node").Where("uuid = ? OR identifier = ? OR LOWER(name) = LOWER(?)", serverQuery, serverQuery, serverQuery).First(&srv).Error; err != nil {
-			s.sendInteractionResponse(interaction.ID, interaction.Token, fmt.Sprintf("❌ Server '%s' nicht gefunden.", serverQuery), true)
+			s.sendInteractionResponse(interaction.ID, interaction.Token, fmt.Sprintf("❌ Server '%s' not found.", serverQuery), true)
 			return
 		}
 
 		// Permission check
 		if !isRootAdmin && !hasRoleAllServers && srv.OwnerID != user.ID {
-			s.sendInteractionResponse(interaction.ID, interaction.Token, "⛔ Du hast keine Berechtigung, den Status dieses Servers einzusehen.", true)
+			s.sendInteractionResponse(interaction.ID, interaction.Token, "⛔ You do not have permission to view the status of this server.", true)
 			return
 		}
 
@@ -937,32 +937,32 @@ func (s *DiscordBotService) handleServerCommand(interaction FullInteraction, dis
 			nodeName = srv.Node.Name
 		}
 
-		msg := fmt.Sprintf("📊 **Server Status: %s**\n\n%s Zustand: **%s**\n🆔 Identifier: `%s`\n💾 RAM-Limit: %d MB\n⚙️ CPU-Limit: %d%%\n🌐 Node: %s",
+		msg := fmt.Sprintf("📊 **Server Status: %s**\n\n%s State: **%s**\n🆔 Identifier: `%s`\n💾 RAM Limit: %d MB\n⚙️ CPU Limit: %d%%\n🌐 Node: %s",
 			srv.Name, statusIcon, strings.ToUpper(st), srv.Identifier, srv.MemoryMB, srv.CPU, nodeName)
 
 		s.sendInteractionResponse(interaction.ID, interaction.Token, msg, false)
 
 	case "start", "stop", "restart":
 		if serverQuery == "" {
-			s.sendInteractionResponse(interaction.ID, interaction.Token, fmt.Sprintf("❌ Bitte Servername angeben: `/server %s server:MeinServer`", subCmd), true)
+			s.sendInteractionResponse(interaction.ID, interaction.Token, fmt.Sprintf("❌ Please provide a server name: `/server %s server:MyServer`", subCmd), true)
 			return
 		}
 
 		var srv models.Server
 		if err := s.db.Preload("Node").Where("uuid = ? OR identifier = ? OR LOWER(name) = LOWER(?)", serverQuery, serverQuery, serverQuery).First(&srv).Error; err != nil {
-			s.sendInteractionResponse(interaction.ID, interaction.Token, fmt.Sprintf("❌ Server '%s' nicht gefunden.", serverQuery), true)
+			s.sendInteractionResponse(interaction.ID, interaction.Token, fmt.Sprintf("❌ Server '%s' not found.", serverQuery), true)
 			return
 		}
 
 		// Permission check for power actions
 		canExecute := isRootAdmin || (hasRolePowerAccess && hasRoleAllServers) || (hasRolePowerAccess && srv.OwnerID == user.ID) || (srv.OwnerID == user.ID)
 		if !canExecute {
-			s.sendInteractionResponse(interaction.ID, interaction.Token, "⛔ Unzureichende Berechtigungen für diesen Server-Power-Befehl.", true)
+			s.sendInteractionResponse(interaction.ID, interaction.Token, "⛔ Insufficient permissions for this server power command.", true)
 			return
 		}
 
 		// Acknowledge interaction immediately to prevent Discord 3s timeout
-		s.sendInteractionResponse(interaction.ID, interaction.Token, fmt.Sprintf("⏳ Sende Befehl **%s** an Server **%s**...", strings.ToUpper(subCmd), srv.Name), false)
+		s.sendInteractionResponse(interaction.ID, interaction.Token, fmt.Sprintf("⏳ Sending command **%s** to server **%s**...", strings.ToUpper(subCmd), srv.Name), false)
 
 		// Execute power action
 		go func(node *models.Node, srvUUID, act, srvName string) {
@@ -975,7 +975,7 @@ func (s *DiscordBotService) handleServerCommand(interaction FullInteraction, dis
 		}(srv.Node, srv.UUID, subCmd, srv.Name)
 
 	default:
-		s.sendInteractionResponse(interaction.ID, interaction.Token, "Unbekannter Server-Befehl. Verfügbar: `/server list`, `/server status`, `/server start`, `/server stop`, `/server restart`.", true)
+		s.sendInteractionResponse(interaction.ID, interaction.Token, "Unknown server command. Available: `/server list`, `/server status`, `/server start`, `/server stop`, `/server restart`.", true)
 	}
 }
 
@@ -994,7 +994,7 @@ func (s *DiscordBotService) handlePurgeCommand(interaction FullInteraction, disc
 	}
 
 	if !isRootAdmin && !hasManageMessages {
-		s.sendInteractionResponse(interaction.ID, interaction.Token, "⛔ Du benötigst die Berechtigung 'Nachrichten verwalten' (Manage Messages), um diesen Befehl auszuführen.", true)
+		s.sendInteractionResponse(interaction.ID, interaction.Token, "⛔ You need the 'Manage Messages' permission to execute this command.", true)
 		return
 	}
 
@@ -1008,7 +1008,7 @@ func (s *DiscordBotService) handlePurgeCommand(interaction FullInteraction, disc
 
 	channelID := interaction.ChannelID
 	if channelID == "" {
-		s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Fehler: Kanal-ID konnte nicht ermittelt werden.", true)
+		s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Error: Channel ID could not be determined.", true)
 		return
 	}
 
@@ -1016,7 +1016,7 @@ func (s *DiscordBotService) handlePurgeCommand(interaction FullInteraction, disc
 	url := fmt.Sprintf("https://discord.com/api/v10/channels/%s/messages?limit=%d", channelID, amount)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Fehler beim Abrufen der Nachrichten.", true)
+		s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Failed to fetch messages.", true)
 		return
 	}
 	req.Header.Set("Authorization", "Bot "+botToken)
@@ -1025,13 +1025,13 @@ func (s *DiscordBotService) handlePurgeCommand(interaction FullInteraction, disc
 	client := &http.Client{Timeout: 8 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Discord API ist aktuell nicht erreichbar.", true)
+		s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Discord API is currently unreachable.", true)
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Fehler beim Abrufen der Kanalnachrichten.", true)
+		s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Failed to fetch channel messages.", true)
 		return
 	}
 
@@ -1039,7 +1039,7 @@ func (s *DiscordBotService) handlePurgeCommand(interaction FullInteraction, disc
 		ID string `json:"id"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&msgs); err != nil || len(msgs) == 0 {
-		s.sendInteractionResponse(interaction.ID, interaction.Token, "ℹ️ Keine Nachrichten im Kanal zum Löschen gefunden.", true)
+		s.sendInteractionResponse(interaction.ID, interaction.Token, "ℹ️ No messages found to delete in this channel.", true)
 		return
 	}
 
@@ -1053,32 +1053,32 @@ func (s *DiscordBotService) handlePurgeCommand(interaction FullInteraction, disc
 	}
 
 	if len(deletableIDs) == 0 {
-		s.sendInteractionResponse(interaction.ID, interaction.Token, "ℹ️ Keine löschbaren Nachrichten gefunden (Nachrichten älter als 14 Tage können von Discord nicht per Bulk-Delete gelöscht werden).", true)
+		s.sendInteractionResponse(interaction.ID, interaction.Token, "ℹ️ No deletable messages found (messages older than 14 days cannot be bulk deleted by Discord).", true)
 		return
 	}
 
 	if len(deletableIDs) == 1 {
 		if err := s.deleteSingleMessage(channelID, deletableIDs[0], botToken); err != nil {
-			s.sendInteractionResponse(interaction.ID, interaction.Token, fmt.Sprintf("❌ Fehler beim Löschen der Nachricht: %v", err), true)
+			s.sendInteractionResponse(interaction.ID, interaction.Token, fmt.Sprintf("❌ Error deleting message: %v", err), true)
 			return
 		}
-		s.sendInteractionResponse(interaction.ID, interaction.Token, "🧹 **1** Nachricht erfolgreich gelöscht.", true)
+		s.sendInteractionResponse(interaction.ID, interaction.Token, "🧹 **1** message successfully deleted.", true)
 		return
 	}
 
 	if err := s.bulkDeleteMessages(channelID, botToken, deletableIDs); err != nil {
-		s.sendInteractionResponse(interaction.ID, interaction.Token, fmt.Sprintf("❌ Bulk-Delete fehlgeschlagen: %v", err), true)
+		s.sendInteractionResponse(interaction.ID, interaction.Token, fmt.Sprintf("❌ Bulk delete failed: %v", err), true)
 		return
 	}
 
-	s.sendInteractionResponse(interaction.ID, interaction.Token, fmt.Sprintf("🧹 Erfolgreich **%d** Nachrichten gelöscht.", len(deletableIDs)), true)
+	s.sendInteractionResponse(interaction.ID, interaction.Token, fmt.Sprintf("🧹 Successfully deleted **%d** messages.", len(deletableIDs)), true)
 }
 
 // handleGiveawayCommand launches an interactive giveaway.
 func (s *DiscordBotService) handleGiveawayCommand(interaction FullInteraction, discordUserID, discordUsername, botToken string) {
 	prize := getOptionString(interaction.Data.Options, "prize")
 	if prize == "" {
-		s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Bitte gib einen Preis an: `/giveaway prize:Nitro duration:1h`", true)
+		s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Please provide a prize: `/giveaway prize:Nitro duration:1h`", true)
 		return
 	}
 
@@ -1118,13 +1118,13 @@ func (s *DiscordBotService) handleGiveawayCommand(interaction FullInteraction, d
 	}
 
 	if err := s.db.Create(&giveaway).Error; err != nil {
-		s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Fehler beim Speichern des Gewinnspiels in der Datenbank.", true)
+		s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Failed to save giveaway in database.", true)
 		return
 	}
 
 	embed := map[string]interface{}{
-		"title":       "🎉 GEWINNSPIEL: " + prize,
-		"description": fmt.Sprintf("Klicke auf den Button unten, um teilzunehmen!\n\n🎁 **Preis:** %s\n👑 **Host:** <@%s>\n🏆 **Gewinner:** %d\n👥 **Teilnehmer:** 0\n⏰ **Endet:** <t:%d:R> (<t:%d:F>)", prize, discordUserID, winnersCount, endsAt.Unix(), endsAt.Unix()),
+		"title":       "🎉 GIVEAWAY: " + prize,
+		"description": fmt.Sprintf("Click the button below to enter!\n\n🎁 **Prize:** %s\n👑 **Host:** <@%s>\n🏆 **Winners:** %d\n👥 **Entries:** 0\n⏰ **Ends:** <t:%d:R> (<t:%d:F>)", prize, discordUserID, winnersCount, endsAt.Unix(), endsAt.Unix()),
 		"color":       0x5865F2,
 		"footer": map[string]interface{}{
 			"text": fmt.Sprintf("PteroNext Giveaway • ID: %d", giveaway.ID),
@@ -1139,7 +1139,7 @@ func (s *DiscordBotService) handleGiveawayCommand(interaction FullInteraction, d
 				{
 					"type":      2, // Button
 					"style":     3, // Success / Green
-					"label":     "🎉 Teilnehmen (0)",
+					"label":     "🎉 Enter (0)",
 					"custom_id": fmt.Sprintf("giveaway_enter:%d", giveaway.ID),
 				},
 			},
@@ -1148,14 +1148,14 @@ func (s *DiscordBotService) handleGiveawayCommand(interaction FullInteraction, d
 
 	msgID, err := s.postChannelMessage(interaction.ChannelID, botToken, "", embed, components)
 	if err != nil {
-		s.sendInteractionResponse(interaction.ID, interaction.Token, fmt.Sprintf("❌ Fehler beim Senden der Giveaway-Nachricht: %v", err), true)
+		s.sendInteractionResponse(interaction.ID, interaction.Token, fmt.Sprintf("❌ Failed to send giveaway message: %v", err), true)
 		return
 	}
 
 	giveaway.MessageID = msgID
 	s.db.Save(&giveaway)
 
-	s.sendInteractionResponse(interaction.ID, interaction.Token, fmt.Sprintf("🎉 Gewinnspiel für **%s** erfolgreich gestartet!", prize), true)
+	s.sendInteractionResponse(interaction.ID, interaction.Token, fmt.Sprintf("🎉 Giveaway for **%s** successfully started!", prize), true)
 }
 
 // handleGiveawayButton handles user clicks on the giveaway entry button.
@@ -1172,12 +1172,12 @@ func (s *DiscordBotService) handleGiveawayButton(interaction FullInteraction, di
 
 	var giveaway models.DiscordGiveaway
 	if err := s.db.First(&giveaway, giveawayID).Error; err != nil {
-		s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Gewinnspiel nicht gefunden.", true)
+		s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Giveaway not found.", true)
 		return
 	}
 
 	if giveaway.Ended || time.Now().After(giveaway.EndsAt) {
-		s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Dieses Gewinnspiel ist bereits beendet.", true)
+		s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ This giveaway has already ended.", true)
 		return
 	}
 
@@ -1188,7 +1188,7 @@ func (s *DiscordBotService) handleGiveawayButton(interaction FullInteraction, di
 
 	for _, id := range entries {
 		if id == discordUserID {
-			s.sendInteractionResponse(interaction.ID, interaction.Token, fmt.Sprintf("ℹ️ Du nimmst bereits an diesem Gewinnspiel für **%s** teil! 🍀", giveaway.Prize), true)
+			s.sendInteractionResponse(interaction.ID, interaction.Token, fmt.Sprintf("ℹ️ You have already entered the giveaway for **%s**! 🍀", giveaway.Prize), true)
 			return
 		}
 	}
@@ -1198,13 +1198,13 @@ func (s *DiscordBotService) handleGiveawayButton(interaction FullInteraction, di
 	giveaway.Entries = string(updatedJSON)
 	s.db.Save(&giveaway)
 
-	s.sendInteractionResponse(interaction.ID, interaction.Token, fmt.Sprintf("🎉 Du nimmst nun am Gewinnspiel für **%s** teil! Viel Glück! 🍀", giveaway.Prize), true)
+	s.sendInteractionResponse(interaction.ID, interaction.Token, fmt.Sprintf("🎉 You have entered the giveaway for **%s**! Good luck! 🍀", giveaway.Prize), true)
 
 	// Update the giveaway message with new participant count
 	go func(gw models.DiscordGiveaway, count int) {
 		embed := map[string]interface{}{
-			"title":       "🎉 GEWINNSPIEL: " + gw.Prize,
-			"description": fmt.Sprintf("Klicke auf den Button unten, um teilzunehmen!\n\n🎁 **Preis:** %s\n👑 **Host:** <@%s>\n🏆 **Gewinner:** %d\n👥 **Teilnehmer:** %d\n⏰ **Endet:** <t:%d:R> (<t:%d:F>)", gw.Prize, gw.HostID, gw.WinnersCount, count, gw.EndsAt.Unix(), gw.EndsAt.Unix()),
+			"title":       "🎉 GIVEAWAY: " + gw.Prize,
+			"description": fmt.Sprintf("Click the button below to enter!\n\n🎁 **Prize:** %s\n👑 **Host:** <@%s>\n🏆 **Winners:** %d\n👥 **Entries:** %d\n⏰ **Ends:** <t:%d:R> (<t:%d:F>)", gw.Prize, gw.HostID, gw.WinnersCount, count, gw.EndsAt.Unix(), gw.EndsAt.Unix()),
 			"color":       0x5865F2,
 			"footer": map[string]interface{}{
 				"text": fmt.Sprintf("PteroNext Giveaway • ID: %d", gw.ID),
@@ -1219,7 +1219,7 @@ func (s *DiscordBotService) handleGiveawayButton(interaction FullInteraction, di
 					{
 						"type":      2,
 						"style":     3,
-						"label":     fmt.Sprintf("🎉 Teilnehmen (%d)", count),
+						"label":     fmt.Sprintf("🎉 Enter (%d)", count),
 						"custom_id": fmt.Sprintf("giveaway_enter:%d", gw.ID),
 					},
 				},
@@ -1256,11 +1256,11 @@ func (s *DiscordBotService) checkExpiredGiveaways() {
 			s.db.Save(&gw)
 
 			embed := map[string]interface{}{
-				"title":       "🎉 [BEENDET] " + gw.Prize,
-				"description": fmt.Sprintf("🎁 **Preis:** %s\n👑 **Host:** <@%s>\n\n❌ **Keine Gewinner:** Es gab leider keine Teilnehmer!", gw.Prize, gw.HostID),
+				"title":       "🎉 [ENDED] " + gw.Prize,
+				"description": fmt.Sprintf("🎁 **Prize:** %s\n👑 **Host:** <@%s>\n\n❌ **No Winners:** There were no participants!", gw.Prize, gw.HostID),
 				"color":       0x95A5A6, // Grey
 				"footer": map[string]interface{}{
-					"text": fmt.Sprintf("PteroNext Giveaway • ID: %d • Beendet", gw.ID),
+					"text": fmt.Sprintf("PteroNext Giveaway • ID: %d • Ended", gw.ID),
 				},
 			}
 			components := []map[string]interface{}{
@@ -1270,7 +1270,7 @@ func (s *DiscordBotService) checkExpiredGiveaways() {
 						{
 							"type":      2,
 							"style":     2, // Secondary / Grey
-							"label":     "Beendet (0 Teilnehmer)",
+							"label":     "Ended (0 Entries)",
 							"custom_id": fmt.Sprintf("giveaway_ended:%d", gw.ID),
 							"disabled":  true,
 						},
@@ -1278,7 +1278,7 @@ func (s *DiscordBotService) checkExpiredGiveaways() {
 				},
 			}
 			_ = s.editChannelMessage(gw.ChannelID, gw.MessageID, botToken, "", embed, components)
-			announcement := fmt.Sprintf("📢 **Gewinnspiel beendet für '%s'**: Es gab leider keine Teilnehmer! 😢", gw.Prize)
+			announcement := fmt.Sprintf("📢 **Giveaway ended for '%s'**: There were unfortunately no participants! 😢", gw.Prize)
 			_, _ = s.postChannelMessage(gw.ChannelID, botToken, announcement, nil, nil)
 			continue
 		}
@@ -1306,11 +1306,11 @@ func (s *DiscordBotService) checkExpiredGiveaways() {
 		winnerStr := strings.Join(winnerMentions, ", ")
 
 		embed := map[string]interface{}{
-			"title":       "🎉 [BEENDET] " + gw.Prize,
-			"description": fmt.Sprintf("🎁 **Preis:** %s\n👑 **Host:** <@%s>\n👥 **Teilnehmer:** %d\n\n🏆 **Gewinner:** %s", gw.Prize, gw.HostID, len(entries), winnerStr),
+			"title":       "🎉 [ENDED] " + gw.Prize,
+			"description": fmt.Sprintf("🎁 **Prize:** %s\n👑 **Host:** <@%s>\n👥 **Entries:** %d\n\n🏆 **Winner(s):** %s", gw.Prize, gw.HostID, len(entries), winnerStr),
 			"color":       0xF1C40F, // Gold
 			"footer": map[string]interface{}{
-				"text": fmt.Sprintf("PteroNext Giveaway • ID: %d • Beendet", gw.ID),
+				"text": fmt.Sprintf("PteroNext Giveaway • ID: %d • Ended", gw.ID),
 			},
 		}
 		components := []map[string]interface{}{
@@ -1320,7 +1320,7 @@ func (s *DiscordBotService) checkExpiredGiveaways() {
 					{
 						"type":      2,
 						"style":     2,
-						"label":     fmt.Sprintf("Beendet (%d Teilnehmer)", len(entries)),
+						"label":     fmt.Sprintf("Ended (%d Entries)", len(entries)),
 						"custom_id": fmt.Sprintf("giveaway_ended:%d", gw.ID),
 						"disabled":  true,
 					},
@@ -1329,7 +1329,7 @@ func (s *DiscordBotService) checkExpiredGiveaways() {
 		}
 		_ = s.editChannelMessage(gw.ChannelID, gw.MessageID, botToken, "", embed, components)
 
-		announcement := fmt.Sprintf("🎉 **HERZLICHEN GLÜCKWUNSCH!** 🎉\n\nDas Gewinnspiel für **%s** ist beendet!\n🏆 **Gewinner:** %s\nBitte meldet euch bei <@%s>, um euren Preis zu erhalten! 🎁", gw.Prize, winnerStr, gw.HostID)
+		announcement := fmt.Sprintf("🎉 **CONGRATULATIONS!** 🎉\n\nThe giveaway for **%s** has ended!\n🏆 **Winner(s):** %s\nPlease contact <@%s> to claim your prize! 🎁", gw.Prize, winnerStr, gw.HostID)
 		_, _ = s.postChannelMessage(gw.ChannelID, botToken, announcement, nil, nil)
 	}
 }
@@ -1343,7 +1343,7 @@ func (s *DiscordBotService) handlePollCommand(interaction FullInteraction, disco
 	opt4 := getOptionString(interaction.Data.Options, "option4")
 
 	if question == "" || opt1 == "" || opt2 == "" {
-		s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Eine Umfrage benötigt mindestens eine Frage und zwei Optionen.", true)
+		s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ A poll requires a question and at least two options.", true)
 		return
 	}
 
@@ -1369,26 +1369,36 @@ func (s *DiscordBotService) handlePollCommand(interaction FullInteraction, disco
 	}
 
 	if err := s.db.Create(&poll).Error; err != nil {
-		s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Fehler beim Erstellen der Umfrage in der Datenbank.", true)
+		s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Failed to create poll in database.", true)
 		return
 	}
 
 	embed, components := BuildPollEmbedAndComponents(poll)
 	msgID, err := s.postChannelMessage(interaction.ChannelID, botToken, "", embed, components)
 	if err != nil {
-		s.sendInteractionResponse(interaction.ID, interaction.Token, fmt.Sprintf("❌ Fehler beim Senden der Umfrage: %v", err), true)
+		s.sendInteractionResponse(interaction.ID, interaction.Token, fmt.Sprintf("❌ Failed to send poll: %v", err), true)
 		return
 	}
 
 	poll.MessageID = msgID
 	s.db.Save(&poll)
 
-	s.sendInteractionResponse(interaction.ID, interaction.Token, "📊 Umfrage erfolgreich im Kanal gestartet!", true)
+	s.sendInteractionResponse(interaction.ID, interaction.Token, "📊 Poll successfully started in channel!", true)
 }
 
-// handlePollButton records or updates a user's vote and re-renders the live poll message.
+// handlePollButton records or updates a user's vote and re-renders the live poll message atomically.
 func (s *DiscordBotService) handlePollButton(interaction FullInteraction, discordUserID, botToken string) {
+	if discordUserID == "" {
+		if interaction.Member != nil && interaction.Member.User.ID != "" {
+			discordUserID = interaction.Member.User.ID
+		} else if interaction.User != nil && interaction.User.ID != "" {
+			discordUserID = interaction.User.ID
+		}
+	}
+
 	customID := interaction.Data.CustomID
+	log.Printf("[DISCORD-BOT] Poll vote button clicked: user=%s, customID=%s", discordUserID, customID)
+
 	parts := strings.Split(customID, ":")
 	if len(parts) < 3 {
 		return
@@ -1402,7 +1412,18 @@ func (s *DiscordBotService) handlePollButton(interaction FullInteraction, discor
 
 	var poll models.DiscordPoll
 	if err := s.db.First(&poll, pollID).Error; err != nil {
-		s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Umfrage nicht gefunden.", true)
+		s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Poll not found.", true)
+		return
+	}
+
+	var options []string
+	if err := json.Unmarshal([]byte(poll.Options), &options); err != nil {
+		s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Failed to read poll options.", true)
+		return
+	}
+
+	if optIdx < 0 || optIdx >= len(options) {
+		s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Invalid option.", true)
 		return
 	}
 
@@ -1411,32 +1432,24 @@ func (s *DiscordBotService) handlePollButton(interaction FullInteraction, discor
 		_ = json.Unmarshal([]byte(poll.Votes), &votes)
 	}
 
-	var options []string
-	_ = json.Unmarshal([]byte(poll.Options), &options)
-
-	if optIdx < 0 || optIdx >= len(options) {
-		s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Ungültige Option.", true)
-		return
-	}
-
 	currentVote, hasVoted := votes[discordUserID]
 	if hasVoted && currentVote == optIdx {
-		s.sendInteractionResponse(interaction.ID, interaction.Token, fmt.Sprintf("ℹ️ Du hast bereits für **%s** gestimmt.", options[optIdx]), true)
-		return
+		// Vote toggling: Remove vote
+		delete(votes, discordUserID)
+	} else {
+		// Set or change vote
+		votes[discordUserID] = optIdx
 	}
 
-	votes[discordUserID] = optIdx
 	votesJSON, _ := json.Marshal(votes)
 	poll.Votes = string(votesJSON)
 	s.db.Save(&poll)
 
-	s.sendInteractionResponse(interaction.ID, interaction.Token, fmt.Sprintf("✅ Deine Stimme für **%s** wurde gezählt! 🗳️", options[optIdx]), true)
-
-	// Update poll message in background with updated tally
-	go func(p models.DiscordPoll) {
-		emb, comp := BuildPollEmbedAndComponents(p)
-		_ = s.editChannelMessage(p.ChannelID, p.MessageID, botToken, "", emb, comp)
-	}(poll)
+	emb, comp := BuildPollEmbedAndComponents(poll)
+	if err := s.sendInteractionUpdate(interaction.ID, interaction.Token, emb, comp); err != nil {
+		log.Printf("[DISCORD-BOT] Failed to update poll via interaction callback: %v, falling back to message edit", err)
+		_ = s.editChannelMessage(poll.ChannelID, poll.MessageID, botToken, "", emb, comp)
+	}
 }
 
 // BuildPollEmbedAndComponents renders live vote counts, percentage bars, and voting buttons.
@@ -1470,17 +1483,17 @@ func BuildPollEmbedAndComponents(poll models.DiscordPoll) (map[string]interface{
 			pct = (cnt * 100) / totalVotes
 		}
 		bar := renderProgressBar(pct, 10)
-		sb.WriteString(fmt.Sprintf("%s **%s**\n`[%s]` **%d%%** (%d Stimmen)\n\n", emojis[i%len(emojis)], opt, bar, pct, cnt))
+		sb.WriteString(fmt.Sprintf("%s **%s**\n`[%s]` **%d%%** (%d votes)\n\n", emojis[i%len(emojis)], opt, bar, pct, cnt))
 	}
 
-	sb.WriteString(fmt.Sprintf("👥 **Gesamtstimmen:** %d • Erstellt von <@%s>", totalVotes, poll.CreatorID))
+	sb.WriteString(fmt.Sprintf("👥 **Total Votes:** %d • Created by <@%s>", totalVotes, poll.CreatorID))
 
 	embed := map[string]interface{}{
-		"title":       "📊 Umfrage / Abstimmung",
+		"title":       "📊 Community Poll",
 		"description": sb.String(),
 		"color":       0x3498DB, // Blue
 		"footer": map[string]interface{}{
-			"text": fmt.Sprintf("PteroNext Umfrage • ID: %d", poll.ID),
+			"text": fmt.Sprintf("PteroNext Community Poll • ID: %d", poll.ID),
 		},
 		"timestamp": poll.CreatedAt.Format(time.RFC3339),
 	}
@@ -1561,12 +1574,12 @@ func (s *DiscordBotService) handleUserInfoCommand(interaction FullInteraction, d
 	avatarURL := getAvatarURL(targetID, member.User.Avatar)
 
 	createdTime := getSnowflakeTime(targetID)
-	createdStr := "Unbekannt"
+	createdStr := "Unknown"
 	if !createdTime.IsZero() {
 		createdStr = fmt.Sprintf("<t:%d:R> (<t:%d:F>)", createdTime.Unix(), createdTime.Unix())
 	}
 
-	joinedStr := "Nicht im Server oder Unbekannt"
+	joinedStr := "Not in server or unknown"
 	if member.JoinedAt != "" {
 		if t, parseErr := time.Parse(time.RFC3339, member.JoinedAt); parseErr == nil {
 			joinedStr = fmt.Sprintf("<t:%d:R> (<t:%d:F>)", t.Unix(), t.Unix())
@@ -1578,40 +1591,40 @@ func (s *DiscordBotService) handleUserInfoCommand(interaction FullInteraction, d
 		var roleTags []string
 		for i, r := range member.Roles {
 			if i >= 10 {
-				roleTags = append(roleTags, fmt.Sprintf("+%d weitere", len(member.Roles)-10))
+				roleTags = append(roleTags, fmt.Sprintf("+%d more", len(member.Roles)-10))
 				break
 			}
 			roleTags = append(roleTags, fmt.Sprintf("<@&%s>", r))
 		}
 		rolesStr = strings.Join(roleTags, " ")
 	} else {
-		rolesStr = "Keine Rollen"
+		rolesStr = "No roles"
 	}
 
 	// PteroNext panel link status
 	var panelUser models.User
-	panelStatus := "❌ Nicht verknüpft (nutze `/link`)"
+	panelStatus := "❌ Not linked (use `/link`)"
 	if err := s.db.Where("discord_id = ?", targetID).First(&panelUser).Error; err == nil && panelUser.ID > 0 {
 		var srvCount int64
 		s.db.Model(&models.Server{}).Where("owner_id = ?", panelUser.ID).Count(&srvCount)
-		adminStr := "Nein"
+		adminStr := "No"
 		if panelUser.RootAdmin {
-			adminStr = "Ja (Root Admin)"
+			adminStr = "Yes (Root Admin)"
 		}
-		panelStatus = fmt.Sprintf("✅ Verknüpft mit **%s**\n👑 Administrator: %s\n🖥️ Eigene Server: %d", panelUser.Username, adminStr, srvCount)
+		panelStatus = fmt.Sprintf("✅ Linked to **%s**\n👑 Administrator: %s\n🖥️ Owned Servers: %d", panelUser.Username, adminStr, srvCount)
 	}
 
 	// XP & Level info
 	var userXP models.DiscordUserXP
-	xpInfo := "Level 0 • 0 XP (Noch keine Aktivität)"
+	xpInfo := "Level 0 • 0 XP (No activity yet)"
 	if err := s.db.Where("guild_id = ? AND user_id = ?", interaction.GuildID, targetID).First(&userXP).Error; err == nil && userXP.ID > 0 {
 		var rankPosition int64
 		s.db.Model(&models.DiscordUserXP{}).Where("guild_id = ? AND xp > ?", interaction.GuildID, userXP.XP).Count(&rankPosition)
-		xpInfo = fmt.Sprintf("⭐ Level: **%d** (Rang #%d)\n✨ XP: **%d**\n💬 Nachrichten: **%d**", userXP.Level, rankPosition+1, userXP.XP, userXP.MessagesCount)
+		xpInfo = fmt.Sprintf("⭐ Level: **%d** (Rank #%d)\n✨ XP: **%d**\n💬 Messages: **%d**", userXP.Level, rankPosition+1, userXP.XP, userXP.MessagesCount)
 	}
 
 	embed := map[string]interface{}{
-		"title": fmt.Sprintf("👤 Benutzerprofil: %s", username),
+		"title": fmt.Sprintf("👤 User Profile: %s", username),
 		"color": 0x5865F2,
 		"thumbnail": map[string]interface{}{
 			"url": avatarURL,
@@ -1619,26 +1632,26 @@ func (s *DiscordBotService) handleUserInfoCommand(interaction FullInteraction, d
 		"fields": []map[string]interface{}{
 			{
 				"name":   "🆔 IDs",
-				"value":  fmt.Sprintf("Benutzer: `<@%s>` (`%s`)", targetID, targetID),
+				"value":  fmt.Sprintf("User: `<@%s>` (`%s`)", targetID, targetID),
 				"inline": false,
 			},
 			{
-				"name":   "📅 Discord-Konto erstellt",
+				"name":   "📅 Account Created",
 				"value":  createdStr,
 				"inline": true,
 			},
 			{
-				"name":   "📥 Server beigetreten",
+				"name":   "📥 Joined Server",
 				"value":  joinedStr,
 				"inline": true,
 			},
 			{
-				"name":   fmt.Sprintf("🛡️ Rollen (%d)", len(member.Roles)),
+				"name":   fmt.Sprintf("🛡️ Roles (%d)", len(member.Roles)),
 				"value":  rolesStr,
 				"inline": false,
 			},
 			{
-				"name":   "🏆 Level & Aktivität",
+				"name":   "🏆 Level & Activity",
 				"value":  xpInfo,
 				"inline": true,
 			},
@@ -1667,7 +1680,7 @@ func (s *DiscordBotService) handleServerInfoCommand(interaction FullInteraction,
 	client := &http.Client{Timeout: 8 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil || resp.StatusCode != http.StatusOK {
-		s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Fehler beim Abrufen der Serverinformationen.", true)
+		s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Failed to fetch server information.", true)
 		return
 	}
 	defer resp.Body.Close()
@@ -1685,12 +1698,12 @@ func (s *DiscordBotService) handleServerInfoCommand(interaction FullInteraction,
 		Description              string        `json:"description"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&guild); err != nil {
-		s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Fehler beim Verarbeiten der Serverdaten.", true)
+		s.sendInteractionResponse(interaction.ID, interaction.Token, "❌ Failed to process server data.", true)
 		return
 	}
 
 	createdTime := getSnowflakeTime(guild.ID)
-	createdStr := "Unbekannt"
+	createdStr := "Unknown"
 	if !createdTime.IsZero() {
 		createdStr = fmt.Sprintf("<t:%d:R> (<t:%d:F>)", createdTime.Unix(), createdTime.Unix())
 	}
@@ -1707,7 +1720,7 @@ func (s *DiscordBotService) handleServerInfoCommand(interaction FullInteraction,
 	s.db.Model(&models.User{}).Where("discord_id != ''").Count(&linkedMembersCount)
 
 	embed := map[string]interface{}{
-		"title":       fmt.Sprintf("🌐 Server-Informationen: %s", guild.Name),
+		"title":       fmt.Sprintf("🌐 Server Information: %s", guild.Name),
 		"color":       0x5865F2,
 		"description": guild.Description,
 		"thumbnail": map[string]interface{}{
@@ -1720,33 +1733,33 @@ func (s *DiscordBotService) handleServerInfoCommand(interaction FullInteraction,
 				"inline": true,
 			},
 			{
-				"name":   "👑 Inhaber / Owner",
+				"name":   "👑 Owner",
 				"value":  fmt.Sprintf("<@%s>", guild.OwnerID),
 				"inline": true,
 			},
 			{
-				"name":   "📅 Server erstellt am",
+				"name":   "📅 Created On",
 				"value":  createdStr,
 				"inline": false,
 			},
 			{
-				"name":   "👥 Mitglieder",
-				"value":  fmt.Sprintf("Gesamt: **%d** • 🟢 Online: **%d**", guild.ApproximateMemberCount, guild.ApproximatePresenceCount),
+				"name":   "👥 Members",
+				"value":  fmt.Sprintf("Total: **%d** • 🟢 Online: **%d**", guild.ApproximateMemberCount, guild.ApproximatePresenceCount),
 				"inline": true,
 			},
 			{
 				"name":   "🚀 Server Boosts",
-				"value":  fmt.Sprintf("Stufe **%d** (%d Boosts)", guild.PremiumTier, guild.PremiumSubscriptionCount),
+				"value":  fmt.Sprintf("Tier **%d** (%d Boosts)", guild.PremiumTier, guild.PremiumSubscriptionCount),
 				"inline": true,
 			},
 			{
-				"name":   "🛡️ Rollen",
-				"value":  fmt.Sprintf("**%d** Rollen konfiguriert", len(guild.Roles)),
+				"name":   "🛡️ Roles",
+				"value":  fmt.Sprintf("**%d** roles configured", len(guild.Roles)),
 				"inline": true,
 			},
 			{
 				"name":   "⚡ PteroNext Panel",
-				"value":  fmt.Sprintf("🖥️ **%d** Game-Server aktiv\n🔗 **%d** verknüpfte Discord-Accounts", panelServerCount, linkedMembersCount),
+				"value":  fmt.Sprintf("🖥️ **%d** game servers active\n🔗 **%d** linked Discord accounts", panelServerCount, linkedMembersCount),
 				"inline": false,
 			},
 		},
@@ -1772,7 +1785,7 @@ func (s *DiscordBotService) handleRankCommand(interaction FullInteraction, disco
 		userXP = models.DiscordUserXP{
 			GuildID:  interaction.GuildID,
 			UserID:   targetID,
-			Username: "Mitglied",
+			Username: "Member",
 			XP:       0,
 			Level:    0,
 		}
@@ -1799,14 +1812,14 @@ func (s *DiscordBotService) handleRankCommand(interaction FullInteraction, disco
 	avatarURL := getAvatarURL(targetID, userXP.Avatar)
 
 	embed := map[string]interface{}{
-		"title": fmt.Sprintf("🎖️ Rangkarte: %s", userXP.Username),
+		"title": fmt.Sprintf("🎖️ Rank Card: %s", userXP.Username),
 		"color": 0x5865F2,
 		"thumbnail": map[string]interface{}{
 			"url": avatarURL,
 		},
 		"fields": []map[string]interface{}{
 			{
-				"name":   "📊 Rang",
+				"name":   "📊 Rank",
 				"value":  fmt.Sprintf("#**%d**", userRank),
 				"inline": true,
 			},
@@ -1816,17 +1829,17 @@ func (s *DiscordBotService) handleRankCommand(interaction FullInteraction, disco
 				"inline": true,
 			},
 			{
-				"name":   "💬 Nachrichten",
+				"name":   "💬 Messages",
 				"value":  fmt.Sprintf("**%d**", userXP.MessagesCount),
 				"inline": true,
 			},
 			{
-				"name":   "✨ XP-Fortschritt",
-				"value":  fmt.Sprintf("%d / %d XP (Gesamt: **%d** XP)", userXP.XP, nextBase, userXP.XP),
+				"name":   "✨ XP Progress",
+				"value":  fmt.Sprintf("%d / %d XP (Total: **%d** XP)", userXP.XP, nextBase, userXP.XP),
 				"inline": false,
 			},
 			{
-				"name":   fmt.Sprintf("Fortschritt bis Level %d (%d%%)", userXP.Level+1, pct),
+				"name":   fmt.Sprintf("Progress to Level %d (%d%%)", userXP.Level+1, pct),
 				"value":  fmt.Sprintf("`[%s]`", bar),
 				"inline": false,
 			},
@@ -1846,10 +1859,10 @@ func (s *DiscordBotService) handleLeaderboardCommand(interaction FullInteraction
 	s.db.Where("guild_id = ?", interaction.GuildID).Order("xp DESC").Limit(10).Find(&topUsers)
 
 	var sb strings.Builder
-	sb.WriteString("🏆 **Top 10 Aktivste Chat-Mitglieder**\n\n")
+	sb.WriteString("🏆 **Top 10 Most Active Chat Members**\n\n")
 
 	if len(topUsers) == 0 {
-		sb.WriteString("ℹ️ Bisher wurden auf diesem Server noch keine Chat-XP gesammelt.\nSei der Erste und schreibe eine Nachricht!")
+		sb.WriteString("ℹ️ No chat XP has been earned on this server yet.\nBe the first and send a message!")
 	} else {
 		for i, u := range topUsers {
 			medal := fmt.Sprintf("`#%d`", i+1)
@@ -1864,7 +1877,7 @@ func (s *DiscordBotService) handleLeaderboardCommand(interaction FullInteraction
 			if name == "" {
 				name = fmt.Sprintf("User %s", u.UserID)
 			}
-			sb.WriteString(fmt.Sprintf("%s **<@%s>** (`%s`)\n   ⭐ Level **%d** • ✨ **%d** XP (%d Nachrichten)\n\n",
+			sb.WriteString(fmt.Sprintf("%s **<@%s>** (`%s`)\n   ⭐ Level **%d** • ✨ **%d** XP (%d messages)\n\n",
 				medal, u.UserID, name, u.Level, u.XP, u.MessagesCount))
 		}
 	}
@@ -1976,20 +1989,20 @@ func (s *DiscordBotService) handleMessageCreate(raw json.RawMessage, botToken st
 			for _, r := range assignedRoles {
 				roleTags = append(roleTags, fmt.Sprintf("**%s**", r))
 			}
-			announcement = fmt.Sprintf("🎉 **GLÜCKWUNSCH!** <@%s> ist auf **Level %d** aufgestiegen! 🚀\n🎖️ **Neue Discord-Rolle(n) erhalten:** %s", userID, newLevel, strings.Join(roleTags, ", "))
+			announcement = fmt.Sprintf("🎉 **CONGRATULATIONS!** <@%s> leveled up to **Level %d**! 🚀\n🎖️ **New Discord role(s) unlocked:** %s", userID, newLevel, strings.Join(roleTags, ", "))
 		} else {
-			announcement = fmt.Sprintf("🎉 **GLÜCKWUNSCH!** <@%s> ist auf **Level %d** aufgestiegen! 🚀", userID, newLevel)
+			announcement = fmt.Sprintf("🎉 **CONGRATULATIONS!** <@%s> leveled up to **Level %d**! 🚀", userID, newLevel)
 		}
 
 		embed := map[string]interface{}{
-			"title":       "✨ Level Aufstieg!",
+			"title":       "✨ Level Up!",
 			"description": announcement,
 			"color":       0x00FF88, // Emerald green
 			"thumbnail": map[string]interface{}{
 				"url": getAvatarURL(userID, avatar),
 			},
 			"footer": map[string]interface{}{
-				"text": fmt.Sprintf("PteroNext XP System • %d XP gesamt", newXP),
+				"text": fmt.Sprintf("PteroNext XP System • %d total XP", newXP),
 			},
 		}
 
@@ -2316,6 +2329,48 @@ func (s *DiscordBotService) sendInteractionResponseWithEmbed(interactionID, inte
 
 	client := &http.Client{Timeout: 5 * time.Second}
 	_, _ = client.Do(req)
+}
+
+// sendInteractionUpdate sends a callback payload with Type 7 (UPDATE_MESSAGE) to atomically update a message on button click.
+func (s *DiscordBotService) sendInteractionUpdate(interactionID, interactionToken string, embed map[string]interface{}, components []map[string]interface{}) error {
+	payload := map[string]interface{}{
+		"type": 7, // UPDATE_MESSAGE
+		"data": map[string]interface{}{
+			"embeds":     []map[string]interface{}{embed},
+			"components": components,
+		},
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		log.Printf("[DISCORD-BOT] Error marshaling interaction update payload: %v", err)
+		return err
+	}
+	url := fmt.Sprintf("https://discord.com/api/v10/interactions/%s/%s/callback", interactionID, interactionToken)
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+	if err != nil {
+		log.Printf("[DISCORD-BOT] Error creating interaction update request: %v", err)
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "PteroNext-Panel (v2.9.0)")
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("[DISCORD-BOT] Failed to send interaction update: %v", err)
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		respBody, _ := io.ReadAll(resp.Body)
+		log.Printf("[DISCORD-BOT] Discord interaction update HTTP error %d: %s", resp.StatusCode, string(respBody))
+		return fmt.Errorf("discord API error: status %d", resp.StatusCode)
+	}
+
+	return nil
 }
 
 // --- Helper Functions ---
