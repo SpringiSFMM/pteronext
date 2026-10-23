@@ -52,6 +52,8 @@ func (c *ServerRemoteController) ListServers(ctx *gin.Context) {
 		Preload("Allocation").
 		Preload("Allocations").
 		Preload("Variables").
+		Preload("Egg").
+		Preload("Nest").
 		Where("node_id = ?", node.ID).
 		Limit(perPage).
 		Offset(offset).

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -37,6 +38,8 @@ var upgrader = websocket.Upgrader{
 		return true // Allow all origins for dev/panel frontend
 	},
 }
+
+var botReadyRegex = regexp.MustCompile(`(?i)(ready|logged in as|started|listening|online|bot is ready|app listening)`)
 
 // WSMessage represents a standard Pterodactyl console WebSocket event.
 type WSMessage struct {
@@ -236,6 +239,11 @@ func (c *Client) readPump(server *models.Server) {
 	} else if server.Node != nil {
 		if stats, err := c.Hub.wings.FetchServerResources(server.Node, server.UUID); err == nil && stats != nil && stats.State != "" {
 			initialState = stats.State
+			if initialState == "running" && server.Status != nil && *server.Status == "starting" {
+				runningSt := "running"
+				server.Status = &runningSt
+				_ = c.Hub.db.Model(&models.Server{}).Where("uuid = ?", server.UUID).Update("status", "running")
+			}
 		}
 	}
 	c.sendMessage("status", initialState)
@@ -286,6 +294,9 @@ func (c *Client) readPump(server *models.Server) {
 
 					stats, err := c.Hub.wings.FetchServerResources(server.Node, server.UUID)
 					if err == nil && stats != nil {
+						if stats.State == "running" {
+							_ = c.Hub.db.Model(&models.Server{}).Where("uuid = ? AND status = ?", server.UUID, "starting").Update("status", "running")
+						}
 						data, _ := json.Marshal(map[string]interface{}{
 							"memory_bytes":       stats.MemoryBytes,
 							"memory_limit_bytes": stats.MemoryLimitBytes,
@@ -323,6 +334,10 @@ func (c *Client) readPump(server *models.Server) {
 							if !seenLogs[line] {
 								seenLogs[line] = true
 								c.sendMessage("console output", line)
+								if botReadyRegex.MatchString(line) {
+									_ = c.Hub.db.Model(&models.Server{}).Where("uuid = ? AND status = ?", server.UUID, "starting").Update("status", "running")
+									c.sendMessage("status", "running")
+								}
 							}
 						}
 					}

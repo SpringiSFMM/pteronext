@@ -1847,7 +1847,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const memMB = Math.round((resStats.memory_bytes || 0) / (1024 * 1024));
           const memLimitMB = Math.round((resStats.memory_limit_bytes || 0) / (1024 * 1024));
           const diskMB = Math.round((resStats.disk_bytes || 0) / (1024 * 1024));
-          const actualState = (resStats.current_state || (resStats.is_suspended ? 'stopped' : 'offline')).toLowerCase() as ServerStatus;
+          let actualState = (resStats.current_state || (resStats.is_suspended ? 'stopped' : 'offline')).toLowerCase() as ServerStatus;
+          const uptimeSec = Math.round((resStats.uptime || 0) / 1000);
+          if (actualState === 'starting' && (uptimeSec >= 15 || memMB > 5)) {
+            actualState = 'running';
+          }
 
           setSelectedServerState((prev) => {
             if (!prev || prev.uuid !== serverUuid) return prev;
@@ -1907,6 +1911,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (data.event === 'console output' && Array.isArray(data.args) && data.args.length > 0) {
               const line = String(data.args[0]);
               setTerminalLogs((prev) => [...prev, line]);
+              if (/(ready|logged in as|started|listening|online)/i.test(line)) {
+                setSelectedServerState((prev) => (prev && prev.uuid === serverUuid && prev.status === 'starting' ? { ...prev, status: 'running' } : prev));
+                setServers((prev) => prev.map((s) => (s.uuid === serverUuid && s.status === 'starting' ? { ...s, status: 'running' } : s)));
+              }
             } else if (data.event === 'dns:revoked' && Array.isArray(data.args) && data.args.length > 0) {
               const info = typeof data.args[0] === 'string' ? JSON.parse(data.args[0]) : (data.args[0] || {});
               setDnsRevocationAlert({
@@ -1923,8 +1931,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               });
               window.dispatchEvent(new CustomEvent('pteronext:dns_revoked', { detail: info }));
             } else if (data.event === 'status' && Array.isArray(data.args) && data.args.length > 0) {
-              const newSt = String(data.args[0]).toLowerCase() as ServerStatus;
-              setSelectedServerState((prev) => (prev && prev.uuid === serverUuid ? { ...prev, status: newSt } : prev));
+              let newSt = String(data.args[0]).toLowerCase() as ServerStatus;
+              setSelectedServerState((prev) => {
+                if (!prev || prev.uuid !== serverUuid) return prev;
+                if (newSt === 'starting' && ((prev.stats?.uptime || 0) >= 15 || (prev.stats?.memory || 0) > 5)) {
+                  newSt = 'running';
+                }
+                return { ...prev, status: newSt };
+              });
               setServers((prev) => prev.map((s) => (s.uuid === serverUuid ? { ...s, status: newSt } : s)));
             } else if (data.event === 'stats' && Array.isArray(data.args) && data.args.length > 0) {
               const statsObj = typeof data.args[0] === 'string' ? JSON.parse(data.args[0]) : data.args[0];
@@ -1933,7 +1947,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               const diskMB = Math.round((statsObj.disk_bytes || 0) / (1024 * 1024));
               const cpuPercent = +((statsObj.cpu_absolute || 0)).toFixed(1);
               const uptimeSec = Math.round((statsObj.uptime || 0) / 1000);
-              const st = (statsObj.state || 'offline').toLowerCase() as ServerStatus;
+              let st = (statsObj.state || 'offline').toLowerCase() as ServerStatus;
+              if (st === 'starting' && (uptimeSec >= 15 || memMB > 5)) {
+                st = 'running';
+              }
 
               setSelectedServerState((prev) => {
                 if (!prev || prev.uuid !== serverUuid) return prev;
@@ -2007,7 +2024,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const memMB = Math.round((resStats.memory_bytes || 0) / (1024 * 1024));
           const memLimitMB = Math.round((resStats.memory_limit_bytes || 0) / (1024 * 1024));
           const diskMB = Math.round((resStats.disk_bytes || 0) / (1024 * 1024));
-          const actualState = (resStats.current_state || (resStats.is_suspended ? 'stopped' : 'offline')).toLowerCase() as ServerStatus;
+          let actualState = (resStats.current_state || (resStats.is_suspended ? 'stopped' : 'offline')).toLowerCase() as ServerStatus;
+          const uptimeSec = Math.round((resStats.uptime || 0) / 1000);
+          if (actualState === 'starting' && (uptimeSec >= 15 || memMB > 5)) {
+            actualState = 'running';
+          }
 
           setSelectedServerState((prev) => {
             if (!prev || prev.uuid !== serverUuid) return prev;
@@ -2195,11 +2216,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         try {
           const stats = await api.servers.resources(target.uuid);
           if (stats) {
-            const mappedState = (stats.current_state as ServerStatus) || 'offline';
             const cpuPercent = +((stats.cpu_absolute || 0)).toFixed(1);
             const memMB = Math.round((stats.memory_bytes || 0) / (1024 * 1024));
             const diskMB = Math.round((stats.disk_bytes || 0) / (1024 * 1024));
             const uptimeSec = Math.round((stats.uptime || 0) / 1000);
+            let mappedState = (stats.current_state as ServerStatus) || 'offline';
+            if (mappedState === 'starting' && (uptimeSec >= 15 || memMB > 5)) {
+              mappedState = 'running';
+            }
 
             setServers((prev) =>
               prev.map((s) =>

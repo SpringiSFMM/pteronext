@@ -351,6 +351,13 @@ func (w *WingsClient) FetchServerResources(node *models.Node, serverUUID string)
 		up = raw.Uptime
 	}
 
+	// Fallback status detection: If Wings reports container in 'starting' state,
+	// but the container process has been active for more than 15 seconds with CPU/RAM usage,
+	// or has active memory (> 5MB) allocated, promote state to 'running'.
+	if st == "starting" && (up >= 15000 || mem > 5*1024*1024) {
+		st = "running"
+	}
+
 	stats := &ServerResourceStats{
 		State:            st,
 		IsSuspended:      raw.IsSuspended,

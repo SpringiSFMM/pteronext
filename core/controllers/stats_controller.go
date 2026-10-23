@@ -67,6 +67,11 @@ func (s *StatsController) GetServerResources(c *gin.Context) {
 	// Attempt to query Wings daemon if reachable
 	if server.Node != nil {
 		if stats, err := s.wingsClient.FetchServerResources(server.Node, server.UUID); err == nil {
+			if stats.State == "running" && server.Status != nil && *server.Status == "starting" {
+				runningSt := "running"
+				_ = s.db.Model(&models.Server{}).Where("id = ?", server.ID).Update("status", runningSt)
+				server.Status = &runningSt
+			}
 			c.JSON(http.StatusOK, stats)
 			return
 		}

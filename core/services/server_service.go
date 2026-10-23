@@ -188,23 +188,43 @@ func (s *ServerService) BuildWingsConfiguration(server *models.Server) WingsServ
 		stopCmd = server.Egg.ConfigStop
 	}
 
-	doneTriggers := []string{")! For help, type ", "Done (", "Done in ", "server started", "Listening on", "Done!"}
+	doneTriggers := []string{
+		")! For help, type ",
+		"Done (",
+		"Done in ",
+		"server started",
+		"Listening on",
+		"Done!",
+		"Bot is ready",
+		"Logged in as",
+		"ready",
+		"Ready",
+		"Started",
+		"started",
+		"online",
+		"Application started",
+		"regex:^(?i).*(ready|logged in as|started|listening|online|bot is ready|app listening).*",
+	}
 	stripAnsi := false
 	if server.Egg != nil && server.Egg.ConfigStartup != nil {
 		if rawDone, ok := server.Egg.ConfigStartup["done"]; ok {
 			switch v := rawDone.(type) {
 			case string:
-				if v != "" {
+				if v != "" && v != "change this part" && v != "Server marked as running" {
 					doneTriggers = append(doneTriggers, v)
 				}
 			case []interface{}:
 				for _, item := range v {
-					if str, ok := item.(string); ok && str != "" {
+					if str, ok := item.(string); ok && str != "" && str != "change this part" && str != "Server marked as running" {
 						doneTriggers = append(doneTriggers, str)
 					}
 				}
 			case []string:
-				doneTriggers = append(doneTriggers, v...)
+				for _, str := range v {
+					if str != "" && str != "change this part" && str != "Server marked as running" {
+						doneTriggers = append(doneTriggers, str)
+					}
+				}
 			}
 		}
 		if rawStrip, ok := server.Egg.ConfigStartup["strip_ansi"]; ok {
@@ -214,9 +234,19 @@ func (s *ServerService) BuildWingsConfiguration(server *models.Server) WingsServ
 		}
 	}
 
+	// Deduplicate triggers preserving order
+	seenTrigger := make(map[string]bool)
+	uniqueDoneTriggers := make([]string, 0, len(doneTriggers))
+	for _, t := range doneTriggers {
+		if t != "" && !seenTrigger[t] {
+			seenTrigger[t] = true
+			uniqueDoneTriggers = append(uniqueDoneTriggers, t)
+		}
+	}
+
 	processConfig := WingsProcessConfiguration{
 		Startup: WingsProcessStartup{
-			Done:            doneTriggers,
+			Done:            uniqueDoneTriggers,
 			UserInteraction: []string{},
 			StripAnsi:       stripAnsi,
 		},

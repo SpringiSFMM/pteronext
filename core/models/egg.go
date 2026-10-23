@@ -461,6 +461,15 @@ func (p *PTDLEggImport) ToEgg() *Egg {
 		egg.ConfigStartup = make(JSONMap)
 	}
 
+	// Sanitize or upgrade done trigger if it contains placeholder or empty text
+	if done, ok := egg.ConfigStartup["done"]; ok {
+		if s, ok := done.(string); ok && (s == "" || s == "change this part" || s == "Server marked as running") {
+			egg.ConfigStartup["done"] = "regex:^(?i).*(ready|logged in as|started|listening|online|bot is ready|app listening).*"
+		}
+	} else {
+		egg.ConfigStartup["done"] = "regex:^(?i).*(ready|logged in as|started|listening|online|bot is ready|app listening).*"
+	}
+
 	if p.ConfigStop != "" {
 		egg.ConfigStop = p.ConfigStop
 	} else {
