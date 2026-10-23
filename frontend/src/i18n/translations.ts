@@ -50,7 +50,7 @@ export interface Translations {
   tab_env_vault: string;
   tab_git_deploy: string;
 
-  // File Manager Zip & Unpack
+  // File Manager & Modals
   files_compress: string;
   files_compress_title: string;
   files_archive_name: string;
@@ -58,6 +58,55 @@ export interface Translations {
   files_decompress_title: string;
   files_compress_success: string;
   files_decompress_success: string;
+  files_new_file: string;
+  files_new_folder: string;
+  files_upload_file: string;
+  files_upload_folder: string;
+  files_upload_folder_title: string;
+  files_uploading: string;
+  files_filter_placeholder: string;
+  files_selected: string;
+  files_delete_selected: string;
+  files_deselect: string;
+  files_drop_upload: string;
+  files_drop_target: string;
+  files_col_name: string;
+  files_col_size: string;
+  files_col_permissions: string;
+  files_col_modified: string;
+  files_col_actions: string;
+  files_select_all: string;
+  files_go_up: string;
+  files_empty_directory: string;
+  files_no_matching: string;
+  files_edit_file: string;
+  files_download: string;
+  files_rename: string;
+  files_delete: string;
+  files_open_directory: string;
+  files_copy_path: string;
+  files_path_copied: string;
+  files_create_file_title: string;
+  files_create_file_name: string;
+  files_create_file_template: string;
+  files_create_and_edit: string;
+  files_create_folder_title: string;
+  files_create_folder_name: string;
+  files_create_folder_btn: string;
+  files_rename_title: string;
+  files_new_name: string;
+  files_delete_confirm_title: string;
+  files_delete_confirm_desc: string;
+  files_delete_undone: string;
+  files_delete_folder_warning: string;
+  files_delete_batch_title: string;
+  files_delete_batch_desc: string;
+  files_bulk_delete_success: string;
+  files_binary_title: string;
+  files_binary_desc: string;
+  files_suspended_title: string;
+  files_suspended_desc: string;
+  files_close: string;
 
   // Sidebar
   sidebar_collapse: string;
@@ -262,7 +311,7 @@ export const translations: Record<Language, Translations> = {
     tab_env_vault: '.env & Secrets',
     tab_git_deploy: 'Git Auto-Deploy',
 
-    // File Manager Zip & Unpack
+    // File Manager & Modals
     files_compress: 'Zip / Komprimieren',
     files_compress_title: 'Dateien komprimieren',
     files_archive_name: 'Archivname',
@@ -270,6 +319,55 @@ export const translations: Record<Language, Translations> = {
     files_decompress_title: 'Archiv entpacken',
     files_compress_success: 'Dateien erfolgreich archiviert',
     files_decompress_success: 'Archiv erfolgreich entpackt',
+    files_new_file: 'Neue Datei',
+    files_new_folder: 'Neuer Ordner',
+    files_upload_file: 'Datei hochladen',
+    files_upload_folder: 'Ordner hochladen',
+    files_upload_folder_title: 'Kompletten Ordner hochladen',
+    files_uploading: 'Lade hoch',
+    files_filter_placeholder: 'Dateien filtern...',
+    files_selected: 'ausgewählt',
+    files_delete_selected: 'Ausgewählte löschen',
+    files_deselect: 'Auswahl aufheben',
+    files_drop_upload: 'Dateien zum Hochladen hier ablegen',
+    files_drop_target: 'Dateien werden gespeichert in',
+    files_col_name: 'Name',
+    files_col_size: 'Größe',
+    files_col_permissions: 'Berechtigungen',
+    files_col_modified: 'Geändert',
+    files_col_actions: 'Aktionen',
+    files_select_all: 'Alle auswählen',
+    files_go_up: 'Übergeordneter Ordner',
+    files_empty_directory: 'Dieser Ordner ist leer',
+    files_no_matching: 'Keine Treffer für',
+    files_edit_file: 'Datei bearbeiten',
+    files_download: 'Herunterladen',
+    files_rename: 'Umbenennen',
+    files_delete: 'Löschen',
+    files_open_directory: 'Ordner öffnen',
+    files_copy_path: 'Pfad kopieren',
+    files_path_copied: 'Pfad in die Zwischenablage kopiert',
+    files_create_file_title: 'Neue Datei erstellen',
+    files_create_file_name: 'Dateiname & Endung',
+    files_create_file_template: 'Vorlage',
+    files_create_and_edit: 'Erstellen & Bearbeiten',
+    files_create_folder_title: 'Neuen Ordner erstellen',
+    files_create_folder_name: 'Ordnername',
+    files_create_folder_btn: 'Ordner erstellen',
+    files_rename_title: 'Element umbenennen',
+    files_new_name: 'Neuer Name',
+    files_delete_confirm_title: 'Element löschen',
+    files_delete_confirm_desc: 'Bist du sicher, dass du dieses Element dauerhaft löschen möchtest?',
+    files_delete_undone: 'Diese Aktion kann nicht rückgängig gemacht werden.',
+    files_delete_folder_warning: 'Alle darin enthaltenen Dateien und Unterordner werden ebenfalls gelöscht.',
+    files_delete_batch_title: 'Ausgewählte Elemente löschen',
+    files_delete_batch_desc: 'Möchtest du wirklich alle ausgewählten Elemente unwiderruflich löschen?',
+    files_bulk_delete_success: 'Dateien erfolgreich gelöscht',
+    files_binary_title: 'Binärdatei / Archiv',
+    files_binary_desc: 'Dies ist eine Binärdatei oder ein komprimiertes Archiv. Sie kann nicht im Code-Editor geöffnet werden. Du kannst die Datei auf deinen Computer herunterladen.',
+    files_suspended_title: 'Dateisystem gesperrt (Server suspendiert)',
+    files_suspended_desc: 'Dieser Server ist administrativ suspendiert. Schreibvorgänge, Uploads, Löschungen und Umbenennungen sind deaktiviert.',
+    files_close: 'Schließen',
 
     // Sidebar
     sidebar_collapse: 'Sidebar einklappen',
@@ -473,7 +571,7 @@ export const translations: Record<Language, Translations> = {
     tab_env_vault: '.env & Secrets',
     tab_git_deploy: 'Git Auto-Deploy',
 
-    // File Manager Zip & Unpack
+    // File Manager & Modals
     files_compress: 'Zip / Compress',
     files_compress_title: 'Compress Files',
     files_archive_name: 'Archive Name',
@@ -481,6 +579,55 @@ export const translations: Record<Language, Translations> = {
     files_decompress_title: 'Decompress Archive',
     files_compress_success: 'Files compressed successfully',
     files_decompress_success: 'Archive extracted successfully',
+    files_new_file: 'New File',
+    files_new_folder: 'New Folder',
+    files_upload_file: 'Upload File',
+    files_upload_folder: 'Upload Folder',
+    files_upload_folder_title: 'Upload entire directory',
+    files_uploading: 'Uploading',
+    files_filter_placeholder: 'Filter items...',
+    files_selected: 'selected',
+    files_delete_selected: 'Delete Selected',
+    files_deselect: 'Deselect',
+    files_drop_upload: 'Drop files to upload',
+    files_drop_target: 'Files will be saved into',
+    files_col_name: 'Name',
+    files_col_size: 'Size',
+    files_col_permissions: 'Permissions',
+    files_col_modified: 'Modified',
+    files_col_actions: 'Actions',
+    files_select_all: 'Select All',
+    files_go_up: 'Go up to',
+    files_empty_directory: 'This directory is empty',
+    files_no_matching: 'No items matching',
+    files_edit_file: 'Edit File',
+    files_download: 'Download File',
+    files_rename: 'Rename',
+    files_delete: 'Delete',
+    files_open_directory: 'Open Directory',
+    files_copy_path: 'Copy Path',
+    files_path_copied: 'Path copied to clipboard',
+    files_create_file_title: 'Create New File',
+    files_create_file_name: 'File Name & Extension',
+    files_create_file_template: 'Starter Template',
+    files_create_and_edit: 'Create & Edit',
+    files_create_folder_title: 'Create New Directory',
+    files_create_folder_name: 'Folder Name',
+    files_create_folder_btn: 'Create Folder',
+    files_rename_title: 'Rename Item',
+    files_new_name: 'New Name',
+    files_delete_confirm_title: 'Delete Item',
+    files_delete_confirm_desc: 'Are you sure you want to permanently delete this item?',
+    files_delete_undone: 'This action cannot be undone.',
+    files_delete_folder_warning: 'All nested files and subdirectories inside this folder will also be removed.',
+    files_delete_batch_title: 'Delete Selected Items',
+    files_delete_batch_desc: 'You are about to delete all selected files and/or folders permanently.',
+    files_bulk_delete_success: 'Files deleted successfully',
+    files_binary_title: 'Binary / Archive File',
+    files_binary_desc: 'This is a compiled binary or compressed archive. It cannot be opened in the plain-text code editor. You can download this file to your local computer.',
+    files_suspended_title: 'Filesystem Locked (Server Suspended)',
+    files_suspended_desc: 'This server is administratively suspended. Writing, uploading, deleting, and renaming files are locked.',
+    files_close: 'Close',
 
     // Sidebar
     sidebar_collapse: 'Collapse sidebar',

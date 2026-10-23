@@ -534,6 +534,12 @@ export const api = {
       });
     },
 
+    reinstall: async (uuid: string): Promise<{ message: string; status: string }> => {
+      return request(`/api/servers/${uuid}/reinstall`, {
+        method: 'POST',
+      });
+    },
+
     getCrashAnalysis: async (uuid: string): Promise<{
       crashed: boolean;
       category: string;

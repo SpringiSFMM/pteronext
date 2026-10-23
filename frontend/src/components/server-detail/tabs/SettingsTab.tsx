@@ -167,6 +167,7 @@ export const SettingsTab: React.FC = () => {
     installMinecraftVersion,
     updateServerAdminSettings,
     adminNodes,
+    reinstallServer,
   } = useApp();
   const { language } = useTranslation();
 
@@ -523,15 +524,11 @@ export const SettingsTab: React.FC = () => {
 
   const handleConfirmDangerAction = async () => {
     if (dangerModalAction === 'reinstall') {
-      addToast({
-        title: language === 'de' ? 'Neuinstallation eingeleitet' : 'Reinstallation Initiated',
-        description:
-          language === 'de'
-            ? 'Container-Installationsskript wird ausgeführt.'
-            : 'Server queued for installation script execution.',
-        type: 'warning',
-      });
-      setDangerModalAction(null);
+      const ok = await reinstallServer(selectedServer.uuid || selectedServer.id);
+      if (ok) {
+        setDangerModalAction(null);
+      }
+      return;
     } else if (dangerModalAction === 'delete') {
       if (!deletePassword) {
         setDeletePasswordError(language === 'de' ? 'Bitte gib dein Account-Passwort ein.' : 'Please enter your account password.');

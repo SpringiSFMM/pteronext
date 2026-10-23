@@ -79,7 +79,7 @@ func SetupRouter(
 	router.POST("/api/auth/register", authCtrl.Register)
 
 	// Server, Node, Schedule, Database, APIKey, Audit, and WebSocket controllers
-	serverCtrl := controllers.NewServerController(db, serverService, wingsClient, wsHub, auditService, webhookService)
+	serverCtrl := controllers.NewServerController(db, serverService, wingsClient, wsHub, auditService, webhookService, fileService)
 	nodeCtrl := controllers.NewNodeController(db, cfg)
 	schedCtrl := controllers.NewScheduleController(db)
 	dbCtrl := controllers.NewDatabaseController(db)
@@ -159,6 +159,7 @@ func SetupRouter(
 			serverAccess.GET("", serverCtrl.GetServer)
 			serverAccess.PATCH("", serverCtrl.UpdateServer)
 			serverAccess.DELETE("", serverCtrl.DeleteServer)
+			serverAccess.POST("/reinstall", serverCtrl.ReinstallServer)
 			serverAccess.POST("/power", serverCtrl.PowerAction)
 			serverAccess.POST("/command", serverCtrl.SendCommand)
 			serverAccess.POST("/commands", serverCtrl.SendCommand)

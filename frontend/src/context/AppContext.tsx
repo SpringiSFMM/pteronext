@@ -527,6 +527,7 @@ interface AppContextType {
   createFile: (file: FileItem) => void;
   createFolder: (path: string, name: string) => void;
   deleteFile: (path: string) => Promise<boolean>;
+  deleteFiles: (paths: string[]) => Promise<boolean>;
   renameFile: (oldPath: string, newPath: string, newName: string) => void;
   uploadFiles: (newFiles: FileItem[]) => void;
   uploadRawFiles: (root: string, rawFiles: File[], onProgress?: (percent: number, loaded: number, total: number) => void) => Promise<boolean>;
@@ -2487,6 +2488,65 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return success;
   };
 
+  const deleteFiles = async (paths: string[]): Promise<boolean> => {
+    if (paths.length === 0) return true;
+    if (paths.length === 1) return deleteFile(paths[0]);
+
+    if (selectedServer?.uuid) {
+      // Group paths by parent directory
+      const groups: Record<string, string[]> = {};
+      for (const p of paths) {
+        const normalized = p.replace(/\/+$/, '');
+        const lastSlash = normalized.lastIndexOf('/');
+        const root = lastSlash > 0 ? normalized.substring(0, lastSlash) : '/';
+        const fileName = lastSlash >= 0 ? normalized.substring(lastSlash + 1) : normalized;
+        if (!groups[root]) groups[root] = [];
+        groups[root].push(fileName);
+      }
+
+      try {
+        for (const [root, fileNames] of Object.entries(groups)) {
+          await api.files.delete(selectedServer.uuid, fileNames, root);
+        }
+      } catch (e: any) {
+        console.warn('Backend batch delete failed:', e);
+        addToast({
+          title: language === 'de' ? 'Löschen fehlgeschlagen' : 'Delete Failed',
+          description: e?.message || 'Failed to delete selected files.',
+          type: 'error',
+        });
+        return false;
+      }
+    }
+
+    const cleanPathSet = new Set(paths.map((p) => p.replace(/\/+$/, '')));
+    setFiles((prev) => {
+      const updated = prev.filter((f) => {
+        const itemClean = f.path.replace(/\/+$/, '');
+        if (cleanPathSet.has(itemClean)) return false;
+        for (const cp of cleanPathSet) {
+          if (itemClean.startsWith(cp + '/')) return false;
+        }
+        return true;
+      });
+      if (selectedServer?.uuid) {
+        saveFilesForServer(selectedServer.uuid, updated);
+      }
+      return updated;
+    });
+
+    addToast({
+      title: language === 'de' ? 'Dateien gelöscht' : 'Files Deleted',
+      description:
+        language === 'de'
+          ? `${paths.length} Dateien erfolgreich gelöscht`
+          : `Successfully deleted ${paths.length} items.`,
+      type: 'warning',
+    });
+
+    return true;
+  };
+
   const renameFile = (oldPath: string, newPath: string, newName: string) => {
     if (selectedServer?.uuid) {
       const lastSlash = oldPath.lastIndexOf('/');
@@ -3471,16 +3531,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const target = servers.find((s) => s.id === serverId || s.uuid === serverId);
     if (!target) return false;
 
-    setServers((prev) =>
-      prev.map((s) => (s.id === serverId || s.uuid === serverId ? { ...s, status: 'starting' } : s))
-    );
-
-    addToast({
-      title: 'Reinstallation Initiated',
-      description: `Container reinstallation script triggered for "${target.name}".`,
-      type: 'info',
-    });
-    return true;
+    const uuid = target.uuid || target.id;
+    try {
+      await api.servers.reinstall(uuid);
+      setServers((prev) =>
+        prev.map((s) => (s.uuid === uuid || s.id === uuid ? { ...s, status: 'installing' } : s))
+      );
+      setSelectedServerState((prev) => (prev && (prev.uuid === uuid || prev.id === uuid) ? { ...prev, status: 'installing' } : prev));
+      addToast({
+        title: language === 'de' ? 'Neuinstallation eingeleitet' : 'Reinstallation Initiated',
+        description: language === 'de'
+          ? `Container-Installationsskript für "${target.name}" wird ausgeführt.`
+          : `Container reinstallation script triggered for "${target.name}".`,
+        type: 'warning',
+      });
+      return true;
+    } catch (err: any) {
+      console.warn('Backend reinstallServer failed:', err);
+      addToast({
+        title: language === 'de' ? 'Neuinstallation fehlgeschlagen' : 'Reinstallation Failed',
+        description: err?.message || 'Error triggering server reinstallation.',
+        type: 'error',
+      });
+      return false;
+    }
   };
 
   // -------------------------------------------------------------
@@ -3695,6 +3769,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         createFile,
         createFolder,
         deleteFile,
+        deleteFiles,
         renameFile,
         uploadFiles,
         uploadRawFiles,

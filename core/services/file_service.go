@@ -72,28 +72,38 @@ func (f *FileService) GetServerBaseDir(serverUUID string) (string, error) {
 		}
 	}
 
-	// Auto-migrate files from legacy server directory if baseDir is under /var/lib/pterodactyl/volumes
-	legacyDirs := []string{
-		filepath.Join(f.dataDir, "servers", serverUUID),
-		filepath.Join("/var/lib/pterodactyl", serverUUID),
-	}
-	for _, leg := range legacyDirs {
-		if leg != baseDir {
-			if entries, err := os.ReadDir(leg); err == nil && len(entries) > 0 {
-				for _, entry := range entries {
-					srcPath := filepath.Join(leg, entry.Name())
-					dstPath := filepath.Join(baseDir, entry.Name())
-					if _, statErr := os.Stat(dstPath); os.IsNotExist(statErr) {
-						_ = copyPath(srcPath, dstPath)
+	// One-time legacy directory migration: only run once if baseDir hasn't been migrated yet and server is not initialized
+	migrationMarker := filepath.Join(baseDir, ".pteronext_migrated")
+	initMarker := filepath.Join(baseDir, ".pteronext_initialized")
+	if _, err := os.Stat(migrationMarker); os.IsNotExist(err) {
+		if _, initErr := os.Stat(initMarker); os.IsNotExist(initErr) {
+			legacyDirs := []string{
+				filepath.Join(f.dataDir, "servers", serverUUID),
+				filepath.Join("/var/lib/pterodactyl", serverUUID),
+			}
+			for _, leg := range legacyDirs {
+				if leg != baseDir {
+					if entries, err := os.ReadDir(leg); err == nil && len(entries) > 0 {
+						for _, entry := range entries {
+							srcPath := filepath.Join(leg, entry.Name())
+							dstPath := filepath.Join(baseDir, entry.Name())
+							if _, statErr := os.Stat(dstPath); os.IsNotExist(statErr) {
+								_ = copyPath(srcPath, dstPath)
+							}
+						}
 					}
 				}
 			}
 		}
+		_ = os.WriteFile(migrationMarker, []byte(time.Now().Format(time.RFC3339)), 0644)
 	}
 
-	// For remote nodes, sync files from remote daemon if available
+	// For remote nodes, only pull files if the local directory is completely empty
+	// (e.g. newly registered node or empty cache), NEVER indiscriminately on every file operation!
 	if f.isRemoteNode(&server) {
-		_ = f.syncFromRemoteNode(&server, baseDir)
+		if f.isLocalDirEmpty(baseDir) {
+			_ = f.syncFromRemoteNode(&server, baseDir)
+		}
 	}
 
 	// Seed default server files ONLY once upon initial server creation/first setup
@@ -145,6 +155,53 @@ func copyPath(src, dst string) error {
 
 	_, err = io.Copy(out, in)
 	return err
+}
+
+func (f *FileService) isLocalDirEmpty(dir string) bool {
+	entries, err := os.ReadDir(dir)
+	if err != nil || len(entries) == 0 {
+		return true
+	}
+	for _, e := range entries {
+		name := e.Name()
+		if name != ".pteronext_initialized" && name != ".pteronext_migrated" && name != ".DS_Store" {
+			return false
+		}
+	}
+	return true
+}
+
+// PurgeServerFiles removes all files inside the server volume, resetting initialization markers.
+func (f *FileService) PurgeServerFiles(serverUUID string) error {
+	baseDir, err := f.GetServerBaseDir(serverUUID)
+	if err != nil {
+		return err
+	}
+
+	entries, err := os.ReadDir(baseDir)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		p := filepath.Join(baseDir, entry.Name())
+		_ = os.RemoveAll(p)
+	}
+
+	// Purge remote volume if assigned to a remote node
+	var server models.Server
+	if err := f.db.Preload("Node").Where("uuid = ?", serverUUID).First(&server).Error; err == nil {
+		if f.isRemoteNode(&server) {
+			host, primaryDir, _ := f.getRemoteTargetPaths(&server)
+			if host != "" {
+				legacyDir := filepath.Join("/var/lib/pterodactyl", serverUUID)
+				cmd := fmt.Sprintf("rm -rf '%s'/* '%s'/* '%s'/.* '%s'/.* 2>/dev/null || true", primaryDir, legacyDir, primaryDir, legacyDir)
+				_ = f.getSSHCommand(host, cmd).Run()
+			}
+		}
+	}
+
+	return nil
 }
 
 // isMinecraftServer determines if the server is a Minecraft server based on its egg, nest, image, and metadata.
@@ -605,6 +662,7 @@ func (f *FileService) DeleteFiles(serverUUID, root string, files []string) error
 		}
 	}
 	f.deleteRemoteFiles(serverUUID, root, files)
+	f.triggerRemoteSync(serverUUID, baseDir)
 	return lastErr
 }
 
@@ -1080,13 +1138,22 @@ func (f *FileService) DecompressFile(serverUUID, root string, fileName string) e
 				return fmt.Errorf("archive contains too many files (max %d)", maxFiles)
 			}
 
-			cleanPath := filepath.Clean(zf.Name)
-			if strings.HasPrefix(cleanPath, "..") || filepath.IsAbs(cleanPath) || strings.Contains(cleanPath, "/../") {
+			normalizedName := filepath.ToSlash(zf.Name)
+			// Ignore __MACOSX folders and .DS_Store files
+			if strings.HasPrefix(normalizedName, "__MACOSX/") || normalizedName == "__MACOSX" ||
+				strings.HasSuffix(normalizedName, ".DS_Store") || strings.Contains(normalizedName, "/.DS_Store") ||
+				filepath.Base(normalizedName) == ".DS_Store" {
 				continue
 			}
-			destPath := filepath.Join(extractDest, cleanPath)
+
+			cleanRel := filepath.Clean(strings.TrimPrefix(normalizedName, "/"))
+			if strings.HasPrefix(cleanRel, "..") || filepath.IsAbs(cleanRel) || strings.Contains(cleanRel, "/../") {
+				continue
+			}
+			destPath := filepath.Join(extractDest, cleanRel)
 			// Ensure destPath remains inside extractDest
-			if !strings.HasPrefix(destPath, filepath.Clean(extractDest)+string(filepath.Separator)) && destPath != extractDest {
+			cleanDest := filepath.Clean(extractDest)
+			if !strings.HasPrefix(destPath, cleanDest+string(filepath.Separator)) && destPath != cleanDest {
 				continue
 			}
 
@@ -1157,13 +1224,22 @@ func (f *FileService) DecompressFile(serverUUID, root string, fileName string) e
 			return fmt.Errorf("archive contains too many files (max %d)", maxFiles)
 		}
 
-		cleanPath := filepath.Clean(header.Name)
-		if strings.HasPrefix(cleanPath, "..") || filepath.IsAbs(cleanPath) || strings.Contains(cleanPath, "/../") {
+		normalizedName := filepath.ToSlash(header.Name)
+		// Ignore __MACOSX folders and .DS_Store files
+		if strings.HasPrefix(normalizedName, "__MACOSX/") || normalizedName == "__MACOSX" ||
+			strings.HasSuffix(normalizedName, ".DS_Store") || strings.Contains(normalizedName, "/.DS_Store") ||
+			filepath.Base(normalizedName) == ".DS_Store" {
 			continue
 		}
-		destPath := filepath.Join(extractDest, cleanPath)
+
+		cleanRel := filepath.Clean(strings.TrimPrefix(normalizedName, "/"))
+		if strings.HasPrefix(cleanRel, "..") || filepath.IsAbs(cleanRel) || strings.Contains(cleanRel, "/../") {
+			continue
+		}
+		destPath := filepath.Join(extractDest, cleanRel)
 		// Ensure destPath remains inside extractDest
-		if !strings.HasPrefix(destPath, filepath.Clean(extractDest)+string(filepath.Separator)) && destPath != extractDest {
+		cleanDest := filepath.Clean(extractDest)
+		if !strings.HasPrefix(destPath, cleanDest+string(filepath.Separator)) && destPath != cleanDest {
 			continue
 		}
 
@@ -1231,8 +1307,9 @@ func (f *FileService) getRemoteTargetPaths(server *models.Server) (host string, 
 	if daemonBase == "" {
 		daemonBase = "/var/lib/pterodactyl/volumes"
 	}
-	primaryDir = filepath.Join("/var/lib/pterodactyl", server.UUID)
 	daemonDir = filepath.Join(daemonBase, server.UUID)
+	// Canonical path where Wings mounts the server container
+	primaryDir = daemonDir
 	return host, primaryDir, daemonDir
 }
 
@@ -1266,19 +1343,16 @@ func (f *FileService) triggerRemoteSync(serverUUID, baseDir string) {
 }
 
 func (f *FileService) syncToRemoteNode(server *models.Server, baseDir string) error {
-	host, primaryDir, daemonDir := f.getRemoteTargetPaths(server)
+	host, primaryDir, _ := f.getRemoteTargetPaths(server)
 	if host == "" {
 		return nil
 	}
 
-	// 1. Ensure remote directories exist and symlink them if necessary
-	remotePrepCmd := fmt.Sprintf(
-		"mkdir -p %s %s && if [ '%s' != '%s' ]; then ln -sfn %s %s 2>/dev/null || true; fi",
-		primaryDir, daemonDir, primaryDir, daemonDir, primaryDir, daemonDir,
-	)
+	// 1. Ensure remote volume directory exists
+	remotePrepCmd := fmt.Sprintf("mkdir -p '%s'", primaryDir)
 	_ = f.getSSHCommand(host, remotePrepCmd).Run()
 
-	// 2. Perform rsync
+	// 2. Perform rsync with --delete to cleanly sync deletions immediately
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -1290,7 +1364,7 @@ func (f *FileService) syncToRemoteNode(server *models.Server, baseDir string) er
 
 	src := filepath.Clean(baseDir) + "/"
 	dst := fmt.Sprintf("root@%s:%s/", host, primaryDir)
-	rsyncCmd := exec.CommandContext(ctx, "rsync", "-az", "-e", sshRsyncE, src, dst)
+	rsyncCmd := exec.CommandContext(ctx, "rsync", "-az", "--delete", "-e", sshRsyncE, src, dst)
 	out, err := rsyncCmd.CombinedOutput()
 	if err != nil {
 		log.Printf("[MULTI-NODE] rsync to %s failed: %v, out: %s. Falling back to scp...", host, err, string(out))
@@ -1316,7 +1390,7 @@ func (f *FileService) syncToRemoteNode(server *models.Server, baseDir string) er
 	}
 
 	// 3. Fix remote permissions so Wings and Docker container (uid 999 gid 995) have access
-	chownCmd := fmt.Sprintf("chown -R 999:995 %s %s 2>/dev/null || true", primaryDir, daemonDir)
+	chownCmd := fmt.Sprintf("chown -R 999:995 '%s' 2>/dev/null || true", primaryDir)
 	_ = f.getSSHCommand(host, chownCmd).Run()
 
 	log.Printf("[MULTI-NODE] Synced volume for server %s to remote node %s (%s)", server.UUID, host, primaryDir)
@@ -1369,6 +1443,9 @@ func (f *FileService) syncFromRemoteNode(server *models.Server, baseDir string) 
 }
 
 func (f *FileService) deleteRemoteFiles(serverUUID, root string, files []string) {
+	if len(files) == 0 {
+		return
+	}
 	var server models.Server
 	if err := f.db.Preload("Node").Where("uuid = ?", serverUUID).First(&server).Error; err != nil {
 		return
@@ -1383,8 +1460,13 @@ func (f *FileService) deleteRemoteFiles(serverUUID, root string, files []string)
 	for _, name := range files {
 		cleanName := strings.TrimPrefix(filepath.Clean("/"+name), "/")
 		relPath := filepath.Join(cleanRoot, cleanName)
-		target := filepath.Join(primaryDir, relPath)
-		targets = append(targets, fmt.Sprintf("'%s'", strings.ReplaceAll(target, "'", "'\\''")))
+		target1 := filepath.Join(primaryDir, relPath)
+		targets = append(targets, fmt.Sprintf("'%s'", strings.ReplaceAll(target1, "'", "'\\''")))
+		// Also clean legacy path /var/lib/pterodactyl/<uuid> if different
+		legacyPath := filepath.Join("/var/lib/pterodactyl", serverUUID, relPath)
+		if legacyPath != target1 {
+			targets = append(targets, fmt.Sprintf("'%s'", strings.ReplaceAll(legacyPath, "'", "'\\''")))
+		}
 	}
 	if len(targets) > 0 {
 		cmd := "rm -rf " + strings.Join(targets, " ")

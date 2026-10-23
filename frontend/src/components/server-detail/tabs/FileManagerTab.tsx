@@ -80,6 +80,7 @@ export const FileManagerTab: React.FC = () => {
     createFile,
     createFolder,
     deleteFile,
+    deleteFiles,
     renameFile,
     uploadFiles,
     uploadRawFiles,
@@ -378,9 +379,7 @@ export const FileManagerTab: React.FC = () => {
     const pathsToDelete = Array.from(selectedPaths);
     setSelectedPaths(new Set());
     setIsBatchDeleteModalOpen(false);
-    for (const path of pathsToDelete) {
-      await deleteFile(path);
-    }
+    await deleteFiles(pathsToDelete);
     await loadDirectory(currentPath);
   };
 
@@ -700,12 +699,10 @@ export const FileManagerTab: React.FC = () => {
             <Lock className="w-5 h-5 text-rose-400 shrink-0" />
             <div>
               <span className="font-bold text-white block">
-                {language === 'de' ? 'Dateisystem gesperrt (Server suspendiert)' : 'Filesystem Locked (Server Suspended)'}
+                {t.files_suspended_title}
               </span>
               <span>
-                {language === 'de'
-                  ? 'Dieser Server ist administrativ suspendiert. Schreibvorgänge, Uploads, Löschungen und Umbenennungen sind deaktiviert.'
-                  : 'This server is administratively suspended. Writing, uploading, deleting, and renaming files are locked.'}
+                {t.files_suspended_desc}
               </span>
             </div>
           </div>
@@ -750,7 +747,7 @@ export const FileManagerTab: React.FC = () => {
           <button
             onClick={handleCopyPath}
             className="p-1 rounded text-slate-500 hover:text-slate-300 hover:bg-slate-800/60 transition-colors ml-1"
-            title="Copy current path"
+            title={t.files_copy_path}
           >
             {isPathCopied ? (
               <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -772,7 +769,7 @@ export const FileManagerTab: React.FC = () => {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 font-mono text-xs font-semibold hover:border-slate-600 transition-all active:scale-95 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Plus className="w-3.5 h-3.5 text-zinc-300" />
-            <span>New File</span>
+            <span>{t.files_new_file}</span>
           </button>
 
           {/* New Folder */}
@@ -785,18 +782,18 @@ export const FileManagerTab: React.FC = () => {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 font-mono text-xs font-semibold hover:border-slate-600 transition-all active:scale-95 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <FolderPlus className="w-3.5 h-3.5 text-amber-400" />
-            <span>New Folder</span>
+            <span>{t.files_new_folder}</span>
           </button>
 
-          {/* Upload Folder (Feature 5) */}
+          {/* Upload Folder */}
           <button
             disabled={isServerSuspended}
             onClick={() => folderInputRef.current?.click()}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 font-mono text-xs font-semibold hover:border-slate-600 transition-all active:scale-95 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
-            title={language === 'de' ? 'Kompletten Ordner hochladen' : 'Upload entire directory'}
+            title={t.files_upload_folder_title}
           >
             <FolderUp className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Upload Folder</span>
+            <span>{t.files_upload_folder}</span>
           </button>
 
           {/* Upload File */}
@@ -806,7 +803,7 @@ export const FileManagerTab: React.FC = () => {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-mono text-xs font-semibold transition-all shadow-md active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Upload className="w-3.5 h-3.5" />
-            <span>Upload File</span>
+            <span>{t.files_upload_file}</span>
           </button>
 
           {/* Hidden file input */}
@@ -837,7 +834,7 @@ export const FileManagerTab: React.FC = () => {
           <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
-            placeholder={`Filter ${currentItems.length} items in ${currentPath === '/' ? 'root' : currentPath.split('/').pop()}...`}
+            placeholder={`${t.files_filter_placeholder} (${currentItems.length})`}
             value={filterQuery}
             onChange={(e) => setFilterQuery(e.target.value)}
             className="w-full bg-[#0a0e18] border border-slate-800 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 font-mono focus:outline-none focus:border-[var(--theme-accent,#e5a93c)] transition-colors"
@@ -855,7 +852,7 @@ export const FileManagerTab: React.FC = () => {
         {/* Batch Selection Banner */}
         {selectedPaths.size > 0 && (
           <div className="flex items-center gap-2 font-mono text-xs bg-slate-900 border border-white/20 px-3 py-1.5 rounded-xl shadow-md">
-            <span className="text-zinc-200 font-semibold">{selectedPaths.size} selected</span>
+            <span className="text-zinc-200 font-semibold">{selectedPaths.size} {t.files_selected}</span>
             <div className="h-3 w-px bg-slate-700" />
             <button
               onClick={() => {
@@ -866,10 +863,10 @@ export const FileManagerTab: React.FC = () => {
                 setIsCompressModalOpen(true);
               }}
               className="flex items-center gap-1.5 text-amber-300 hover:text-amber-200 font-medium transition-all bg-amber-500/10 hover:bg-amber-500/20 px-2.5 py-1 rounded-lg border border-amber-500/20 active:scale-95"
-              title="Dateien als Archiv (.tar.gz / .zip) packen"
+              title={t.files_compress_title}
             >
               <FileArchive className="w-3.5 h-3.5" />
-              <span>{language === 'de' ? 'Zip / Komprimieren' : 'Zip / Compress'}</span>
+              <span>{t.files_compress}</span>
             </button>
             <div className="h-3 w-px bg-slate-700" />
             <button
@@ -877,13 +874,13 @@ export const FileManagerTab: React.FC = () => {
               className="flex items-center gap-1 text-rose-400 hover:text-rose-300 font-medium transition-colors"
             >
               <Trash2 className="w-3.5 h-3.5" />
-              <span>Delete Selected</span>
+              <span>{t.files_delete_selected}</span>
             </button>
             <button
               onClick={() => setSelectedPaths(new Set())}
               className="text-slate-400 hover:text-white ml-1 text-[11px]"
             >
-              Deselect
+              {t.files_deselect}
             </button>
           </div>
         )}
@@ -921,7 +918,7 @@ export const FileManagerTab: React.FC = () => {
                   <button
                     onClick={toggleSelectAll}
                     className="text-slate-400 hover:text-white transition-colors"
-                    title="Select All"
+                    title={t.files_select_all}
                   >
                     {selectedPaths.size === currentItems.length && currentItems.length > 0 ? (
                       <CheckSquare className="w-4 h-4 text-white" />
@@ -930,11 +927,11 @@ export const FileManagerTab: React.FC = () => {
                     )}
                   </button>
                 </th>
-                <th className="py-3 px-3">Name</th>
-                <th className="py-3 px-4">Size</th>
-                <th className="py-3 px-4 hidden md:table-cell">Permissions</th>
-                <th className="py-3 px-4 hidden sm:table-cell">Modified</th>
-                <th className="py-3 px-4 text-right">Actions</th>
+                <th className="py-3 px-3">{t.files_col_name}</th>
+                <th className="py-3 px-4">{t.files_col_size}</th>
+                <th className="py-3 px-4 hidden md:table-cell">{t.files_col_permissions}</th>
+                <th className="py-3 px-4 hidden sm:table-cell">{t.files_col_modified}</th>
+                <th className="py-3 px-4 text-right">{t.files_col_actions}</th>
               </tr>
             </thead>
 
@@ -955,7 +952,7 @@ export const FileManagerTab: React.FC = () => {
                         ..
                       </span>
                       <span className="text-slate-500 text-[11px]">
-                        (Go up to {getParentDir(currentPath)})
+                        ({t.files_go_up} {getParentDir(currentPath)})
                       </span>
                     </div>
                   </td>
@@ -1054,7 +1051,7 @@ export const FileManagerTab: React.FC = () => {
                                 setIsEditorOpen(true);
                               }}
                               className="p-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 hover:text-cyan-300 transition-colors border border-cyan-500/20"
-                              title={language === 'de' ? 'Datei bearbeiten (Code-Editor)' : 'Edit File (Code Editor)'}
+                              title={t.files_edit_file}
                             >
                               <FileCode className="w-3.5 h-3.5" />
                             </button>
@@ -1072,7 +1069,7 @@ export const FileManagerTab: React.FC = () => {
                                 }}
                                 disabled={isDecompressing || isServerSuspended}
                                 className="p-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-amber-200 transition-colors border border-amber-500/20"
-                                title={language === 'de' ? 'Archiv entpacken' : 'Extract Archive'}
+                                title={t.files_decompress_title}
                               >
                                 <FileArchive className="w-3.5 h-3.5" />
                               </button>
@@ -1086,13 +1083,13 @@ export const FileManagerTab: React.FC = () => {
                                 handleDownloadFile(file);
                               }}
                               className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
-                              title={language === 'de' ? 'Herunterladen' : 'Download File'}
+                              title={t.files_download}
                             >
                               <Download className="w-3.5 h-3.5" />
                             </button>
                           )}
 
-                          {/* Rename Button (Distinct Tag/Pencil Icon) */}
+                          {/* Rename Button */}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1100,7 +1097,7 @@ export const FileManagerTab: React.FC = () => {
                               setRenameValue(file.name);
                             }}
                             className="p-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 transition-colors border border-amber-500/20"
-                            title={language === 'de' ? 'Umbenennen' : 'Rename'}
+                            title={t.files_rename}
                           >
                             <Tag className="w-3.5 h-3.5" />
                           </button>
@@ -1112,7 +1109,7 @@ export const FileManagerTab: React.FC = () => {
                               setDeleteTarget(file);
                             }}
                             className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition-colors"
-                            title="Delete"
+                            title={t.files_delete}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -1128,8 +1125,8 @@ export const FileManagerTab: React.FC = () => {
                       <Folder className="w-10 h-10 text-slate-700" />
                       <p className="font-mono text-xs text-slate-400">
                         {filterQuery
-                          ? `No items matching "${filterQuery}"`
-                          : 'This directory is empty'}
+                          ? `${t.files_no_matching} "${filterQuery}"`
+                          : t.files_empty_directory}
                       </p>
                       <div className="flex items-center gap-2 pt-2">
                         <button
@@ -1139,7 +1136,7 @@ export const FileManagerTab: React.FC = () => {
                           }}
                           className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-zinc-300 font-mono text-xs transition-colors"
                         >
-                          + New File
+                          + {t.files_new_file}
                         </button>
                         <button
                           onClick={() => {
@@ -1148,7 +1145,7 @@ export const FileManagerTab: React.FC = () => {
                           }}
                           className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 font-mono text-xs transition-colors"
                         >
-                          + New Folder
+                          + {t.files_new_folder}
                         </button>
                       </div>
                     </div>
@@ -1181,7 +1178,7 @@ export const FileManagerTab: React.FC = () => {
       <Modal
         isOpen={isNewFileModalOpen}
         onClose={() => setIsNewFileModalOpen(false)}
-        title="Create New File"
+        title={t.files_create_file_title}
         subtitle={`Directory: ${currentPath}`}
         icon={<FileCode className="w-4 h-4 text-zinc-300" />}
         badge="NEW FILE"
@@ -1190,7 +1187,7 @@ export const FileManagerTab: React.FC = () => {
         <form onSubmit={handleCreateFileSubmit} className="space-y-4 font-mono text-xs">
           <div>
             <label className="block uppercase text-slate-400 mb-1.5 font-semibold">
-              File Name & Extension
+              {t.files_create_file_name}
             </label>
             <input
               type="text"
@@ -1205,7 +1202,7 @@ export const FileManagerTab: React.FC = () => {
 
           <div>
             <label className="block uppercase text-slate-400 mb-1.5 font-semibold">
-              Starter Template
+              {t.files_create_file_template}
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {[
@@ -1236,13 +1233,13 @@ export const FileManagerTab: React.FC = () => {
               onClick={() => setIsNewFileModalOpen(false)}
               className="px-4 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
             >
-              Cancel
+              {t.common_cancel}
             </button>
             <button
               type="submit"
               className="px-4 py-2 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-bold transition-all shadow-md active:scale-95"
             >
-              Create & Edit
+              {t.files_create_and_edit}
             </button>
           </div>
         </form>
@@ -1252,7 +1249,7 @@ export const FileManagerTab: React.FC = () => {
       <Modal
         isOpen={isNewFolderModalOpen}
         onClose={() => setIsNewFolderModalOpen(false)}
-        title="Create New Directory"
+        title={t.files_create_folder_title}
         subtitle={`Directory: ${currentPath}`}
         icon={<FolderPlus className="w-4 h-4 text-amber-400" />}
         badge="DIRECTORY"
@@ -1261,7 +1258,7 @@ export const FileManagerTab: React.FC = () => {
         <form onSubmit={handleCreateFolderSubmit} className="space-y-4 font-mono text-xs">
           <div>
             <label className="block uppercase text-slate-400 mb-1.5 font-semibold">
-              Folder Name
+              {t.files_create_folder_name}
             </label>
             <input
               type="text"
@@ -1280,13 +1277,13 @@ export const FileManagerTab: React.FC = () => {
               onClick={() => setIsNewFolderModalOpen(false)}
               className="px-4 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
             >
-              Cancel
+              {t.common_cancel}
             </button>
             <button
               type="submit"
               className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition-all shadow-[0_0_12px_rgba(245,158,11,0.3)]"
             >
-              Create Folder
+              {t.files_create_folder_btn}
             </button>
           </div>
         </form>
@@ -1297,7 +1294,7 @@ export const FileManagerTab: React.FC = () => {
         <Modal
           isOpen={Boolean(renameTarget)}
           onClose={() => setRenameTarget(null)}
-          title="Rename Item"
+          title={t.files_rename_title}
           subtitle={`Current path: ${renameTarget.path}`}
           icon={<Edit3 className="w-4 h-4 text-purple-400" />}
           badge="RENAME"
@@ -1306,7 +1303,7 @@ export const FileManagerTab: React.FC = () => {
           <form onSubmit={handleRenameSubmit} className="space-y-4 font-mono text-xs">
             <div>
               <label className="block uppercase text-slate-400 mb-1.5 font-semibold">
-                New Name
+                {t.files_new_name}
               </label>
               <input
                 type="text"
@@ -1324,13 +1321,13 @@ export const FileManagerTab: React.FC = () => {
                 onClick={() => setRenameTarget(null)}
                 className="px-4 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
               >
-                Cancel
+                {t.common_cancel}
               </button>
               <button
                 type="submit"
                 className="px-4 py-2 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-bold transition-all shadow-md active:scale-95"
               >
-                Rename
+                {t.files_rename}
               </button>
             </div>
           </form>
@@ -1342,8 +1339,8 @@ export const FileManagerTab: React.FC = () => {
         <Modal
           isOpen={Boolean(deleteTarget)}
           onClose={() => setDeleteTarget(null)}
-          title={`Delete ${deleteTarget.type === 'directory' ? 'Folder' : 'File'}`}
-          subtitle={`Are you sure you want to permanently delete "${deleteTarget.name}"?`}
+          title={t.files_delete_confirm_title}
+          subtitle={`${t.files_delete_confirm_desc} ("${deleteTarget.name}")`}
           icon={<Trash2 className="w-4 h-4 text-rose-400" />}
           badge="DESTRUCTIVE"
           badgeColor="rose"
@@ -1352,10 +1349,10 @@ export const FileManagerTab: React.FC = () => {
             <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 flex items-start gap-2.5">
               <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
               <div>
-                <p className="font-semibold">This action cannot be undone.</p>
+                <p className="font-semibold">{t.files_delete_undone}</p>
                 {deleteTarget.type === 'directory' && (
                   <p className="text-slate-400 text-[11px] mt-1">
-                    All nested files and subdirectories inside this folder will also be removed.
+                    {t.files_delete_folder_warning}
                   </p>
                 )}
               </div>
@@ -1367,14 +1364,14 @@ export const FileManagerTab: React.FC = () => {
                 onClick={() => setDeleteTarget(null)}
                 className="px-4 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
               >
-                Cancel
+                {t.common_cancel}
               </button>
               <button
                 type="button"
                 onClick={handleConfirmDelete}
                 className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold transition-all shadow-[0_0_12px_rgba(225,29,72,0.3)]"
               >
-                Confirm Delete
+                {t.files_delete}
               </button>
             </div>
           </div>
@@ -1386,8 +1383,8 @@ export const FileManagerTab: React.FC = () => {
         <Modal
           isOpen={isBatchDeleteModalOpen}
           onClose={() => setIsBatchDeleteModalOpen(false)}
-          title="Delete Selected Items"
-          subtitle={`Deleting ${selectedPaths.size} item(s)`}
+          title={t.files_delete_batch_title}
+          subtitle={`${selectedPaths.size} ${t.files_selected}`}
           icon={<Trash2 className="w-4 h-4 text-rose-400" />}
           badge="BATCH DELETE"
           badgeColor="rose"
@@ -1397,10 +1394,10 @@ export const FileManagerTab: React.FC = () => {
               <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
               <div>
                 <p className="font-semibold">
-                  You are about to delete {selectedPaths.size} files and/or folders.
+                  {t.files_delete_batch_desc}
                 </p>
                 <p className="text-slate-400 text-[11px] mt-1">
-                  This action is permanent and cannot be undone.
+                  {t.files_delete_undone}
                 </p>
               </div>
             </div>
@@ -1411,14 +1408,14 @@ export const FileManagerTab: React.FC = () => {
                 onClick={() => setIsBatchDeleteModalOpen(false)}
                 className="px-4 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
               >
-                Cancel
+                {t.common_cancel}
               </button>
               <button
                 type="button"
                 onClick={handleConfirmBatchDelete}
                 className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold transition-all shadow-[0_0_12px_rgba(225,29,72,0.3)]"
               >
-                Delete {selectedPaths.size} Items
+                {t.files_delete_selected} ({selectedPaths.size})
               </button>
             </div>
           </div>
@@ -1430,7 +1427,7 @@ export const FileManagerTab: React.FC = () => {
         <Modal
           isOpen={Boolean(binaryTarget)}
           onClose={() => setBinaryTarget(null)}
-          title="Binary / Archive File"
+          title={t.files_binary_title}
           subtitle={binaryTarget.name}
           icon={<FileArchive className="w-4 h-4 text-slate-300" />}
           badge="BINARY FILE"
@@ -1443,22 +1440,21 @@ export const FileManagerTab: React.FC = () => {
                 <span className="text-white">{binaryTarget.path}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Size:</span>
+                <span className="text-slate-400">{t.files_col_size}:</span>
                 <span className="text-zinc-300">{formatSize(binaryTarget.size)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Modified:</span>
+                <span className="text-slate-400">{t.files_col_modified}:</span>
                 <span className="text-slate-300">{binaryTarget.modified}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Permissions:</span>
+                <span className="text-slate-400">{t.files_col_permissions}:</span>
                 <span className="text-slate-300">{binaryTarget.permissions}</span>
               </div>
             </div>
 
             <p className="text-slate-400">
-              This is a compiled binary or compressed archive. It cannot be opened in the plain-text
-              code editor. You can download this file to your local computer.
+              {t.files_binary_desc}
             </p>
 
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
@@ -1467,7 +1463,7 @@ export const FileManagerTab: React.FC = () => {
                 onClick={() => setBinaryTarget(null)}
                 className="px-4 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
               >
-                Close
+                {t.files_close}
               </button>
               <button
                 type="button"
@@ -1478,7 +1474,7 @@ export const FileManagerTab: React.FC = () => {
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-bold transition-all shadow-md active:scale-95"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>Download File</span>
+                <span>{t.files_download}</span>
               </button>
             </div>
           </div>
@@ -1489,26 +1485,24 @@ export const FileManagerTab: React.FC = () => {
       <Modal
         isOpen={isCompressModalOpen}
         onClose={() => setIsCompressModalOpen(false)}
-        title={t('files_compress_title')}
+        title={t.files_compress_title}
       >
         <form onSubmit={handleCompress} className="space-y-4">
           <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs font-mono text-amber-300 flex items-start gap-2.5">
             <FileArchive className="w-5 h-5 shrink-0 text-amber-400 mt-0.5" />
             <div>
               <p className="font-bold text-white mb-0.5">
-                {language === 'de' ? 'Dateien komprimieren' : 'Compress Files'}
+                {t.files_compress_title}
               </p>
               <p className="text-slate-300">
-                {language === 'de'
-                  ? `${selectedPaths.size} ausgewählte Elemente werden in ein Archiv zusammengefasst.`
-                  : `${selectedPaths.size} selected items will be bundled into an archive.`}
+                {selectedPaths.size} {t.files_selected}
               </p>
             </div>
           </div>
 
           <div>
             <label className="block text-xs font-mono font-medium text-slate-300 mb-1.5">
-              {t('files_archive_name')} (.tar.gz / .zip)
+              {t.files_archive_name} (.tar.gz / .zip)
             </label>
             <input
               type="text"
@@ -1557,7 +1551,7 @@ export const FileManagerTab: React.FC = () => {
               onClick={() => setIsCompressModalOpen(false)}
               className="px-3.5 py-2 rounded-xl bg-[#21262d] hover:bg-[#30363d] text-slate-300 text-xs font-mono font-medium transition-colors"
             >
-              {language === 'de' ? 'Abbrechen' : 'Cancel'}
+              {t.common_cancel}
             </button>
             <button
               type="submit"
@@ -1569,7 +1563,7 @@ export const FileManagerTab: React.FC = () => {
               ) : (
                 <>
                   <FileArchive className="w-3.5 h-3.5" />
-                  <span>{t('files_compress')}</span>
+                  <span>{t.files_compress}</span>
                 </>
               )}
             </button>
@@ -1598,7 +1592,7 @@ export const FileManagerTab: React.FC = () => {
               className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-white/10 text-slate-200 hover:text-white transition-colors"
             >
               <FolderOpen className="w-3.5 h-3.5 text-blue-400" />
-              <span>{language === 'de' ? 'Ordner öffnen' : 'Open Directory'}</span>
+              <span>{t.files_open_directory}</span>
             </button>
           ) : (
             /* File Edit in Code Editor */
@@ -1612,7 +1606,7 @@ export const FileManagerTab: React.FC = () => {
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-white/10 text-cyan-300 hover:text-cyan-200 transition-colors"
               >
                 <FileCode className="w-3.5 h-3.5 text-cyan-400" />
-                <span>{language === 'de' ? 'Datei bearbeiten' : 'Edit File'}</span>
+                <span>{t.files_edit_file}</span>
               </button>
             )
           )}
@@ -1627,7 +1621,7 @@ export const FileManagerTab: React.FC = () => {
             className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-white/10 text-slate-200 hover:text-white transition-colors"
           >
             <Tag className="w-3.5 h-3.5 text-amber-400" />
-            <span>{language === 'de' ? 'Umbenennen' : 'Rename'}</span>
+            <span>{t.files_rename}</span>
           </button>
 
           {/* Copy Path */}
@@ -1636,7 +1630,7 @@ export const FileManagerTab: React.FC = () => {
               navigator.clipboard.writeText(contextMenu.file.path);
               addToast({
                 title: language === 'de' ? 'Kopiert' : 'Copied',
-                description: language === 'de' ? 'Pfad in die Zwischenablage kopiert' : 'Path copied to clipboard',
+                description: t.files_path_copied,
                 type: 'info',
               });
               setContextMenu(null);
@@ -1644,7 +1638,7 @@ export const FileManagerTab: React.FC = () => {
             className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-white/10 text-slate-200 hover:text-white transition-colors"
           >
             <Copy className="w-3.5 h-3.5 text-slate-400" />
-            <span>{language === 'de' ? 'Pfad kopieren' : 'Copy Path'}</span>
+            <span>{t.files_copy_path}</span>
           </button>
 
           {/* Download (if file) */}
@@ -1657,7 +1651,7 @@ export const FileManagerTab: React.FC = () => {
               className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-white/10 text-slate-200 hover:text-white transition-colors"
             >
               <Download className="w-3.5 h-3.5 text-slate-400" />
-              <span>{language === 'de' ? 'Herunterladen' : 'Download File'}</span>
+              <span>{t.files_download}</span>
             </button>
           )}
 
@@ -1675,7 +1669,7 @@ export const FileManagerTab: React.FC = () => {
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-amber-500/10 text-amber-300 hover:text-amber-200 transition-colors"
               >
                 <FileArchive className="w-3.5 h-3.5 text-amber-400" />
-                <span>{language === 'de' ? 'Archiv entpacken' : 'Extract Archive'}</span>
+                <span>{t.files_decompress_title}</span>
               </button>
             )}
 
@@ -1690,7 +1684,7 @@ export const FileManagerTab: React.FC = () => {
             className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 transition-colors"
           >
             <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-            <span>{language === 'de' ? 'Löschen' : 'Delete'}</span>
+            <span>{t.files_delete}</span>
           </button>
         </div>
       )}

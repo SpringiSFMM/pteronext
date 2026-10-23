@@ -448,6 +448,26 @@ func (w *WingsClient) DeleteServer(node *models.Node, serverUUID string) error {
 	return nil
 }
 
+// ReinstallServer instructs Wings to reinstall the server container.
+func (w *WingsClient) ReinstallServer(node *models.Node, serverUUID string) error {
+	if node == nil {
+		return fmt.Errorf("node is nil")
+	}
+
+	resp, err := w.doRequest(node, http.MethodPost, fmt.Sprintf("/api/servers/%s/reinstall", serverUUID), nil)
+	if err != nil {
+		return fmt.Errorf("could not reach wings daemon on node %s (%s): %w", node.Name, node.FQDN, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 && resp.StatusCode != http.StatusNotFound {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("wings reinstall server returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
 // SyncServer instructs Wings to sync server configuration changes.
 func (w *WingsClient) SyncServer(node *models.Node, serverUUID string) error {
 	if node == nil {

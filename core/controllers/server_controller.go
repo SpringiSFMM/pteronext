@@ -27,6 +27,7 @@ type ServerController struct {
 	wsHub          *services.WebSocketHub
 	auditService   *services.AuditService
 	webhookService *services.WebhookService
+	fileService    *services.FileService
 }
 
 // NewServerController creates a new ServerController.
@@ -37,6 +38,7 @@ func NewServerController(
 	wsHub *services.WebSocketHub,
 	auditService *services.AuditService,
 	webhookService *services.WebhookService,
+	fileService *services.FileService,
 ) *ServerController {
 	return &ServerController{
 		db:             db,
@@ -45,6 +47,7 @@ func NewServerController(
 		wsHub:          wsHub,
 		auditService:   auditService,
 		webhookService: webhookService,
+		fileService:    fileService,
 	}
 }
 
@@ -798,6 +801,57 @@ func (s *ServerController) PowerAction(c *gin.Context) {
 		"status":  "dispatched",
 		"state":   newState,
 		"server":  server.UUID,
+	})
+}
+
+// ReinstallServer handles POST /api/servers/:uuid/reinstall
+func (s *ServerController) ReinstallServer(c *gin.Context) {
+	server, _ := middleware.GetRequestServer(c)
+	user, _ := middleware.GetRequestUser(c)
+
+	if server.Node == nil && server.NodeID > 0 {
+		var n models.Node
+		if err := s.db.First(&n, server.NodeID).Error; err == nil {
+			server.Node = &n
+		}
+	}
+
+	// 1. Force kill running container so files are not held open
+	if server.Node != nil {
+		_ = s.wingsClient.SendPowerAction(server.Node, server.UUID, "kill")
+	}
+
+	// 2. Set server status to installing
+	installingSt := models.ServerStatusInstalling
+	_ = s.db.Model(&models.Server{}).Where("id = ?", server.ID).Update("status", installingSt)
+	s.wsHub.Broadcast(server.UUID, "status", installingSt)
+	s.wsHub.Broadcast(server.UUID, "console output", fmt.Sprintf("\x1b[33m[Server Reinstall]\x1b[0m Server reinstallation requested by %s. Stopping container and purging volume...", user.Username))
+
+	// 3. Purge server volume files cleanly (locally and remotely on remote nodes)
+	if s.fileService != nil {
+		if err := s.fileService.PurgeServerFiles(server.UUID); err != nil {
+			log.Printf("[ServerController] PurgeServerFiles for %s warning: %v", server.UUID, err)
+		}
+	}
+
+	// 4. Trigger Wings daemon reinstall
+	if server.Node != nil {
+		if err := s.wingsClient.ReinstallServer(server.Node, server.UUID); err != nil {
+			log.Printf("[ServerController] Wings ReinstallServer error (falling back to CreateServer): %v", err)
+			_ = s.wingsClient.CreateServer(server.Node, server.UUID, false)
+		}
+	}
+
+	s.wsHub.Broadcast(server.UUID, "console output", "\x1b[32m[Server Reinstall]\x1b[0m Volume cleared. Installer dispatched to node daemon.")
+
+	_ = s.auditService.Log(&user.ID, "user", &server.ID, "server:settings.reinstall", map[string]interface{}{
+		"action": "reinstall",
+		"server": server.UUID,
+	}, c.ClientIP())
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Reinstallation initiated successfully.",
+		"status":  installingSt,
 	})
 }
 
