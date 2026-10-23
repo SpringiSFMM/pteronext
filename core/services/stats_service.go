@@ -69,17 +69,23 @@ func (s *StatsService) GetSystemStats() (*SystemStatsResponse, error) {
 	var allocatedServerRAMMB int64
 	s.db.Model(&models.Server{}).Where("deleted_at IS NULL").Select("COALESCE(SUM(memory_mb), 0)").Scan(&allocatedServerRAMMB)
 
-	// Sum node RAM across configured nodes
+	// Sum node RAM across configured nodes (e.g. 8192 + 8192 = 16384 MB)
 	var totalNodeRAMMB int64
 	s.db.Model(&models.Node{}).Where("deleted_at IS NULL").Select("COALESCE(SUM(memory_mb), 0)").Scan(&totalNodeRAMMB)
 
 	// Host memory detection via /proc/meminfo if running on Linux
 	hostTotalMB, hostFreeMB, hostUsedMB := s.readHostMemory()
-	if totalNodeRAMMB == 0 && hostTotalMB > 0 {
-		totalNodeRAMMB = int64(hostTotalMB)
-	}
-	if hostTotalMB == 0 && totalNodeRAMMB > 0 {
+	if totalNodeRAMMB > 0 {
+		// Cluster RAM is aggregated across all connected nodes
 		hostTotalMB = float64(totalNodeRAMMB)
+		hostUsedMB = float64(allocatedServerRAMMB)
+		if hostTotalMB > hostUsedMB {
+			hostFreeMB = hostTotalMB - hostUsedMB
+		} else {
+			hostFreeMB = 0
+		}
+	} else if hostTotalMB > 0 {
+		totalNodeRAMMB = int64(hostTotalMB)
 		hostUsedMB = float64(allocatedServerRAMMB)
 		hostFreeMB = hostTotalMB - hostUsedMB
 	}

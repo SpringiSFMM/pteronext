@@ -4,7 +4,7 @@ import { useTranslation } from '../../i18n/useTranslation';
 import { Server, Cpu, HardDrive, Radio, Activity, Zap, ShieldCheck } from 'lucide-react';
 
 export const ClusterMetricsGrid: React.FC = () => {
-  const { clusterMetrics, servers } = useApp();
+  const { clusterMetrics, servers, nodes, adminNodes } = useApp();
   const { t } = useTranslation();
 
   const runningCount = servers.filter((s) => s.status === 'running').length;
@@ -17,16 +17,32 @@ export const ClusterMetricsGrid: React.FC = () => {
       ? (runningCount / totalServersCount) * 100
       : 0;
 
-  const ramUsed = Number.isFinite(clusterMetrics.ramUsedGB) ? clusterMetrics.ramUsedGB : 0;
-  const ramTotal = Number.isFinite(clusterMetrics.ramTotalGB) && clusterMetrics.ramTotalGB > 0 ? clusterMetrics.ramTotalGB : 8;
+  // Aggregate across all nodes
+  const effectiveNodes = adminNodes.length > 0 ? adminNodes : nodes;
+  const nodesSumRAMMB = effectiveNodes.reduce((acc, n) => acc + (n.ramTotalMB || 8192), 0);
+  const nodesSumRAMGB = nodesSumRAMMB > 0 ? +(nodesSumRAMMB / 1024).toFixed(1) : 16.0;
+
+  const ramTotal = clusterMetrics.ramTotalGB > 0 ? clusterMetrics.ramTotalGB : nodesSumRAMGB;
+
+  // Calculate allocated RAM from clusterMetrics or sum of deployed servers
+  const serversAllocatedRAMMB = servers.reduce((acc, s) => acc + (s.stats.memoryLimit || 0), 0);
+  const serversAllocatedRAMGB = serversAllocatedRAMMB > 0 ? +(serversAllocatedRAMMB / 1024).toFixed(1) : 0;
+  const ramUsed = Number.isFinite(clusterMetrics.ramUsedGB) && clusterMetrics.ramUsedGB > 0
+    ? clusterMetrics.ramUsedGB
+    : serversAllocatedRAMGB;
+
   const ramPercent =
     ramTotal > 0
       ? Math.round((ramUsed / ramTotal) * 100)
       : 0;
 
   const safeCpuLoad = Number.isFinite(clusterMetrics.cpuUsedPercent) ? clusterMetrics.cpuUsedPercent : 0;
-  const totalNodesCount = clusterMetrics.totalNodes > 0 ? clusterMetrics.totalNodes : (servers.length > 0 ? 1 : 0);
-  const activeNodesCount = clusterMetrics.activeNodes > 0 ? clusterMetrics.activeNodes : (totalNodesCount > 0 ? 1 : 0);
+  const totalNodesCount = clusterMetrics.totalNodes > 0
+    ? clusterMetrics.totalNodes
+    : (effectiveNodes.length > 0 ? effectiveNodes.length : (servers.length > 0 ? 1 : 0));
+  const activeNodesCount = clusterMetrics.activeNodes > 0
+    ? clusterMetrics.activeNodes
+    : (effectiveNodes.filter((n) => n.status === 'healthy').length || totalNodesCount);
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

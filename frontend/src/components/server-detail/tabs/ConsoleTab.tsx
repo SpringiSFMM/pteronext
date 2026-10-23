@@ -18,6 +18,8 @@ import {
   RefreshCw,
   CheckCircle2,
   Lock,
+  Square,
+  Skull,
 } from 'lucide-react';
 import { ResourceMeter } from '../../common/ResourceMeter';
 
@@ -33,6 +35,10 @@ export const ConsoleTab: React.FC = () => {
 
   const { language } = useTranslation();
   const isServerSuspended = Boolean(selectedServer?.isSuspended || selectedServer?.suspended);
+  const isRunning = selectedServer?.status === 'running';
+  const isStarting = selectedServer?.status === 'starting';
+  const isStopping = selectedServer?.status === 'stopping';
+  const isOffline = selectedServer?.status === 'offline' || selectedServer?.status === 'stopped' || !selectedServer?.status;
 
   const [inputVal, setInputVal] = useState('');
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -156,10 +162,41 @@ export const ConsoleTab: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputVal.trim() || isServerSuspended) return;
+    const cmd = inputVal.trim();
+    if (!cmd || isServerSuspended) return;
 
-    addTerminalCommand(inputVal.trim());
-    saveCommandToHistory(inputVal.trim());
+    const lower = cmd.toLowerCase();
+    if (lower === 'stop' || lower === '/stop') {
+      handlePowerAction(selectedServer?.uuid || selectedServer?.id || '', 'stop');
+      saveCommandToHistory(cmd);
+      setInputVal('');
+      setHistoryIndex(-1);
+      return;
+    }
+    if (lower === 'kill' || lower === '/kill') {
+      handlePowerAction(selectedServer?.uuid || selectedServer?.id || '', 'kill');
+      saveCommandToHistory(cmd);
+      setInputVal('');
+      setHistoryIndex(-1);
+      return;
+    }
+    if (lower === 'restart' || lower === '/restart') {
+      handlePowerAction(selectedServer?.uuid || selectedServer?.id || '', 'restart');
+      saveCommandToHistory(cmd);
+      setInputVal('');
+      setHistoryIndex(-1);
+      return;
+    }
+    if (lower === 'start' || lower === '/start') {
+      handlePowerAction(selectedServer?.uuid || selectedServer?.id || '', 'start');
+      saveCommandToHistory(cmd);
+      setInputVal('');
+      setHistoryIndex(-1);
+      return;
+    }
+
+    addTerminalCommand(cmd);
+    saveCommandToHistory(cmd);
     setInputVal('');
     setHistoryIndex(-1);
   };
@@ -192,6 +229,18 @@ export const ConsoleTab: React.FC = () => {
 
   const handleShortcutClick = (cmd: string) => {
     if (isServerSuspended) return;
+    if (cmd === 'stop') {
+      handlePowerAction(selectedServer?.uuid || selectedServer?.id || '', 'stop');
+      return;
+    }
+    if (cmd === 'kill') {
+      handlePowerAction(selectedServer?.uuid || selectedServer?.id || '', 'kill');
+      return;
+    }
+    if (cmd === 'restart') {
+      handlePowerAction(selectedServer?.uuid || selectedServer?.id || '', 'restart');
+      return;
+    }
     addTerminalCommand(cmd);
     saveCommandToHistory(cmd);
   };
@@ -434,7 +483,44 @@ export const ConsoleTab: React.FC = () => {
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Direct Quick Power Actions for immediate responsive execution */}
+            {!isServerSuspended && (
+              <div className="flex items-center gap-1.5 mr-1 border-r border-[#30363d] pr-2">
+                {isOffline ? (
+                  <button
+                    onClick={() => handlePowerAction(selectedServer.uuid || selectedServer.id, 'start')}
+                    className="p-1.5 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-mono font-medium flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+                    title="Start Container"
+                  >
+                    <Play className="w-3 h-3 fill-current" />
+                    <span>Start</span>
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => handlePowerAction(selectedServer.uuid || selectedServer.id, 'stop')}
+                      disabled={isStopping}
+                      className="p-1.5 px-2.5 rounded-lg bg-[#21262d] hover:bg-slate-700 text-slate-300 hover:text-white border border-[#30363d] text-xs font-mono font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                      title="Graceful Stop (SIGINT/SIGTERM)"
+                    >
+                      <Square className="w-3 h-3 fill-current" />
+                      <span>{isStopping ? (language === 'de' ? 'Stoppt...' : 'Stopping...') : 'Stop'}</span>
+                    </button>
+
+                    <button
+                      onClick={() => handlePowerAction(selectedServer.uuid || selectedServer.id, 'kill')}
+                      className="p-1.5 px-2.5 rounded-lg bg-[#21262d] hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 border border-[#30363d] hover:border-rose-500/40 text-xs font-mono font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                      title="Forced Kill (SIGKILL)"
+                    >
+                      <Skull className="w-3 h-3" />
+                      <span>Kill</span>
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+
             <button
               onClick={() => setAutoScroll(!autoScroll)}
               title={autoScroll ? 'Pause autoscroll' : 'Resume autoscroll'}
@@ -490,14 +576,20 @@ export const ConsoleTab: React.FC = () => {
         {/* Command Shortcuts Bar */}
         <div className="px-3 py-1.5 bg-[#161b22] border-t border-[#30363d] flex items-center gap-1.5 overflow-x-auto text-[11px] font-mono">
           <span className="text-slate-500 uppercase text-[10px] mr-1">Quick:</span>
-          {['status', 'save-all', 'reload', 'list', 'ping', 'help'].map((cmd) => (
+          {['stop', 'kill', 'restart', 'status', 'save-all', 'reload', 'list', 'ping', 'help'].map((cmd) => (
             <button
               key={cmd}
               onClick={() => handleShortcutClick(cmd)}
               disabled={isServerSuspended}
-              className="px-2 py-0.5 rounded bg-[#0d1117] hover:bg-[#21262d] text-slate-400 hover:text-white border border-[#30363d] transition-colors whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
+              className={`px-2 py-0.5 rounded border transition-colors whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer ${
+                cmd === 'kill'
+                  ? 'bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border-rose-500/30'
+                  : cmd === 'stop'
+                  ? 'bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border-amber-500/30'
+                  : 'bg-[#0d1117] hover:bg-[#21262d] text-slate-400 hover:text-white border-[#30363d]'
+              }`}
             >
-              /{cmd}
+              {cmd === 'stop' || cmd === 'kill' || cmd === 'restart' ? cmd : `/${cmd}`}
             </button>
           ))}
         </div>

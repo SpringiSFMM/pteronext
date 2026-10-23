@@ -41,6 +41,7 @@ export interface Server {
   name: string;
   description: string;
   node: string;
+  nodeId?: number;
   nodeLocation: string;
   allocation: string;
   egg: string;
@@ -96,6 +97,12 @@ export interface NodeInfo {
   diskUsage: number;
   activeServers: number;
   latencyMs: number;
+  ramAllocatedMB?: number;
+  ramTotalMB?: number;
+  diskAllocatedMB?: number;
+  diskTotalMB?: number;
+  cpuCores?: number;
+  serversCount?: number;
 }
 
 export interface AdminNode extends NodeInfo {

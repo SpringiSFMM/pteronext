@@ -680,27 +680,49 @@ func (s *ServerController) PowerAction(c *gin.Context) {
 
 	// Try sending action to Wings daemon
 	var daemonErr error
+	if server.Node == nil && server.NodeID > 0 {
+		var n models.Node
+		if err := s.db.First(&n, server.NodeID).Error; err == nil {
+			server.Node = &n
+		}
+	}
+
 	if server.Node != nil {
 		daemonErr = s.wingsClient.SendPowerAction(server.Node, server.UUID, req.Action)
 	}
 
-	if daemonErr != nil {
-		s.wsHub.Broadcast(server.UUID, "console output", fmt.Sprintf("\x1b[31m[Daemon Error]\x1b[0m %s", daemonErr.Error()))
-		c.JSON(http.StatusBadGateway, gin.H{
-			"error": fmt.Sprintf("Failed to communicate with Wings daemon on %s: %s", server.Node.FQDN, daemonErr.Error()),
-		})
-		return
-	}
-
-	// Broadcast status update through console WebSocket
+	// Determine resulting state
 	newState := "starting"
 	if req.Action == "stop" {
 		newState = "stopping"
 	} else if req.Action == "kill" {
 		newState = "offline"
 	}
-	s.wsHub.Broadcast(server.UUID, "status", newState)
-	s.wsHub.Broadcast(server.UUID, "console output", fmt.Sprintf("\x1b[33m[Power Action]\x1b[0m Action '%s' successfully dispatched by %s", req.Action, user.Username))
+
+	if daemonErr != nil {
+		// If kill or stop failed because daemon server is missing or unreachable, still enforce state in database
+		if req.Action == "kill" || req.Action == "stop" {
+			_ = s.db.Model(&models.Server{}).Where("id = ?", server.ID).Update("status", newState)
+			s.wsHub.Broadcast(server.UUID, "status", newState)
+			s.wsHub.Broadcast(server.UUID, "console output", fmt.Sprintf("\x1b[33m[Power Action]\x1b[0m Action '%s' applied (Daemon note: %s)", req.Action, daemonErr.Error()))
+		} else {
+			nodeFQDN := "daemon"
+			if server.Node != nil {
+				nodeFQDN = server.Node.FQDN
+			}
+			s.wsHub.Broadcast(server.UUID, "console output", fmt.Sprintf("\x1b[31m[Daemon Error]\x1b[0m %s", daemonErr.Error()))
+			c.JSON(http.StatusBadGateway, gin.H{
+				"error": fmt.Sprintf("Failed to communicate with Wings daemon on %s: %s", nodeFQDN, daemonErr.Error()),
+			})
+			return
+		}
+	} else {
+		// Update server status in database
+		_ = s.db.Model(&models.Server{}).Where("id = ?", server.ID).Update("status", newState)
+		// Broadcast status update through console WebSocket
+		s.wsHub.Broadcast(server.UUID, "status", newState)
+		s.wsHub.Broadcast(server.UUID, "console output", fmt.Sprintf("\x1b[33m[Power Action]\x1b[0m Action '%s' successfully dispatched by %s", req.Action, user.Username))
+	}
 
 	_ = s.auditService.Log(&user.ID, "user", &server.ID, fmt.Sprintf("server:power.%s", req.Action), map[string]interface{}{
 		"action": req.Action,

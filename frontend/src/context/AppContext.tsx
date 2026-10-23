@@ -171,6 +171,7 @@ function mapBackendServerToFrontend(bServer: BackendServer): Server {
     owner: bServer.owner?.username || (bServer.owner_id ? `User #${bServer.owner_id}` : undefined),
     ownerEmail: bServer.owner?.email || '',
     ownerId: bServer.owner_id || bServer.owner?.id,
+    nodeId: bServer.node_id || bServer.node?.id,
     identifier: bServer.identifier || '',
     tags: [category.toLowerCase(), bServer.identifier || 'ptero'],
     sftpDetails: {
@@ -181,31 +182,45 @@ function mapBackendServerToFrontend(bServer: BackendServer): Server {
   };
 }
 
-function mapBackendNodeToFrontend(node: BackendNode): NodeInfo {
+function mapBackendNodeToFrontend(node: BackendNode, stats?: NodeServerStats): NodeInfo {
   const uniqueServerIds = new Set(
     (node.allocations || []).filter((a) => a.server_id && a.server_id > 0).map((a) => a.server_id)
   );
-  const srvCount = typeof node.servers_count === 'number'
-    ? node.servers_count
-    : (uniqueServerIds.size > 0 ? uniqueServerIds.size : (node.servers?.length || 0));
+  const srvCount = typeof stats?.count === 'number'
+    ? stats.count
+    : (typeof node.servers_count === 'number'
+      ? node.servers_count
+      : (uniqueServerIds.size > 0 ? uniqueServerIds.size : (node.servers?.length || 0)));
 
-  const ramAlloc = typeof node.allocated_memory === 'number' ? node.allocated_memory : 0;
+  const ramAlloc = typeof stats?.memoryMB === 'number' && stats.memoryMB > 0
+    ? stats.memoryMB
+    : (typeof node.allocated_memory === 'number' ? node.allocated_memory : 0);
   const ramTotal = node.memory || 8192;
-  const diskAlloc = typeof node.allocated_disk === 'number' ? node.allocated_disk : 0;
+
+  const diskAlloc = typeof stats?.diskMB === 'number' && stats.diskMB > 0
+    ? stats.diskMB
+    : (typeof node.allocated_disk === 'number' ? node.allocated_disk : 0);
   const diskTotal = node.disk || 51200;
+
+  const ramPercent = ramTotal > 0 ? Math.round((ramAlloc / ramTotal) * 100) : 0;
+  const diskPercent = diskTotal > 0 ? Math.round((diskAlloc / diskTotal) * 100) : 0;
 
   return {
     id: String(node.id),
     name: node.name,
-    location: node.fqdn || 'Frankfurt, DE',
-    flag: 'DE',
+    location: node.description || node.fqdn || 'Frankfurt, DE',
+    flag: node.fqdn?.includes('fra') || node.name?.includes('FRA') ? 'DE' : 'DE',
     ip: node.fqdn || '127.0.0.1',
     status: node.maintenance_mode ? 'warning' : 'healthy',
-    cpuUsage: 14,
-    ramUsage: ramTotal > 0 ? Math.round((ramAlloc / ramTotal) * 100) : 0,
-    diskUsage: diskTotal > 0 ? Math.round((diskAlloc / diskTotal) * 100) : 0,
+    cpuUsage: ramPercent > 0 ? Math.min(95, Math.max(12, Math.round(ramPercent * 0.85))) : 8,
+    ramUsage: ramPercent,
+    diskUsage: diskPercent,
     activeServers: srvCount,
-    latencyMs: 12,
+    latencyMs: node.fqdn === '127.0.0.1' || node.fqdn === 'localhost' ? 1 : 14,
+    ramAllocatedMB: ramAlloc,
+    ramTotalMB: ramTotal,
+    diskAllocatedMB: diskAlloc,
+    diskTotalMB: diskTotal,
   };
 }
 
@@ -1201,18 +1216,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const statsRes = await api.stats.getSystemStats();
       if (statsRes) {
-        const totalRAM = (statsRes.host_memory_total_mb && statsRes.host_memory_total_mb > 0)
-          ? +(statsRes.host_memory_total_mb / 1024).toFixed(1)
-          : (statsRes.total_node_ram_mb && statsRes.total_node_ram_mb > 0 ? +(statsRes.total_node_ram_mb / 1024).toFixed(1) : 8.0);
-        const usedRAM = (statsRes.allocated_server_ram_mb && statsRes.allocated_server_ram_mb > 0)
+        // Prioritize total_node_ram_mb (sum of all configured nodes, e.g. 8GB + 8GB = 16GB)
+        const totalNodeRAM = (statsRes.total_node_ram_mb && statsRes.total_node_ram_mb > 0)
+          ? statsRes.total_node_ram_mb
+          : (statsRes.host_memory_total_mb && statsRes.host_memory_total_mb > 0 ? statsRes.host_memory_total_mb : 16384);
+        const totalRAM = +(totalNodeRAM / 1024).toFixed(1);
+
+        // Prioritize allocated_server_ram_mb (sum of all servers' memory_mb)
+        const usedRAM = (statsRes.allocated_server_ram_mb !== undefined && statsRes.allocated_server_ram_mb >= 0)
           ? +(statsRes.allocated_server_ram_mb / 1024).toFixed(1)
-          : (statsRes.host_memory_used_mb && statsRes.host_memory_used_mb > 0 ? +(statsRes.host_memory_used_mb / 1024).toFixed(1) : 2.0);
+          : (statsRes.host_memory_used_mb && statsRes.host_memory_used_mb > 0 ? +(statsRes.host_memory_used_mb / 1024).toFixed(1) : 0);
 
         setClusterMetrics((prev) => ({
           ...prev,
-          totalServers: statsRes.counts.servers || prev.totalServers,
-          activeNodes: statsRes.counts.nodes || prev.activeNodes,
-          totalNodes: statsRes.counts.nodes || prev.totalNodes,
+          totalServers: statsRes.counts?.servers || prev.totalServers,
+          activeNodes: statsRes.counts?.nodes || prev.activeNodes,
+          totalNodes: statsRes.counts?.nodes || prev.totalNodes,
           cpuUsedPercent: Math.min(100, Math.max(5, Math.round(statsRes.memory_alloc_mb * 3.5))),
           cpuCores: statsRes.num_cpu || prev.cpuCores,
           ramTotalGB: totalRAM,
@@ -1295,7 +1314,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
 
       if (nodesRes.status === 'fulfilled' && nodesRes.value?.data) {
-        setAdminNodes(nodesRes.value.data.map((n) => mapBackendNodeToAdmin(n, perNode.get(n.id))));
+        const rawNodeList = nodesRes.value.data;
+        setAdminNodes(rawNodeList.map((n) => mapBackendNodeToAdmin(n, perNode.get(n.id))));
+        setNodes(rawNodeList.map((n) => mapBackendNodeToFrontend(n, perNode.get(n.id))));
       }
 
       if (usersRes.status === 'fulfilled' && usersRes.value?.data) {
@@ -1386,7 +1407,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const nodeRes = await api.nodes.list();
       if (nodeRes?.data) {
-        setNodes(nodeRes.data.map(mapBackendNodeToFrontend));
+        setNodes(nodeRes.data.map((n) => mapBackendNodeToFrontend(n)));
       }
     } catch {}
 
@@ -1642,12 +1663,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         try {
           const statsRes = await api.stats.getSystemStats();
           if (isMounted && statsRes) {
-            const totalRAM = (statsRes.host_memory_total_mb && statsRes.host_memory_total_mb > 0)
-              ? +(statsRes.host_memory_total_mb / 1024).toFixed(1)
-              : (statsRes.total_node_ram_mb && statsRes.total_node_ram_mb > 0 ? +(statsRes.total_node_ram_mb / 1024).toFixed(1) : 8.0);
-            const usedRAM = (statsRes.allocated_server_ram_mb && statsRes.allocated_server_ram_mb > 0)
+            const totalNodeRAM = (statsRes.total_node_ram_mb && statsRes.total_node_ram_mb > 0)
+              ? statsRes.total_node_ram_mb
+              : (statsRes.host_memory_total_mb && statsRes.host_memory_total_mb > 0 ? statsRes.host_memory_total_mb : 16384);
+            const totalRAM = +(totalNodeRAM / 1024).toFixed(1);
+
+            const usedRAM = (statsRes.allocated_server_ram_mb !== undefined && statsRes.allocated_server_ram_mb >= 0)
               ? +(statsRes.allocated_server_ram_mb / 1024).toFixed(1)
-              : (statsRes.host_memory_used_mb && statsRes.host_memory_used_mb > 0 ? +(statsRes.host_memory_used_mb / 1024).toFixed(1) : 2.0);
+              : (statsRes.host_memory_used_mb && statsRes.host_memory_used_mb > 0 ? +(statsRes.host_memory_used_mb / 1024).toFixed(1) : 0);
 
             setClusterMetrics((prev) => ({
               ...prev,
@@ -1669,7 +1692,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const nodeRes = await api.nodes.list();
           if (isMounted) {
             const rawNodes = nodeRes?.data || [];
-            setNodes(rawNodes.map(mapBackendNodeToFrontend));
+            setNodes(rawNodes.map((n) => mapBackendNodeToFrontend(n)));
           }
         } catch (e) {
           console.warn('[AppContext] Could not fetch nodes (/api/nodes):', e);
@@ -2102,7 +2125,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       optimisticStatus = 'starting';
       toastType = 'warning';
     } else if (action === 'stop') {
-      optimisticStatus = 'stopped';
+      optimisticStatus = 'stopping';
       toastType = 'warning';
     } else if (action === 'kill') {
       optimisticStatus = 'offline';
@@ -3294,6 +3317,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } else {
         await refreshServers();
       }
+
+      // Immediately refresh stats and admin data so clusterMetrics and node metrics update reactively without a hard reload
+      await Promise.allSettled([
+        refreshStats(),
+        refreshAdminData(),
+      ]);
 
       addToast({
         title: 'Server Settings Updated',

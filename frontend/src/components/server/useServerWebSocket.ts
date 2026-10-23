@@ -433,6 +433,7 @@ export function useServerWebSocket({
     // 2. Kill action has absolute priority: instantly set offline and abort any reboot sequence
     if (action === 'kill') {
       setServerStatus('offline');
+      setCurrentStats((prev) => ({ ...prev, cpu: 0, memory: 0, networkRx: 0, networkTx: 0, uptime: 0 }));
       appendLog('\x1b[1;31m[SIGKILL ENFORCED]\x1b[0m Process forcibly terminated with absolute priority.', 'error');
     } else if (action === 'stop') {
       setServerStatus('stopping');

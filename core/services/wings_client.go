@@ -25,7 +25,8 @@ func NewWingsClient() *WingsClient {
 	// Custom VerifyPeerCertificate allows self-signed certs only on loopback addresses (127.0.0.1, localhost)
 	// while verifying public/remote hostnames against root CAs with TLS 1.2+ minimum.
 	tlsConfig := &tls.Config{
-		MinVersion: tls.VersionTLS12,
+		InsecureSkipVerify: true,
+		MinVersion:         tls.VersionTLS12,
 		// nosemgrep: go.lang.security.audit.crypto.missing-ssl-minversion.missing-ssl-minversion
 	}
 
@@ -98,25 +99,31 @@ func (w *WingsClient) getDaemonBaseURLs(node *models.Node) []string {
 		}
 	}
 
-	// 2. Loopback HTTPS (Direct local SSL bypasses external routing/DNS issues)
-	candidates = append(candidates, fmt.Sprintf("https://127.0.0.1:%d", port))
+	isLocal := node.FQDN == "" || node.FQDN == "127.0.0.1" || node.FQDN == "localhost"
 
-	// 3. Known domain HTTPS
-	candidates = append(candidates, fmt.Sprintf("https://wings.springisfm.de:%d", port))
-
-	// 4. Node configured FQDN with HTTPS
-	if node.FQDN != "" && node.FQDN != "127.0.0.1" && node.FQDN != "localhost" {
+	if !isLocal {
+		// Remote node: prioritize configured full daemon URL and actual FQDN with HTTPS
+		if full := node.FullDaemonURL(); full != "" {
+			candidates = append(candidates, full)
+		}
 		candidates = append(candidates, fmt.Sprintf("https://%s:%d", node.FQDN, port))
+		candidates = append(candidates, fmt.Sprintf("http://%s:%d", node.FQDN, port))
+	} else {
+		// Local node: prioritize loopback and configured local daemon URL
+		candidates = append(candidates, fmt.Sprintf("https://127.0.0.1:%d", port))
+		if full := node.FullDaemonURL(); full != "" {
+			candidates = append(candidates, full)
+		}
+		if node.FQDN != "" {
+			candidates = append(candidates, fmt.Sprintf("https://%s:%d", node.FQDN, port))
+		}
+		candidates = append(candidates, fmt.Sprintf("http://127.0.0.1:%d", port))
 	}
 
-	// 5. Configured Node URL
-	candidates = append(candidates, node.FullDaemonURL())
-
-	// 6. Plaintext HTTP fallback
-	candidates = append(candidates,
-		fmt.Sprintf("http://127.0.0.1:%d", port),
-		fmt.Sprintf("http://%s:%d", node.FQDN, port),
-	)
+	// Fallback for known domain if node name or domain matches
+	if strings.Contains(node.FQDN, "springisfm.de") {
+		candidates = append(candidates, fmt.Sprintf("https://wings.springisfm.de:%d", port))
+	}
 
 	// Deduplicate preserving order
 	seen := make(map[string]bool)
