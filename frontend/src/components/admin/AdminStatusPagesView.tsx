@@ -655,7 +655,7 @@ export const AdminStatusPagesView: React.FC = () => {
               },
               {
                 name: 'Panel Core',
-                value: 'panel.pteronext.com (v2.9.2)',
+                value: 'panel.pteronext.com (v2.9.3)',
                 inline: true,
               },
             ],

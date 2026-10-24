@@ -780,7 +780,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
-  const [systemVersion, setSystemVersion] = useState<string>('v2.9.2');
+  const [systemVersion, setSystemVersion] = useState<string>('v2.9.3');
 
   const checkSystemVersion = useCallback(async () => {
     try {

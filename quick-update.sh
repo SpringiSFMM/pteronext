@@ -72,8 +72,7 @@ tar --no-mac-metadata --no-xattrs -czf - -C "${PACKAGE_DIR}" core/pteronext-linu
     cp -f /root/quick-update/wings/wings-linux-amd64 /usr/local/bin/wings
     chmod +x /opt/pteronext/pteronext /usr/local/bin/wings
     
-    # Server RAM auf 2048 MB aktualisieren (nur memory_mb existiert)
-    sqlite3 /var/lib/pteronext/pteronext.db "UPDATE servers SET memory_mb=2048 WHERE uuid=\"0cb7c1dd-fdd2-444d-816a-837270a47b7b\" OR memory_mb < 2048;" 2>/dev/null || true
+    # Database updates if needed
     
     # SSH-Server-Latenz dauerhaft beheben (UseDNS / GSSAPI)
     if [ -f /etc/ssh/sshd_config ]; then

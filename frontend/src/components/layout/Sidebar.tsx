@@ -63,7 +63,7 @@ const GLOBAL_SECTIONS = [
       { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, hint: '⌘1' },
       { id: 'servers', label: 'Servers', icon: ServerIcon, hint: '' },
       { id: 'activity', label: 'Activity / Audit', icon: Activity, hint: '' },
-      { id: 'changelog', label: 'Changelog & Updates', icon: Sparkles, hint: 'v2.9.2' },
+      { id: 'changelog', label: 'Changelog & Updates', icon: Sparkles, hint: 'v2.9.3' },
     ],
   },
   {
@@ -254,7 +254,7 @@ export const Sidebar: React.FC = () => {
           label: 'Services & Extensions',
           tabs: [
             { id: 'world-manager', label: 'World Manager', icon: Globe },
-            { id: 'plugin-store', label: 'Plugins & Mods', icon: Package },
+            { id: 'plugin-store', label: 'Modpacks & Versions', icon: Package },
             { id: 'game-config', label: 'Game Config', icon: Sliders },
             { id: 'sidecars', label: 'Redis & DB Sidecars', icon: Zap },
             { id: 'databases', label: 'Databases', icon: Database },
@@ -667,7 +667,7 @@ export const Sidebar: React.FC = () => {
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500 font-mono leading-none mt-0.5">
-                  Control Panel {systemVersion || 'v2.9.2'}
+                  Control Panel {systemVersion || 'v2.9.3'}
                 </p>
               </div>
             </div>
@@ -929,7 +929,7 @@ export const Sidebar: React.FC = () => {
                               </div>
                               {(item.hint || (item.id as string) === 'changelog') && (
                                 <span className="text-[10px] font-mono text-slate-500">
-                                  {(item.id as string) === 'changelog' ? (systemVersion || 'v2.9.2') : item.hint}
+                                  {(item.id as string) === 'changelog' ? (systemVersion || 'v2.9.3') : item.hint}
                                 </span>
                               )}
                               {isActive && !item.hint && (

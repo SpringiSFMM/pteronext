@@ -25,8 +25,8 @@ func TestGetInstalledVersion(t *testing.T) {
 	os.Unsetenv("PTERONEXT_VERSION")
 	// From VERSION file (created in root)
 	v := GetInstalledVersion()
-	if v != "v2.9.2" {
-		t.Fatalf("expected v2.9.2 from VERSION file or fallback, got %s", v)
+	if v != "v2.9.3" {
+		t.Fatalf("expected v2.9.3 from VERSION file or fallback, got %s", v)
 	}
 }
 
@@ -72,13 +72,13 @@ func TestCheckUpdateEndpoint(t *testing.T) {
 	}
 
 	currentVer, ok := response["current_version"].(string)
-	if !ok || currentVer != "v2.9.2" {
-		t.Fatalf("expected current_version to be 'v2.9.2', got %v", response["current_version"])
+	if !ok || currentVer != "v2.9.3" {
+		t.Fatalf("expected current_version to be 'v2.9.3', got %v", response["current_version"])
 	}
 
-	// Because GitHub latest tag is v2.8.8 and installed is v2.9.2, update_available must be false
+	// Because GitHub latest tag is v2.8.8 and installed is v2.9.3, update_available must be false
 	updateAvail, ok := response["update_available"].(bool)
 	if !ok || updateAvail != false {
-		t.Fatalf("expected update_available to be false for v2.9.2 >= v2.8.8, got %v", response["update_available"])
+		t.Fatalf("expected update_available to be false for v2.9.3 >= v2.8.8, got %v", response["update_available"])
 	}
 }

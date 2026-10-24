@@ -58,7 +58,8 @@ export const ChangelogView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedReleases, setExpandedReleases] = useState<Record<string, boolean>>({
-    'v2.9.2': true,
+    'v2.9.3': true,
+    'v2.9.2': false,
     'v2.9.1': false,
     'v2.9.0': false,
     'v2.8.8': false,
@@ -187,12 +188,35 @@ export const ChangelogView: React.FC = () => {
 
   const defaultReleases: Release[] = [
     {
+      version: 'v2.9.3',
+      title: language === 'de'
+        ? '1-Klick Modpack & Version Switcher & Multi-Server Bulk Access'
+        : '1-Click Modpack & Version Switcher & Multi-Server Bulk Access',
+      date: 'October 2026',
+      tag: 'LATEST STABLE',
+      features: language === 'de'
+        ? [
+            '1-Klick Modpack-Installer: Vollautomatisierte Bereitstellung von CurseForge-, Modrinth- und FTB-Modpacks (ATM9, Better MC, Cobblemon, Prominence II, Fabulously Optimized)',
+            'Integrierter Version-Switcher: Nahtloser Wechsel zwischen PaperMC, Purpur, Fabric, Forge und NeoForge ohne manuelle JAR-Uploads',
+            'Multi-Server Bulk Access: Gleichzeitige Steuerung (Start, Stopp, Neustart, Kill) mehrerer Server über die Matrix mit Mehrfachauswahl',
+            'Konsolidierte Batch-Aktionen: Gebündelte Datei-Löschung und gestapelte Benachrichtigungen statt einzelner Toast-Fluten',
+            'Reinstall für einzelne Gameserver: Sicheres Neuaufsetzen einzelner Instanzen über die Server-Settings',
+          ]
+        : [
+            '1-Click Modpack Installer: Automated deployment of CurseForge, Modrinth, and FTB modpacks (ATM9, Better MC, Cobblemon, Prominence II, Fabulously Optimized)',
+            'Integrated Version Switcher: Seamless switching across PaperMC, Purpur, Fabric, Forge, and NeoForge without manual JAR transfers',
+            'Multi-Server Bulk Access: Simultaneous batch control (start, stop, reboot, kill) across multiple instances with multi-selection',
+            'Consolidated Batch Operations: Batched remote file deletion and stacked toasts eliminating notification spam',
+            'Individual Server Reinstall: Safe single-instance reinstallation directly from server settings',
+          ],
+    },
+    {
       version: 'v2.9.2',
       title: language === 'de'
         ? 'Minecraft World Manager, Uptime Status Portal, React Portal Modals & Discord Bot Telemetrie'
         : 'Minecraft World Manager, Uptime Status Portal, React Portal Modals & Discord Bot Telemetry',
       date: 'October 2026',
-      tag: 'LATEST STABLE',
+      tag: 'STABLE',
       features: language === 'de'
         ? [
             'Minecraft World Manager: Multi-World Übersicht, 1-Klick Dimension Resets (Nether/End) & Gamerule-Steuerung',

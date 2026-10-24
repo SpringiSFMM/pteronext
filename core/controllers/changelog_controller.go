@@ -159,15 +159,36 @@ func (ch *ChangelogController) GetChangelog(c *gin.Context) {
 
 	rawReleases := []ReleaseItem{
 		{
+			Version:       "v2.9.3",
+			Date:          "October 2026",
+			Title:         "1-Klick Modpack & Version Switcher & Multi-Server Bulk Access",
+			TitleEN:       "1-Click Modpack & Version Switcher & Multi-Server Bulk Access",
+			Description:   "Release v2.9.3: Vollautomatischer 1-Klick Modpack-Installer (CurseForge, Modrinth, FTB) und nativer Version-Switcher sowie Multi-Server Bulk Access & Batch Actions zur gleichzeitigen Steuerung mehrerer Instanzen direkt über die Server-Matrix.",
+			DescriptionEN: "Release v2.9.3: Automated 1-click modpack deployments (CurseForge, Modrinth, FTB) with native software version switching, alongside Multi-Server Bulk Access & Batch Actions for simultaneous multi-instance control directly from the server matrix.",
+			Tag:           "LATEST STABLE",
+			TagEN:         "LATEST STABLE",
+			IsLatest:      true,
+			Highlights: []string{
+				"1-Klick Modpack & Version Switcher: Vollautomatische Modpack-Installationen und direkter Wechsel der Minecraft-Software (Paper, Purpur, Fabric, Forge, NeoForge)",
+				"Multi-Server Bulk Access & Batch Actions: Gleichzeitige Steuerung (Start, Stopp, Neustart, Kill) über die Server-Matrix mit intuitiver Mehrfachauswahl",
+				"Echtzeit-Feedback: Konsolidierte Statusmeldungen und gebündelte Batch-Benachrichtigungen",
+			},
+			HighlightsEN: []string{
+				"1-Click Modpack & Version Switcher: Automated modpack installations and instant server software switching (Paper, Purpur, Fabric, Forge, NeoForge)",
+				"Multi-Server Bulk Access & Batch Actions: Simultaneous batch control (start, stop, reboot, kill) across the server matrix with multi-selection",
+				"Realtime Feedback: Consolidated batch progress bars and single-stack notification toasts",
+			},
+		},
+		{
 			Version:       "v2.9.2",
 			Date:          "October 2026",
 			Title:         "Minecraft World Manager, Uptime Status Portal, React Portal Modals & Discord Bot Telemetry",
 			TitleEN:       "Minecraft World Manager, Uptime Status Portal, React Portal Modals & Discord Bot Telemetry",
 			Description:   "Major Feature & Infrastructure Release v2.9.2: Neuer Minecraft World Manager mit 1-Klick Dimensions-Resets und Gamerule-Steuerung, gehostete Uptime- & Statusseiten (pteronext.com/status/{project}) mit 1-Seiten-Quota, React Portal Modal-Architektur gegen Viewport-Clipping, dynamisches Discord Status-Board mit pteronext.com/status Echtzeit-Sync und automatische Rollen-Pings (@Updates Ping) bei Releases & Commits.",
 			DescriptionEN: "Major feature and infrastructure release v2.9.2: New Minecraft World Manager with 1-click dimension resets and live gamerule controls, hosted Uptime & Status Pages (pteronext.com/status/{project}) with 1-page quota, React Portal Modal architecture eliminating viewport clipping, dynamic Discord Status Board with pteronext.com/status realtime sync, and automated role pings (@Updates Ping) on releases & commits.",
-			Tag:           "LATEST STABLE",
-			TagEN:         "LATEST STABLE",
-			IsLatest:      true,
+			Tag:           "STABLE",
+			TagEN:         "STABLE",
+			IsLatest:      false,
 			Highlights: []string{
 				"Minecraft World Manager: Multi-World-Übersicht, 1-Klick-Dimension-Resets für Nether (DIM-1) und Ende (DIM1), Live-Gamerules & vollwertige Zweisprachigkeit",
 				"Gehostete Uptime- & Statusseiten: Öffentliche Status-Seiten (pteronext.com/status/{project}), Live-Prüfungen, Discord-Webhooks, SLA- & Rechts-Footer mit 1-Seiten-Ressourcengrenze",

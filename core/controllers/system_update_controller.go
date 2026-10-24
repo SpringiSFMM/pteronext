@@ -52,7 +52,7 @@ func GetInstalledVersion() string {
 	}
 
 	// 3. Fallback to latest stable release
-	return "v2.9.2"
+	return "v2.9.3"
 }
 
 func NewSystemUpdateController() *SystemUpdateController {

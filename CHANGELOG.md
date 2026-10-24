@@ -3,6 +3,13 @@ This file is a running track of new features and fixes to each version of the pa
 
 This project follows [Semantic Versioning](http://semver.org) guidelines.
 
+## v2.9.3
+### Added
+* **1-Klick Modpack & Version-Installer**: Vollautomatisierter 1-Klick-Modpack-Installer für CurseForge, Modrinth und FTB-Pakete (ATM9, Better MC, Cobblemon, Prominence II, Fabulously Optimized) sowie nativer Version-Switcher für PaperMC, Purpur, Fabric, Forge und NeoForge ohne FTP-Dateitransfers.
+* **Multi-Server Bulk Access & Batch Actions**: Gleichzeitige Steuerung mehrerer Server-Instanzen (Start, Stopp, Neustart, Kill) direkt über die Server-Matrix mit intuitiver Mehrfachauswahl, Gruppen-Filtern und konsolidierten Status-Fortschrittsbalken.
+* **Konsolidierte Datei- und Massen-Aktionen**: Gebündelte SSH-Löschung auf Remote-Nodes zur Vermeidung von Timeouts und zusammengefasste Toast-Benachrichtigungen statt einzelner Meldungsfluten.
+* **Reinstall für einzelne Gameserver**: Sauberes Zurücksetzen einzelner Instanzen über die Server-Einstellungen ohne Beeinträchtigung anderer Container oder Daemon-Nodes.
+
 ## v2.9.2
 ### Added
 * **Minecraft World Manager**: Multi-World-Übersicht und aktiver Weltenwechsel via `server.properties`, 1-Klick-Dimension-Resets für Nether (`DIM-1`) und Ende (`DIM1`) ohne Overworld-Verlust, Live-Gamerules (`keepInventory`, `mobGriefing`, `doDaylightCycle`, etc.), 1-Klick ZIP-Weltensicherung und 100% zweisprachige Benutzeroberfläche (DE/EN).
