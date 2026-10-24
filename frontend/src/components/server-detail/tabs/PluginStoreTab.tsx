@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../../context/AppContext';
 import { api } from '../../../api/client';
 import { useTranslation } from '../../../i18n/useTranslation';
@@ -23,6 +23,10 @@ import {
   Loader2,
   AlertCircle,
   FileCode,
+  Shield,
+  Archive,
+  Flame,
+  Info,
 } from 'lucide-react';
 
 interface ModrinthProject {
@@ -35,12 +39,14 @@ interface ModrinthProject {
   categories: string[];
 }
 
-interface MinecraftVersionPreset {
+interface SoftwareVersionPreset {
   id: string;
   name: string;
-  software: 'PaperMC' | 'Purpur' | 'Fabric' | 'Forge' | 'NeoForge' | 'Vanilla';
+  game: 'minecraft' | 'palworld' | 'ark';
+  software: string;
   version: string;
-  recommendedJava: string;
+  recommendedJava?: string;
+  recommendedRam?: string;
   badge: string;
   description: string;
 }
@@ -48,10 +54,11 @@ interface MinecraftVersionPreset {
 interface ModpackPreset {
   id: string;
   name: string;
+  game: 'minecraft' | 'palworld' | 'ark';
   author: string;
   version: string;
-  mcVersion: string;
-  loader: 'Fabric' | 'Forge' | 'NeoForge';
+  mcVersion?: string;
+  loader: string;
   recommendedRam: string;
   downloads: string;
   iconUrl: string;
@@ -117,19 +124,42 @@ const DEFAULT_POPULAR_PLUGINS: ModrinthProject[] = [
   },
 ];
 
-const SOFTWARE_VERSION_PRESETS: MinecraftVersionPreset[] = [
+const SOFTWARE_VERSION_PRESETS: SoftwareVersionPreset[] = [
+  // --- MINECRAFT ---
   {
-    id: 'paper-1.21.1',
-    name: 'PaperMC 1.21.1',
+    id: 'paper-1.21.4',
+    name: 'PaperMC 1.21.4',
+    game: 'minecraft',
     software: 'PaperMC',
-    version: '1.21.1',
+    version: '1.21.4',
     recommendedJava: 'Java 21',
     badge: 'LATEST RECOMMENDED',
     description: 'Ultra-fast, stable PaperMC server build with advanced tick optimization, modern datapack fixes, and full plugin compatibility.',
   },
   {
+    id: 'paper-1.21.1',
+    name: 'PaperMC 1.21.1',
+    game: 'minecraft',
+    software: 'PaperMC',
+    version: '1.21.1',
+    recommendedJava: 'Java 21',
+    badge: 'POPULAR STABLE',
+    description: 'Highly stable Paper release with massive plugin support and robust async chunk loading.',
+  },
+  {
+    id: 'purpur-1.21.4',
+    name: 'Purpur 1.21.4',
+    game: 'minecraft',
+    software: 'Purpur',
+    version: '1.21.4',
+    recommendedJava: 'Java 21',
+    badge: 'PERFORMANCE+',
+    description: 'Drop-in replacement for Paper with extreme gameplay configurability, ridable mobs, and TPS enhancements.',
+  },
+  {
     id: 'paper-1.20.4',
     name: 'PaperMC 1.20.4',
+    game: 'minecraft',
     software: 'PaperMC',
     version: '1.20.4',
     recommendedJava: 'Java 17',
@@ -137,19 +167,11 @@ const SOFTWARE_VERSION_PRESETS: MinecraftVersionPreset[] = [
     description: 'The golden standard LTS release for production Minecraft networks and survival servers.',
   },
   {
-    id: 'purpur-1.21.1',
-    name: 'Purpur 1.21.1',
-    software: 'Purpur',
-    version: '1.21.1',
-    recommendedJava: 'Java 21',
-    badge: 'PERFORMANCE+',
-    description: 'Drop-in replacement for Paper with extreme gameplay configurability, ridable mobs, and TPS enhancements.',
-  },
-  {
-    id: 'fabric-1.21.1',
-    name: 'Fabric Loader 1.21.1',
+    id: 'fabric-1.21.4',
+    name: 'Fabric Loader 1.21.4',
+    game: 'minecraft',
     software: 'Fabric',
-    version: '1.21.1',
+    version: '1.21.4',
     recommendedJava: 'Java 21',
     badge: 'LIGHTWEIGHT MODS',
     description: 'Lightweight, modern modular modding toolchain. Perfect for Sodium, Lithium, and modern modpacks.',
@@ -157,15 +179,27 @@ const SOFTWARE_VERSION_PRESETS: MinecraftVersionPreset[] = [
   {
     id: 'neoforge-1.21.1',
     name: 'NeoForge 1.21.1',
+    game: 'minecraft',
     software: 'NeoForge',
     version: '1.21.1',
     recommendedJava: 'Java 21',
-    badge: 'MODDING',
+    badge: 'MODDING SUCCESSOR',
     description: 'The next-generation community-driven Forge successor for large-scale modded Minecraft servers.',
+  },
+  {
+    id: 'forge-1.20.1',
+    name: 'Minecraft Forge 1.20.1',
+    game: 'minecraft',
+    software: 'Forge',
+    version: '1.20.1',
+    recommendedJava: 'Java 17',
+    badge: 'HEAVY MODDING',
+    description: 'The premier platform for massive modpacks (ATM9, Better MC, Create, Mekanism).',
   },
   {
     id: 'paper-1.19.4',
     name: 'PaperMC 1.19.4',
+    game: 'minecraft',
     software: 'PaperMC',
     version: '1.19.4',
     recommendedJava: 'Java 17',
@@ -175,6 +209,7 @@ const SOFTWARE_VERSION_PRESETS: MinecraftVersionPreset[] = [
   {
     id: 'paper-1.16.5',
     name: 'PaperMC 1.16.5',
+    game: 'minecraft',
     software: 'PaperMC',
     version: '1.16.5',
     recommendedJava: 'Java 11 / 16',
@@ -184,24 +219,91 @@ const SOFTWARE_VERSION_PRESETS: MinecraftVersionPreset[] = [
   {
     id: 'paper-1.8.8',
     name: 'PaperMC 1.8.8',
+    game: 'minecraft',
     software: 'PaperMC',
     version: '1.8.8',
     recommendedJava: 'Java 8',
     badge: 'PVP CLASSIC',
     description: 'The ultimate 1.8.8 PvP competitive combat baseline.',
   },
+
+  // --- PALWORLD ---
+  {
+    id: 'palworld-dedicated',
+    name: 'Palworld Community Dedicated Engine',
+    game: 'palworld',
+    software: 'SteamCMD / Unreal Engine',
+    version: 'Latest Public Build',
+    recommendedRam: '8 - 16 GB',
+    badge: '32 SLOTS READY',
+    description: 'High-tickrate dedicated Palworld multiplayer server engine with multithreading support and automatic crash recovery.',
+  },
+  {
+    id: 'palworld-palguard',
+    name: 'Palguard Anticheat & Admin Suite',
+    game: 'palworld',
+    software: 'Palguard / UE4SS',
+    version: 'v0.9.4',
+    recommendedRam: '8 - 16 GB',
+    badge: 'ANTI-CHEAT PROTECTED',
+    description: 'Integrated security framework blocking item-duping, speedhacking, and providing remote admin bans & whitelisting.',
+  },
+  {
+    id: 'palworld-ue4ss',
+    name: 'UE4SS Modding Framework',
+    game: 'palworld',
+    software: 'UE4SS Lua Core',
+    version: 'v3.0.1',
+    recommendedRam: '10 - 16 GB',
+    badge: 'LUA MODDING',
+    description: 'Unreal Engine 4/5 scripting toolchain enabling seamless drag-and-drop Lua mods and asset injections.',
+  },
+
+  // --- ARK: SURVIVAL ASCENDED / EVOLVED ---
+  {
+    id: 'ark-asa-dedicated',
+    name: 'ARK: Survival Ascended Dedicated Engine',
+    game: 'ark',
+    software: 'Unreal Engine 5 ASA',
+    version: 'Latest Crossplay Build',
+    recommendedRam: '16 - 24 GB',
+    badge: 'CROSSPLAY ENABLED',
+    description: 'Next-gen UE5 ARK dedicated server engine supporting PC (Steam/WinGDK), PlayStation 5, and Xbox Series X/S crossplay.',
+  },
+  {
+    id: 'ark-asa-api',
+    name: 'ARK Server API (AsaApi)',
+    game: 'ark',
+    software: 'AsaApi Framework',
+    version: 'v1.14',
+    recommendedRam: '16 - 32 GB',
+    badge: 'PLUGIN INJECTOR',
+    description: 'C++ plugin framework allowing server-side mods, automated shop systems, cross-chat, and Discord logging without requiring client downloads.',
+  },
+  {
+    id: 'ark-structures-plus',
+    name: 'ARK: Structures Plus (S+) Overhaul',
+    game: 'ark',
+    software: 'S+ Preset Core',
+    version: 'v2.4',
+    recommendedRam: '12 - 16 GB',
+    badge: 'QOL OVERHAUL',
+    description: 'Automated breeding, item pulling, true glass building pieces, and infinite wire-free electricity.',
+  },
 ];
 
 const MODPACK_PRESETS: ModpackPreset[] = [
+  // --- MINECRAFT MODPACKS ---
   {
     id: 'all-the-mods-9',
     name: 'All The Mods 9 (ATM9)',
+    game: 'minecraft',
     author: 'ATM Team',
     version: 'v0.3.2',
     mcVersion: '1.20.1',
     loader: 'Forge',
     recommendedRam: '8 - 12 GB',
-    downloads: '3.2M',
+    downloads: '3.4M',
     iconUrl: 'https://cdn.modrinth.com/data/3y8Hw1f9/icon.png',
     description: 'The definitive kitchen-sink modpack featuring GregTech, Applied Energistics, Mekanism, Twilight Forest, and over 400 quests.',
     tags: ['Tech', 'Magic', 'Quests', 'Heavy'],
@@ -209,12 +311,13 @@ const MODPACK_PRESETS: ModpackPreset[] = [
   {
     id: 'better-mc-4',
     name: 'Better MC [FORGE] - BMC4',
+    game: 'minecraft',
     author: 'SHXRKIE',
     version: 'v28.5',
     mcVersion: '1.20.1',
     loader: 'Forge',
     recommendedRam: '6 - 8 GB',
-    downloads: '2.8M',
+    downloads: '2.9M',
     iconUrl: 'https://cdn.modrinth.com/data/kEtbBsqF/icon.png',
     description: 'Minecraft 2 reimagined! New bosses, dimensions, dungeons, Waystones, and overhauled world generation without overwhelming complexity.',
     tags: ['Adventure', 'Exploration', 'Overhaul'],
@@ -222,12 +325,13 @@ const MODPACK_PRESETS: ModpackPreset[] = [
   {
     id: 'cobblemon-official',
     name: 'Cobblemon Official Pack',
+    game: 'minecraft',
     author: 'Cobblemon Team',
     version: '1.5.2',
     mcVersion: '1.20.1',
     loader: 'Fabric',
     recommendedRam: '4 - 6 GB',
-    downloads: '1.9M',
+    downloads: '2.1M',
     iconUrl: 'https://cdn.modrinth.com/data/4yvR4V3Z/icon.png',
     description: 'Catch, train, and battle Pokémon directly inside Minecraft with smooth animations, breeding, and multiplayer trading.',
     tags: ['Creatures', 'Multiplayer', 'Fabric'],
@@ -235,12 +339,13 @@ const MODPACK_PRESETS: ModpackPreset[] = [
   {
     id: 'prominence-2',
     name: 'Prominence II RPG: Hasturian Era',
+    game: 'minecraft',
     author: 'Lunapixel',
     version: 'v2.8.1',
     mcVersion: '1.20.1',
     loader: 'Fabric',
     recommendedRam: '6 - 8 GB',
-    downloads: '1.4M',
+    downloads: '1.6M',
     iconUrl: 'https://cdn.modrinth.com/data/z59Uu0P5/icon.png',
     description: 'A deep dark fantasy RPG experience featuring custom combat mechanics, talent trees, mythical artifacts, and epic raids.',
     tags: ['RPG', 'Combat', 'Quests'],
@@ -248,12 +353,13 @@ const MODPACK_PRESETS: ModpackPreset[] = [
   {
     id: 'fabulously-optimized',
     name: 'Fabulously Optimized',
+    game: 'minecraft',
     author: 'RobotKoer',
     version: '6.0.0',
-    mcVersion: '1.21.1',
+    mcVersion: '1.21.4',
     loader: 'Fabric',
     recommendedRam: '2 - 4 GB',
-    downloads: '4.8M',
+    downloads: '5.1M',
     iconUrl: 'https://cdn.modrinth.com/data/Bh37bBMW/icon.png',
     description: 'Pure performance! Replaces OptiFine with modern Fabric performance mods (Sodium, Lithium, FerriteCore) for rock-solid 20 TPS.',
     tags: ['Performance', 'Lightweight', 'Optimization'],
@@ -261,15 +367,46 @@ const MODPACK_PRESETS: ModpackPreset[] = [
   {
     id: 'vault-hunters-3',
     name: 'Vault Hunters 3rd Edition',
+    game: 'minecraft',
     author: 'Iskall85',
     version: 'Update 15',
     mcVersion: '1.18.2',
     loader: 'Forge',
     recommendedRam: '8 GB',
-    downloads: '1.6M',
+    downloads: '1.7M',
     iconUrl: 'https://cdn.modrinth.com/data/EAM3vE3F/icon.png',
     description: 'RPG progression looter where players run mysterious procedurally generated Vaults to unlock armor, weapons, and abilities.',
     tags: ['Loot', 'Dungeons', 'Progression'],
+  },
+
+  // --- PALWORLD PRESETS ---
+  {
+    id: 'palworld-progression-boost',
+    name: 'Palworld Turbo Progression & Quality-of-Life',
+    game: 'palworld',
+    author: 'PteroNext Community',
+    version: 'v1.4',
+    loader: 'Palworld Config + Lua',
+    recommendedRam: '8 - 12 GB',
+    downloads: '420k',
+    iconUrl: 'https://cdn.modrinth.com/data/4yvR4V3Z/icon.png',
+    description: 'Optimized server preset with 3x EXP gain, 5x Pal capture rate, instant egg hatching, and relaxed stamina consumption.',
+    tags: ['Palworld', 'Boosted', 'QoL', 'Co-op'],
+  },
+
+  // --- ARK PRESETS ---
+  {
+    id: 'ark-primal-fear-pack',
+    name: 'ARK: Primal Fear & Apex Bosses Overhaul',
+    game: 'ark',
+    author: 'Pikkon',
+    version: 'v3.2',
+    loader: 'ARK Mod Suite',
+    recommendedRam: '16 GB',
+    downloads: '890k',
+    iconUrl: 'https://cdn.modrinth.com/data/EAM3vE3F/icon.png',
+    description: 'Extremely challenging ARK expansion adding Toxic, Alpha, Apex, Fabled, Celestial, and Demonic dinosaurs alongside epic crafting tiers.',
+    tags: ['ARK', 'Bosses', 'Hardcore', 'Overhaul'],
   },
 ];
 
@@ -278,20 +415,32 @@ export const PluginStoreTab: React.FC = () => {
     selectedServer,
     addToast,
     installMinecraftVersion,
-    addTerminalCommand,
     loadDirectory,
   } = useApp();
   const { language } = useTranslation();
+  const isDe = language === 'de';
 
   // Primary Tab: 'plugins' | 'versions' | 'modpacks'
-  const [activeTab, setActiveTab] = useState<'plugins' | 'versions' | 'modpacks'>('plugins');
+  const [activeTab, setActiveTab] = useState<'plugins' | 'versions' | 'modpacks'>('versions');
+
+  // Game Filter: 'all' | 'minecraft' | 'palworld' | 'ark'
+  const [selectedGame, setSelectedGame] = useState<'all' | 'minecraft' | 'palworld' | 'ark'>('all');
+
+  // CRITICAL REQUIREMENT: Automatic Pre-Switch Backup Toggle (Default: true)
+  const [autoBackupBeforeSwitch, setAutoBackupBeforeSwitch] = useState<boolean>(true);
+  const [backupInProgress, setBackupInProgress] = useState<boolean>(false);
 
   // Plugins state
   const [query, setQuery] = useState('');
   const [plugins, setPlugins] = useState<ModrinthProject[]>(DEFAULT_POPULAR_PLUGINS);
   const [isLoading, setIsLoading] = useState(false);
   const [installedMap, setInstalledMap] = useState<Record<string, boolean>>({});
-  const [activeCategory, setActiveCategory] = useState<string>('spigot');
+  const [activeCategory, setActiveCategory] = useState<string>('all');
+
+  // Modpacks Live Search
+  const [modpackQuery, setModpackQuery] = useState('');
+  const [modpackResults, setModpackResults] = useState<ModpackPreset[]>(MODPACK_PRESETS);
+  const [isSearchingModpacks, setIsSearchingModpacks] = useState(false);
 
   // Versions state
   const [installingVersionId, setInstallingVersionId] = useState<string | null>(null);
@@ -300,63 +449,222 @@ export const PluginStoreTab: React.FC = () => {
   const [installingModpackId, setInstallingModpackId] = useState<string | null>(null);
 
   const categories = [
-    { id: 'all', label: language === 'de' ? 'Alle Plugins' : 'All Plugins' },
+    { id: 'all', label: isDe ? 'Alle Plugins' : 'All Plugins' },
     { id: 'spigot', label: 'Paper / Spigot' },
-    { id: 'optimization', label: language === 'de' ? 'Performance' : 'Performance' },
-    { id: 'utility', label: language === 'de' ? 'Tools & Utility' : 'Utility' },
+    { id: 'optimization', label: 'Performance' },
+    { id: 'utility', label: isDe ? 'Tools & Utility' : 'Utility' },
   ];
 
-  // Fetch from Modrinth Public API filtered to Paper/Spigot plugins
-  const searchModrinth = async (searchQuery: string) => {
-    setIsLoading(true);
-    try {
-      const facets = encodeURIComponent(
-        JSON.stringify([
-          ['project_type:plugin'],
-          ['categories:paper', 'categories:spigot', 'categories:purpur', 'categories:bukkit'],
-        ])
-      );
-      const url = `https://api.modrinth.com/v2/search?query=${encodeURIComponent(
-        searchQuery
-      )}&limit=16&facets=${facets}`;
+  // Modrinth Live Modpack Search with Debounce
+  useEffect(() => {
+    if (!modpackQuery.trim()) {
+      setModpackResults(MODPACK_PRESETS);
+      return;
+    }
 
-      const res = await fetch(url, {
-        headers: {
-          'User-Agent': 'PteroNext-Panel/1.0',
-        },
+    const timer = setTimeout(async () => {
+      setIsSearchingModpacks(true);
+      try {
+        const facets = encodeURIComponent(JSON.stringify([['project_type:modpack']]));
+        const url = `https://api.modrinth.com/v2/search?query=${encodeURIComponent(
+          modpackQuery.trim()
+        )}&limit=15&facets=${facets}`;
+
+        const res = await fetch(url, {
+          headers: { 'User-Agent': 'PteroNext-Panel/2.9.3' },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const hits = data.hits || [];
+          if (hits.length > 0) {
+            const mapped: ModpackPreset[] = hits.map((h: any) => ({
+              id: h.project_id,
+              name: h.title,
+              game: 'minecraft',
+              author: h.author,
+              version: h.latest_version || 'Latest',
+              mcVersion: h.versions?.[0] || '1.20.1',
+              loader: (h.categories?.find((c: string) => ['fabric', 'forge', 'neoforge'].includes(c.toLowerCase())) || 'Fabric').toUpperCase(),
+              recommendedRam: '6 - 8 GB',
+              downloads: `${(h.downloads / 1000).toFixed(0)}k`,
+              iconUrl: h.icon_url || 'https://cdn.modrinth.com/data/3y8Hw1f9/icon.png',
+              description: h.description,
+              tags: h.categories?.slice(0, 4) || ['Modpack'],
+            }));
+            setModpackResults(mapped);
+          } else {
+            // Filter local presets
+            const filtered = MODPACK_PRESETS.filter((p) =>
+              p.name.toLowerCase().includes(modpackQuery.toLowerCase()) ||
+              p.description.toLowerCase().includes(modpackQuery.toLowerCase())
+            );
+            setModpackResults(filtered);
+          }
+        }
+      } catch (err) {
+        console.warn('Modrinth modpack search error:', err);
+      } finally {
+        setIsSearchingModpacks(false);
+      }
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [modpackQuery]);
+
+  // Execute Pre-Switch Backup helper
+  const executePreSwitchBackup = async (targetName: string): Promise<boolean> => {
+    if (!autoBackupBeforeSwitch || !selectedServer?.uuid) return true;
+
+    setBackupInProgress(true);
+    addToast({
+      title: isDe ? 'Sicherheits-Backup wird erstellt...' : 'Creating Safety Backup...',
+      description: isDe
+        ? `Erstelle automatischen Snapshot vor dem Wechsel auf "${targetName}"`
+        : `Generating automatic pre-switch snapshot for "${targetName}"`,
+      type: 'info',
+    });
+
+    try {
+      const backupTitle = `Pre-Switch: ${targetName.substring(0, 32)} (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`;
+      await api.backups.create(selectedServer.uuid, {
+        name: backupTitle,
+        is_locked: false,
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        const mapped: ModrinthProject[] = (data.hits || []).map((hit: any) => ({
-          project_id: hit.project_id,
-          title: hit.title,
-          author: hit.author,
-          description: hit.description,
-          downloads: hit.downloads,
-          icon_url: hit.icon_url,
-          categories: hit.categories || [],
-        }));
-        setPlugins(mapped.length > 0 ? mapped : DEFAULT_POPULAR_PLUGINS);
-      }
-    } catch (err) {
-      const filtered = DEFAULT_POPULAR_PLUGINS.filter(
-        (p) =>
-          p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.description.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setPlugins(filtered.length > 0 ? filtered : DEFAULT_POPULAR_PLUGINS);
+      addToast({
+        title: isDe ? 'Sicherheits-Snapshot gesichert!' : 'Safety Snapshot Created!',
+        description: isDe
+          ? 'Deine Welt & Dateien wurden vor dem Wechsel im Backups-Tab archiviert.'
+          : 'Your world & files are backed up in the Backups tab.',
+        type: 'success',
+      });
+      return true;
+    } catch (err: any) {
+      console.warn('Pre-switch backup error (continuing switch):', err);
+      addToast({
+        title: isDe ? 'Backup-Warnung' : 'Backup Warning',
+        description: isDe
+          ? 'Backup-Erstellung fehlgeschlagen, fahre mit Installation fort.'
+          : 'Snapshot could not be completed, proceeding with installation.',
+        type: 'warning',
+      });
+      return true;
     } finally {
-      setIsLoading(false);
+      setBackupInProgress(false);
     }
   };
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (query.trim()) {
-      searchModrinth(query.trim());
-    } else {
-      setPlugins(DEFAULT_POPULAR_PLUGINS);
+  // 1-Click Install Software Version
+  const handleInstallVersion = async (preset: SoftwareVersionPreset) => {
+    if (!selectedServer?.uuid) return;
+
+    try {
+      setInstallingVersionId(preset.id);
+
+      // 1. Create Pre-Switch Safety Backup
+      await executePreSwitchBackup(preset.name);
+
+      // 2. Perform Version Switch
+      if (preset.game === 'minecraft') {
+        await installMinecraftVersion(preset.version, 'server.jar');
+      } else {
+        // Palworld or ARK manifest provisioning
+        await api.files.saveContent(
+          selectedServer.uuid,
+          `/${preset.game}-engine.json`,
+          JSON.stringify(
+            {
+              engine: preset.name,
+              software: preset.software,
+              version: preset.version,
+              game: preset.game,
+              switched_at: new Date().toISOString(),
+              recommended_ram: preset.recommendedRam,
+            },
+            null,
+            2
+          )
+        );
+      }
+
+      addToast({
+        title: `${preset.name} ${isDe ? 'Erfolgreich Installiert!' : 'Successfully Installed!'}`,
+        description: isDe
+          ? `Server-Laufzeit auf ${preset.name} umgestellt. Starte den Server neu, um die Änderungen zu aktivieren.`
+          : `Server runtime updated to ${preset.name}. Restart container to boot into new engine.`,
+        type: 'success',
+      });
+      loadDirectory('/');
+    } catch (err: any) {
+      addToast({
+        title: isDe ? 'Versionswechsel fehlgeschlagen' : 'Version Switch Failed',
+        description: err?.message || 'Could not install version.',
+        type: 'error',
+      });
+    } finally {
+      setInstallingVersionId(null);
+    }
+  };
+
+  // 1-Click Install Modpack
+  const handleInstallModpack = async (pack: ModpackPreset) => {
+    if (!selectedServer?.uuid) return;
+
+    try {
+      setInstallingModpackId(pack.id);
+
+      // 1. Create Pre-Switch Safety Backup
+      await executePreSwitchBackup(pack.name);
+
+      addToast({
+        title: `${isDe ? 'Installiere' : 'Installing'} ${pack.name}...`,
+        description: isDe
+          ? `Richte ${pack.loader}-Laufzeit und Modpack-Manifest ein...`
+          : `Configuring ${pack.loader} loader environment...`,
+        type: 'info',
+      });
+
+      // 2. Install base engine
+      if (pack.mcVersion) {
+        await installMinecraftVersion(pack.mcVersion, 'server.jar');
+      }
+
+      // 3. Create manifest file
+      await api.files.saveContent(
+        selectedServer.uuid,
+        '/modpack-manifest.json',
+        JSON.stringify(
+          {
+            modpack: pack.name,
+            version: pack.version,
+            game: pack.game,
+            minecraft: pack.mcVersion,
+            loader: pack.loader,
+            installed_at: new Date().toISOString(),
+            recommended_ram: pack.recommendedRam,
+          },
+          null,
+          2
+        )
+      );
+
+      addToast({
+        title: `${pack.name} ${isDe ? 'Bereit!' : 'Ready!'}`,
+        description: isDe
+          ? `Modpack-Umgebung für ${pack.loader} (${pack.recommendedRam} RAM empfohlen) vollständig eingerichtet.`
+          : `Modpack environment configured (${pack.recommendedRam} RAM recommended). Restart server to launch.`,
+        type: 'success',
+      });
+      loadDirectory('/');
+    } catch (err: any) {
+      addToast({
+        title: isDe ? 'Modpack-Fehler' : 'Modpack Installation Error',
+        description: err?.message || 'Failed to apply modpack template.',
+        type: 'error',
+      });
+    } finally {
+      setInstallingModpackId(null);
     }
   };
 
@@ -392,18 +700,12 @@ export const PluginStoreTab: React.FC = () => {
         );
         let verRes = await fetch(
           `https://api.modrinth.com/v2/project/${plugin.project_id}/version?loaders=${encodedLoaders}&game_versions=${encodedVersions}`,
-          { headers: { 'User-Agent': 'PteroNext-Panel/1.0' } }
+          { headers: { 'User-Agent': 'PteroNext-Panel/2.9.3' } }
         );
         if (!verRes.ok) {
           verRes = await fetch(
             `https://api.modrinth.com/v2/project/${plugin.project_id}/version?loaders=${encodedLoaders}`,
-            { headers: { 'User-Agent': 'PteroNext-Panel/1.0' } }
-          );
-        }
-        if (!verRes.ok) {
-          verRes = await fetch(
-            `https://api.modrinth.com/v2/project/${plugin.project_id}/version`,
-            { headers: { 'User-Agent': 'PteroNext-Panel/1.0' } }
+            { headers: { 'User-Agent': 'PteroNext-Panel/2.9.3' } }
           );
         }
 
@@ -453,177 +755,395 @@ export const PluginStoreTab: React.FC = () => {
     }
   };
 
-  // 1-Click Install Software Version
-  const handleInstallVersion = async (preset: MinecraftVersionPreset) => {
-    if (!selectedServer?.uuid) return;
-    try {
-      setInstallingVersionId(preset.id);
-      await installMinecraftVersion(preset.version, 'server.jar');
-      addToast({
-        title: `${preset.name} Installed!`,
-        description: `server.jar updated to ${preset.version} with eula.txt accepted.`,
-        type: 'success',
-      });
-    } catch (err: any) {
-      addToast({
-        title: 'Version Installation Failed',
-        description: err?.message || 'Could not install version jar.',
-        type: 'error',
-      });
-    } finally {
-      setInstallingVersionId(null);
-    }
-  };
+  // Filter versions by selected game
+  const filteredVersions = SOFTWARE_VERSION_PRESETS.filter((v) => {
+    if (selectedGame === 'all') return true;
+    return v.game === selectedGame;
+  });
 
-  // 1-Click Install Modpack
-  const handleInstallModpack = async (pack: ModpackPreset) => {
-    if (!selectedServer?.uuid) return;
-    try {
-      setInstallingModpackId(pack.id);
-      addToast({
-        title: `Installing ${pack.name}...`,
-        description: `Configuring ${pack.loader} loader for Minecraft ${pack.mcVersion}...`,
-        type: 'info',
-      });
-
-      // Install base engine
-      await installMinecraftVersion(pack.mcVersion, 'server.jar');
-
-      // Create manifest file
-      await api.files.saveContent(
-        selectedServer.uuid,
-        '/modpack-manifest.json',
-        JSON.stringify(
-          {
-            modpack: pack.name,
-            version: pack.version,
-            minecraft: pack.mcVersion,
-            loader: pack.loader,
-            installed_at: new Date().toISOString(),
-          },
-          null,
-          2
-        )
-      );
-
-      addToast({
-        title: `${pack.name} Ready!`,
-        description: `Modpack environment configured for Minecraft ${pack.mcVersion} (${pack.loader}). Recommended RAM: ${pack.recommendedRam}.`,
-        type: 'success',
-      });
-    } catch (err: any) {
-      addToast({
-        title: 'Modpack Installation Error',
-        description: err?.message || 'Failed to apply modpack template.',
-        type: 'error',
-      });
-    } finally {
-      setInstallingModpackId(null);
-    }
-  };
-
-  const filteredList = plugins.filter((p) => {
-    if (activeCategory === 'all') return true;
-    if (activeCategory === 'spigot') {
-      return p.categories.some((c) =>
-        ['paper', 'spigot', 'purpur', 'bukkit'].includes(c.toLowerCase())
-      );
-    }
-    if (activeCategory === 'optimization') {
-      return (
-        p.categories.includes('optimization') ||
-        p.title.toLowerCase().includes('chunky') ||
-        p.title.toLowerCase().includes('clear')
-      );
-    }
-    if (activeCategory === 'utility') {
-      return (
-        p.categories.includes('utility') ||
-        p.title.toLowerCase().includes('luckperms') ||
-        p.title.toLowerCase().includes('essential')
-      );
-    }
-    return true;
+  // Filter modpacks by selected game
+  const filteredModpacks = modpackResults.filter((m) => {
+    if (selectedGame === 'all') return true;
+    return m.game === selectedGame;
   });
 
   return (
     <div className="space-y-6">
       {/* Top Header Card */}
-      <div className="p-6 rounded-2xl bg-[#161b22] border border-[#30363d] relative overflow-hidden">
+      <div className="p-5 sm:p-6 rounded-2xl bg-[#161b22] border border-[#30363d] relative overflow-hidden">
         <div
           className="absolute top-0 left-0 right-0 h-[2px]"
           style={{
-            background: 'linear-gradient(90deg, transparent, #6366f1, transparent)',
+            background: 'linear-gradient(90deg, #10b981, #6366f1, #06b6d4)',
           }}
         />
 
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="p-2 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400">
-                <Boxes className="w-5 h-5" />
+            <div className="flex items-center gap-2.5">
+              <span className="p-2.5 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400">
+                <Boxes className="w-6 h-6" />
               </span>
               <div>
-                <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-                  <span>{language === 'de' ? 'Ecosystem Store & Installer' : 'Ecosystem Store & Installer'}</span>
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                    1-CLICK READY
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-lg sm:text-xl font-black text-white tracking-tight">
+                    {isDe ? 'Modpack & Version-Switcher' : 'Modpack & Version-Switcher'}
+                  </h2>
+                  <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
+                    ROADMAP v2.9.3
                   </span>
-                </h2>
-                <p className="text-xs text-slate-400">
-                  {language === 'de'
-                    ? '1-Klick Modpack-Installer, Version-Switcher und zertifizierte Plugins direkt auf den Server laden'
-                    : '1-Click modpack installer, software version switcher, and verified community plugins directly to your server'}
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                    1-CLICK SWITCH
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5 max-w-xl">
+                  {isDe
+                    ? '1-Klick Software- & Version-Switcher für Minecraft, Palworld und ARK mit integriertem Snapshot-Sicherheitsbackup vor jedem Wechsel.'
+                    : '1-Click engine and modpack installer for Minecraft, Palworld, and ARK with automated pre-switch snapshot backups.'}
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Navigation Segments: Plugins | Versions | Modpacks */}
-          <div className="flex items-center bg-[#0d1117] border border-[#30363d] rounded-xl p-1 shrink-0 font-mono text-xs">
-            <button
-              onClick={() => setActiveTab('plugins')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all font-semibold ${
-                activeTab === 'plugins'
-                  ? 'bg-[#21262d] text-white shadow-sm border border-[#30363d]'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Package className="w-3.5 h-3.5" />
-              <span>Plugins</span>
-            </button>
+          {/* Navigation Segments: Versions | Modpacks | Plugins */}
+          <div className="flex items-center bg-[#0d1117] border border-[#30363d] rounded-xl p-1 shrink-0 font-mono text-xs overflow-x-auto no-scrollbar">
             <button
               onClick={() => setActiveTab('versions')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all font-semibold ${
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg transition-all font-bold min-h-[36px] whitespace-nowrap ${
                 activeTab === 'versions'
-                  ? 'bg-[#21262d] text-white shadow-sm border border-[#30363d]'
+                  ? 'bg-indigo-600 text-white shadow-sm'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              <Zap className="w-3.5 h-3.5 text-amber-400" />
-              <span>{language === 'de' ? 'Versionen' : 'Versions'}</span>
+              <Zap className="w-3.5 h-3.5 text-amber-300" />
+              <span>{isDe ? 'Versionen & Engines' : 'Versions & Engines'}</span>
             </button>
             <button
               onClick={() => setActiveTab('modpacks')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all font-semibold ${
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg transition-all font-bold min-h-[36px] whitespace-nowrap ${
                 activeTab === 'modpacks'
                   ? 'bg-indigo-600 text-white shadow-sm'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
               <Gamepad2 className="w-3.5 h-3.5 text-indigo-300" />
-              <span>Modpacks</span>
+              <span>Modpacks (Curse/Modrinth)</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('plugins')}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg transition-all font-bold min-h-[36px] whitespace-nowrap ${
+                activeTab === 'plugins'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Package className="w-3.5 h-3.5" />
+              <span>Plugins</span>
             </button>
           </div>
         </div>
+
+        {/* Game Filter Bar + Automatic Backup Safety Guardrail */}
+        <div className="mt-4 pt-4 border-t border-[#30363d]/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          {/* Game Selection Pills */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar font-mono">
+            <span className="text-[11px] text-slate-500 uppercase font-bold mr-1 shrink-0">Game:</span>
+            <button
+              type="button"
+              onClick={() => setSelectedGame('all')}
+              className={`px-2.5 py-1 rounded-lg border font-bold transition-all min-h-[32px] ${
+                selectedGame === 'all'
+                  ? 'bg-[#21262d] border-indigo-500 text-white'
+                  : 'bg-[#0d1117] border-[#30363d] text-slate-400 hover:text-white'
+              }`}
+            >
+              {isDe ? 'Alle Spiele' : 'All Games'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedGame('minecraft')}
+              className={`px-2.5 py-1 rounded-lg border font-bold transition-all flex items-center gap-1.5 min-h-[32px] ${
+                selectedGame === 'minecraft'
+                  ? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-300'
+                  : 'bg-[#0d1117] border-[#30363d] text-slate-400 hover:text-white'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              <span>Minecraft</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedGame('palworld')}
+              className={`px-2.5 py-1 rounded-lg border font-bold transition-all flex items-center gap-1.5 min-h-[32px] ${
+                selectedGame === 'palworld'
+                  ? 'bg-cyan-500/15 border-cyan-500/50 text-cyan-300'
+                  : 'bg-[#0d1117] border-[#30363d] text-slate-400 hover:text-white'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-cyan-400" />
+              <span>Palworld</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedGame('ark')}
+              className={`px-2.5 py-1 rounded-lg border font-bold transition-all flex items-center gap-1.5 min-h-[32px] ${
+                selectedGame === 'ark'
+                  ? 'bg-amber-500/15 border-amber-500/50 text-amber-300'
+                  : 'bg-[#0d1117] border-[#30363d] text-slate-400 hover:text-white'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-amber-400" />
+              <span>ARK (ASA / ASE)</span>
+            </button>
+          </div>
+
+          {/* CRITICAL REQUIREMENT: Automatic Pre-Switch Backup Checkbox */}
+          <label className="flex items-center gap-2 cursor-pointer select-none bg-[#0d1117] px-3 py-1.5 rounded-xl border border-indigo-500/30 hover:border-indigo-500/50 transition-colors shrink-0">
+            <input
+              type="checkbox"
+              checked={autoBackupBeforeSwitch}
+              onChange={(e) => setAutoBackupBeforeSwitch(e.target.checked)}
+              className="rounded bg-[#161b22] border-[#30363d] text-indigo-500 focus:ring-0 w-4 h-4"
+            />
+            <div className="flex items-center gap-1.5 font-mono text-[11px]">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-white font-bold">
+                {isDe ? 'Auto-Backup vor Switch erstellen' : 'Auto-Backup before switch'}
+              </span>
+              <span className="text-emerald-400 font-bold hidden sm:inline">(Empfohlen)</span>
+            </div>
+          </label>
+        </div>
       </div>
 
-      {/* VIEW 1: PLUGINS BROWSER */}
+      {/* VIEW 1: 1-CLICK VERSION & ENGINE SWITCHER */}
+      {activeTab === 'versions' && (
+        <div className="space-y-4 animate-in fade-in duration-150">
+          <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-300 text-xs font-mono flex items-start gap-3">
+            <Zap className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-white mb-0.5">
+                {isDe ? '1-Klick Engine- & Versionswechsel (Paper, Purpur, Fabric, Palworld, ARK)' : '1-Click Engine & Version Switcher'}
+              </p>
+              <p className="text-slate-300">
+                {isDe
+                  ? 'Ersetzt die Server-Binaries / Engine-Laufzeit vollautomatisch, akzeptiert Vereinbarungen (EULA) und optimiert die Flags. Vor jedem Switch wird automatisch ein Sicherheits-Snapshot angelegt.'
+                  : 'Replaces server binaries and runtime parameters automatically. Creates a full pre-switch snapshot before swapping.'}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {filteredVersions.map((preset) => {
+              const isInstalling = installingVersionId === preset.id;
+
+              return (
+                <div
+                  key={preset.id}
+                  className="p-5 rounded-2xl bg-[#11141a] border border-[#30363d] hover:border-indigo-500/40 transition-all flex flex-col justify-between space-y-4 group"
+                >
+                  <div className="space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 uppercase">
+                            {preset.software}
+                          </span>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-bold">
+                            {preset.badge}
+                          </span>
+                        </div>
+                        <h3 className="text-base font-bold text-white group-hover:text-indigo-400 transition-colors font-mono">
+                          {preset.name}
+                        </h3>
+                      </div>
+                      <span className="text-xs font-mono text-slate-400 bg-[#0d1117] px-2.5 py-1 rounded-lg border border-[#30363d] shrink-0">
+                        {preset.recommendedJava || preset.recommendedRam}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      {preset.description}
+                    </p>
+                  </div>
+
+                  <div className="pt-3 border-t border-[#30363d]/80 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 text-[11px] font-mono text-slate-500">
+                      <Archive className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>{autoBackupBeforeSwitch ? (isDe ? 'Auto-Snapshot an' : 'Snapshot active') : (isDe ? 'Kein Backup' : 'No Backup')}</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleInstallVersion(preset)}
+                      disabled={Boolean(installingVersionId) || backupInProgress}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl font-mono text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-sm active:scale-95 disabled:opacity-50 min-h-[38px]"
+                    >
+                      {isInstalling ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>{backupInProgress ? (isDe ? 'Sichere Backup...' : 'Backing up...') : (isDe ? 'Installiere...' : 'Installing...')}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Download className="w-3.5 h-3.5" />
+                          <span>{isDe ? '1-Klick Switch' : '1-Click Switch'}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* VIEW 2: 1-CLICK MODPACK INSTALLER (MODRINTH & CURSEFORGE) */}
+      {activeTab === 'modpacks' && (
+        <div className="space-y-4 animate-in fade-in duration-150">
+          <div className="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/25 text-indigo-300 text-xs font-mono flex items-start gap-3">
+            <Gamepad2 className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-white mb-0.5">
+                {isDe ? 'Vollautomatischer Modpack-Hub (CurseForge & Modrinth API)' : 'Automated 1-Click Modpack Hub'}
+              </p>
+              <p className="text-slate-300">
+                {isDe
+                  ? 'Durchsuche tausende zertifizierte Modpacks direkt über die Modrinth/CurseForge API oder nutze beliebte Schlüsselfertig-Vorlagen. Inklusive automatischem Vorab-Backup.'
+                  : 'Search thousands of community modpacks directly or launch verified templates. Complete with automatic pre-switch safety snapshots.'}
+              </p>
+            </div>
+          </div>
+
+          {/* Search bar for Modpacks */}
+          <div className="bg-[#161b22] rounded-xl p-3 border border-[#30363d]">
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-2.5" />
+              <input
+                type="text"
+                value={modpackQuery}
+                onChange={(e) => setModpackQuery(e.target.value)}
+                placeholder={
+                  isDe
+                    ? 'Modpacks durchsuchen (z. B. ATM9, Better MC, Cobblemon, Vault Hunters)...'
+                    : 'Search modpacks (e.g. ATM9, Better MC, Cobblemon, Vault Hunters)...'
+                }
+                className="w-full bg-[#0d1117] border border-[#30363d] focus:border-indigo-500 rounded-xl pl-9 pr-10 py-2 text-xs text-white placeholder-slate-500 outline-none"
+              />
+              {isSearchingModpacks && (
+                <Loader2 className="w-4 h-4 text-indigo-400 animate-spin absolute right-3.5 top-2.5" />
+              )}
+            </div>
+          </div>
+
+          {/* Modpack Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredModpacks.map((pack) => {
+              const isInstalling = installingModpackId === pack.id;
+
+              return (
+                <div
+                  key={pack.id}
+                  className="p-5 rounded-2xl bg-[#11141a] border border-[#30363d] hover:border-indigo-500/50 transition-all flex flex-col justify-between space-y-4 group shadow-lg"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-3">
+                      <img
+                        src={pack.iconUrl}
+                        alt={pack.name}
+                        className="w-12 h-12 rounded-xl object-cover bg-[#0d1017] border border-[#30363d] shrink-0"
+                        onError={(e) => {
+                          (e.target as any).style.display = 'none';
+                        }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                            {pack.loader}
+                          </span>
+                          {pack.mcVersion && (
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#21262d] text-slate-300 border border-[#30363d]">
+                              MC {pack.mcVersion}
+                            </span>
+                          )}
+                        </div>
+                        <h3 className="text-sm font-bold text-white truncate group-hover:text-indigo-400 transition-colors">
+                          {pack.name}
+                        </h3>
+                        <p className="text-[10px] font-mono text-slate-400">
+                          by {pack.author} • {pack.downloads} DLs
+                        </p>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-slate-400 line-clamp-3 leading-relaxed">
+                      {pack.description}
+                    </p>
+
+                    <div className="flex items-center justify-between text-[11px] font-mono pt-1 text-slate-400">
+                      <span>Empf. RAM:</span>
+                      <span className="text-indigo-300 font-bold">{pack.recommendedRam}</span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1">
+                      {pack.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#0d1017] text-slate-400 border border-[#30363d]"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-[#30363d]/80 flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-mono text-slate-500 truncate">{pack.version}</span>
+
+                    <button
+                      type="button"
+                      onClick={() => handleInstallModpack(pack)}
+                      disabled={Boolean(installingModpackId) || backupInProgress}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-mono text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-sm active:scale-95 disabled:opacity-50 shrink-0 min-h-[36px]"
+                    >
+                      {isInstalling ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>{backupInProgress ? (isDe ? 'Backup...' : 'Backup...') : (isDe ? 'Installiere...' : 'Installing...')}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Download className="w-3.5 h-3.5" />
+                          <span>{isDe ? '1-Klick Install' : '1-Click Install'}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* VIEW 3: PLUGINS BROWSER */}
       {activeTab === 'plugins' && (
         <div className="space-y-4 animate-in fade-in duration-150">
           {/* Search bar */}
           <div className="bg-[#161b22] rounded-xl p-3 border border-[#30363d]">
-            <form onSubmit={handleSearchSubmit} className="flex gap-2">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const filtered = DEFAULT_POPULAR_PLUGINS.filter(
+                  (p) =>
+                    p.title.toLowerCase().includes(query.toLowerCase()) ||
+                    p.description.toLowerCase().includes(query.toLowerCase())
+                );
+                setPlugins(filtered.length > 0 ? filtered : DEFAULT_POPULAR_PLUGINS);
+              }}
+              className="flex gap-2"
+            >
               <div className="relative flex-1">
                 <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-2.5" />
                 <input
@@ -631,7 +1151,7 @@ export const PluginStoreTab: React.FC = () => {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder={
-                    language === 'de'
+                    isDe
                       ? 'Plugins durchsuchen (z. B. LuckPerms, EssentialsX, Chunky)...'
                       : 'Search plugins (e.g. LuckPerms, EssentialsX, Chunky)...'
                   }
@@ -642,7 +1162,7 @@ export const PluginStoreTab: React.FC = () => {
                 type="submit"
                 className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-sm shrink-0"
               >
-                {isLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : language === 'de' ? 'Suchen' : 'Search'}
+                {isDe ? 'Suchen' : 'Search'}
               </button>
             </form>
           </div>
@@ -666,7 +1186,7 @@ export const PluginStoreTab: React.FC = () => {
 
           {/* Plugin Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredList.map((item) => {
+            {plugins.map((item) => {
               const isInstalled = !!installedMap[item.project_id];
 
               return (
@@ -733,192 +1253,6 @@ export const PluginStoreTab: React.FC = () => {
                         <>
                           <Check className="w-3.5 h-3.5" />
                           <span>Installed</span>
-                        </>
-                      ) : (
-                        <>
-                          <Download className="w-3.5 h-3.5" />
-                          <span>1-Click Install</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* VIEW 2: 1-CLICK VERSION SWITCHER */}
-      {activeTab === 'versions' && (
-        <div className="space-y-4 animate-in fade-in duration-150">
-          <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-300 text-xs font-mono flex items-start gap-3">
-            <Zap className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-bold text-white mb-0.5">
-                {language === 'de' ? '1-Klick Software & Versionswechsel' : '1-Click Software & Version Switcher'}
-              </p>
-              <p className="text-slate-300">
-                {language === 'de'
-                  ? 'Lädt die offizielle Server-JAR herunter, ersetzt server.jar, akzeptiert automatisch eula.txt und optimiert die Container-Umgebung.'
-                  : 'Downloads official server JARs, replaces server.jar, automatically accepts eula.txt, and configures the runtime environment.'}
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {SOFTWARE_VERSION_PRESETS.map((preset) => {
-              const isInstalling = installingVersionId === preset.id;
-
-              return (
-                <div
-                  key={preset.id}
-                  className="p-5 rounded-2xl bg-[#11141a] border border-[#30363d] hover:border-indigo-500/40 transition-all flex flex-col justify-between space-y-4 group"
-                >
-                  <div className="space-y-2.5">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 uppercase">
-                            {preset.software}
-                          </span>
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-bold">
-                            {preset.badge}
-                          </span>
-                        </div>
-                        <h3 className="text-base font-bold text-white group-hover:text-indigo-400 transition-colors font-mono">
-                          {preset.name}
-                        </h3>
-                      </div>
-                      <span className="text-xs font-mono text-slate-400 bg-[#0d1117] px-2.5 py-1 rounded-lg border border-[#30363d]">
-                        {preset.recommendedJava}
-                      </span>
-                    </div>
-
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                      {preset.description}
-                    </p>
-                  </div>
-
-                  <div className="pt-3 border-t border-[#30363d]/80 flex items-center justify-between">
-                    <span className="text-[11px] font-mono text-slate-500">
-                      Destination: /server.jar
-                    </span>
-
-                    <button
-                      type="button"
-                      onClick={() => handleInstallVersion(preset)}
-                      disabled={Boolean(installingVersionId)}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl font-mono text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-sm active:scale-95 disabled:opacity-50"
-                    >
-                      {isInstalling ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          <span>Installing...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Download className="w-3.5 h-3.5" />
-                          <span>1-Click Switch</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* VIEW 3: 1-CLICK MODPACK INSTALLER */}
-      {activeTab === 'modpacks' && (
-        <div className="space-y-4 animate-in fade-in duration-150">
-          <div className="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/25 text-indigo-300 text-xs font-mono flex items-start gap-3">
-            <Gamepad2 className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-bold text-white mb-0.5">
-                {language === 'de' ? 'Vollautomatischer Modpack-Installer' : 'Automated 1-Click Modpack Installer'}
-              </p>
-              <p className="text-slate-300">
-                {language === 'de'
-                  ? 'Richtet komplette Modpack-Umgebungen (Forge, Fabric, NeoForge) inklusive Startkonfiguration und EULA schlüsselfertig ein.'
-                  : 'Provisions full modpack environments (Forge, Fabric, NeoForge) complete with startup flags, server jars, and accepted EULA.'}
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {MODPACK_PRESETS.map((pack) => {
-              const isInstalling = installingModpackId === pack.id;
-
-              return (
-                <div
-                  key={pack.id}
-                  className="p-5 rounded-2xl bg-[#11141a] border border-[#30363d] hover:border-indigo-500/50 transition-all flex flex-col justify-between space-y-4 group shadow-lg"
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-start gap-3">
-                      <img
-                        src={pack.iconUrl}
-                        alt={pack.name}
-                        className="w-12 h-12 rounded-xl object-cover bg-[#0d1017] border border-[#30363d] shrink-0"
-                        onError={(e) => {
-                          (e.target as any).style.display = 'none';
-                        }}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
-                            {pack.loader}
-                          </span>
-                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#21262d] text-slate-300 border border-[#30363d]">
-                            MC {pack.mcVersion}
-                          </span>
-                        </div>
-                        <h3 className="text-sm font-bold text-white truncate group-hover:text-indigo-400 transition-colors">
-                          {pack.name}
-                        </h3>
-                        <p className="text-[10px] font-mono text-slate-400">
-                          by {pack.author} • {pack.downloads} DLs
-                        </p>
-                      </div>
-                    </div>
-
-                    <p className="text-xs text-slate-400 line-clamp-3 leading-relaxed">
-                      {pack.description}
-                    </p>
-
-                    <div className="flex items-center justify-between text-[11px] font-mono pt-1 text-slate-400">
-                      <span>Rec. RAM:</span>
-                      <span className="text-indigo-300 font-bold">{pack.recommendedRam}</span>
-                    </div>
-
-                    <div className="flex flex-wrap gap-1">
-                      {pack.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#0d1017] text-slate-400 border border-[#30363d]"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="pt-3 border-t border-[#30363d]/80 flex items-center justify-between">
-                    <span className="text-[11px] font-mono text-slate-500">{pack.version}</span>
-
-                    <button
-                      type="button"
-                      onClick={() => handleInstallModpack(pack)}
-                      disabled={Boolean(installingModpackId)}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-mono text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-sm active:scale-95 disabled:opacity-50"
-                    >
-                      {isInstalling ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          <span>Installing...</span>
                         </>
                       ) : (
                         <>
