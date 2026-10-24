@@ -339,6 +339,7 @@ func SetupRouter(
 			nodesGroup.PATCH("/:id", nodeCtrl.UpdateNode)
 			nodesGroup.DELETE("/:id", nodeCtrl.DeleteNode)
 			nodesGroup.GET("/:id/configuration", nodeCtrl.GetConfiguration)
+			nodesGroup.POST("/:id/auto-provision", nodeCtrl.AutoProvision)
 		}
 
 		adminNodesGroup := apiGroup.Group("/admin/nodes")
@@ -350,7 +351,12 @@ func SetupRouter(
 			adminNodesGroup.PATCH("/:id", nodeCtrl.UpdateNode)
 			adminNodesGroup.DELETE("/:id", nodeCtrl.DeleteNode)
 			adminNodesGroup.GET("/:id/configuration", nodeCtrl.GetConfiguration)
+			adminNodesGroup.POST("/:id/auto-provision", nodeCtrl.AutoProvision)
 		}
+
+		// Public/Token-authenticated curl installer endpoint (supports ?token=... or session)
+		router.GET("/api/nodes/:id/install-script", nodeCtrl.GetInstallScript)
+		router.GET("/api/admin/nodes/:id/install-script", nodeCtrl.GetInstallScript)
 
 		// Account API (Settings, 2FA, API Keys, Activity)
 		accountGroup := apiGroup.Group("/account")

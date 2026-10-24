@@ -18,6 +18,11 @@ import {
   Server,
   Save,
   RefreshCw,
+  Zap,
+  Play,
+  CheckCircle2,
+  AlertTriangle,
+  Loader2,
 } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { DeleteConfirmModal } from '../common/DeleteConfirmModal';
@@ -87,6 +92,52 @@ export const AdminNodesView: React.FC = () => {
   } | null>(null);
   const [configLoading, setConfigLoading] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  // Wings Provisioning & Installation Modal State
+  const [configTab, setConfigTab] = useState<'ssh' | 'curl' | 'manual'>('ssh');
+  const [sshHost, setSshHost] = useState('');
+  const [sshPort, setSshPort] = useState('22');
+  const [sshUser, setSshUser] = useState('root');
+  const [sshPassword, setSshPassword] = useState('');
+  const [isProvisioning, setIsProvisioning] = useState(false);
+  const [provisionLogs, setProvisionLogs] = useState<string | null>(null);
+  const [provisionError, setProvisionError] = useState<string | null>(null);
+  const [provisionSuccess, setProvisionSuccess] = useState(false);
+
+  const handleAutoProvision = async () => {
+    if (!configNodeId) return;
+    setIsProvisioning(true);
+    setProvisionLogs(null);
+    setProvisionError(null);
+    setProvisionSuccess(false);
+
+    try {
+      const res = await fetch(`/api/nodes/${configNodeId}/auto-provision`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host: sshHost.trim(),
+          port: parseInt(sshPort, 10) || 22,
+          username: sshUser.trim() || 'root',
+          password: sshPassword,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setProvisionError(data.error || 'Provisioning failed');
+        if (data.logs) setProvisionLogs(data.logs);
+      } else {
+        setProvisionSuccess(true);
+        setProvisionLogs(data.logs || 'Installation finished successfully!');
+        refreshAdminData();
+      }
+    } catch (err: any) {
+      setProvisionError(err.message || 'Network error');
+    } finally {
+      setIsProvisioning(false);
+    }
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,6 +220,16 @@ export const AdminNodesView: React.FC = () => {
     setConfigNodeId(id);
     setConfigData(null);
     setConfigLoading(true);
+    setConfigTab('ssh');
+    setProvisionLogs(null);
+    setProvisionError(null);
+    setProvisionSuccess(false);
+
+    const target = adminNodes.find((n) => String(n.id) === String(id));
+    if (target) {
+      setSshHost(target.fqdn || '');
+    }
+
     try {
       const res = await api.nodes.configuration(id);
       setConfigData({ token_id: res.token_id, token: res.token, yaml: res.yaml });
@@ -799,16 +860,16 @@ export const AdminNodesView: React.FC = () => {
         </form>
       </Modal>
 
-      {/* ── Wings Configuration & Token Modal ── */}
+      {/* ── Wings Configuration & Automated Installer Modal ── */}
       <Modal
         isOpen={!!configNodeId}
         onClose={() => setConfigNodeId(null)}
-        title="Wings Daemon Configuration"
-        subtitle="Automatic configuration and authorization token for this node"
-        icon={<Terminal className="w-4 h-4 text-purple-400" />}
-        badge="CONFIG.YML"
+        title="Wings Daemon Installation & Setup"
+        subtitle="Automated provisioner, 1-line command, and configuration token"
+        icon={<Zap className="w-4 h-4 text-amber-400" />}
+        badge="AUTO-DEPLOY"
         badgeColor="purple"
-        maxWidth="lg"
+        maxWidth="2xl"
       >
         {configLoading ? (
           <div className="p-8 text-center text-xs font-mono text-slate-400">
@@ -816,72 +877,271 @@ export const AdminNodesView: React.FC = () => {
           </div>
         ) : configData ? (
           <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="p-3 bg-[#0d1117] rounded-xl border border-[#30363d]">
-                <span className="text-[10px] uppercase tracking-wider text-slate-500 block mb-1 font-mono">
-                  Token ID
-                </span>
-                <div className="flex items-center justify-between gap-2">
-                  <code className="text-[11px] font-mono text-slate-200 truncate">
-                    {configData.token_id}
-                  </code>
+            {/* Tab Navigation */}
+            <div className="flex border-b border-[#30363d] gap-2">
+              <button
+                onClick={() => setConfigTab('ssh')}
+                className={`flex items-center gap-2 px-3.5 py-2 text-xs font-mono font-medium border-b-2 transition-all ${
+                  configTab === 'ssh'
+                    ? 'border-amber-400 text-amber-300 bg-amber-400/10 rounded-t-lg'
+                    : 'border-transparent text-slate-400 hover:text-white'
+                }`}
+              >
+                <Zap className="w-3.5 h-3.5" />
+                <span>1-Click SSH Auto-Deploy</span>
+              </button>
+              <button
+                onClick={() => setConfigTab('curl')}
+                className={`flex items-center gap-2 px-3.5 py-2 text-xs font-mono font-medium border-b-2 transition-all ${
+                  configTab === 'curl'
+                    ? 'border-cyan-400 text-cyan-300 bg-cyan-400/10 rounded-t-lg'
+                    : 'border-transparent text-slate-400 hover:text-white'
+                }`}
+              >
+                <Terminal className="w-3.5 h-3.5" />
+                <span>1-Line Terminal Command</span>
+              </button>
+              <button
+                onClick={() => setConfigTab('manual')}
+                className={`flex items-center gap-2 px-3.5 py-2 text-xs font-mono font-medium border-b-2 transition-all ${
+                  configTab === 'manual'
+                    ? 'border-purple-400 text-purple-300 bg-purple-400/10 rounded-t-lg'
+                    : 'border-transparent text-slate-400 hover:text-white'
+                }`}
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                <span>Manual config.yml</span>
+              </button>
+            </div>
+
+            {/* TAB 1: 1-Click SSH Auto-Deploy */}
+            {configTab === 'ssh' && (
+              <div className="space-y-3.5">
+                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-200">
+                  <span className="font-bold flex items-center gap-1.5 mb-1">
+                    <Zap className="w-3.5 h-3.5" /> Vollautomatische Node-Installation via SSH
+                  </span>
+                  PteroNext verbindet sich direkt mit dem Zielserver, installiert Docker & Wings, hinterlegt die Konfiguration und startet den Daemon als Systemd-Dienst.
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] uppercase tracking-wider text-slate-400 block mb-1 font-mono">
+                      Server IP / FQDN
+                    </label>
+                    <input
+                      type="text"
+                      value={sshHost}
+                      onChange={(e) => setSshHost(e.target.value)}
+                      placeholder="z.B. 82.22.145.58 oder node2.pteronext.com"
+                      className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-xl text-xs font-mono text-white placeholder-slate-600 focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase tracking-wider text-slate-400 block mb-1 font-mono">
+                      SSH Port
+                    </label>
+                    <input
+                      type="number"
+                      value={sshPort}
+                      onChange={(e) => setSshPort(e.target.value)}
+                      placeholder="22"
+                      className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-xl text-xs font-mono text-white placeholder-slate-600 focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase tracking-wider text-slate-400 block mb-1 font-mono">
+                      SSH Benutzer
+                    </label>
+                    <input
+                      type="text"
+                      value={sshUser}
+                      onChange={(e) => setSshUser(e.target.value)}
+                      placeholder="root"
+                      className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-xl text-xs font-mono text-white placeholder-slate-600 focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase tracking-wider text-slate-400 block mb-1 font-mono">
+                      SSH Root Passwort
+                    </label>
+                    <input
+                      type="password"
+                      value={sshPassword}
+                      onChange={(e) => setSshPassword(e.target.value)}
+                      placeholder="••••••••••••"
+                      className="w-full px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-xl text-xs font-mono text-white placeholder-slate-600 focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2">
+                  <div className="text-[11px] text-slate-500 font-mono">
+                    Passwort wird nicht gespeichert und nur für die Installation verwendet.
+                  </div>
                   <button
-                    className="p-1 text-slate-400 hover:text-white"
-                    onClick={() => copyValue('Token ID', configData.token_id)}
+                    onClick={handleAutoProvision}
+                    disabled={isProvisioning || !sshHost || !sshPassword}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-mono text-xs font-bold transition-all shadow-lg shadow-amber-500/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {copiedField === 'Token ID' ? (
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    {isProvisioning ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Installiere Wings...</span>
+                      </>
                     ) : (
-                      <Copy className="w-3.5 h-3.5" />
+                      <>
+                        <Play className="w-3.5 h-3.5 fill-current" />
+                        <span>Wings jetzt automatisch installieren</span>
+                      </>
                     )}
                   </button>
                 </div>
-              </div>
 
-              <div className="p-3 bg-[#0d1117] rounded-xl border border-[#30363d]">
-                <span className="text-[10px] uppercase tracking-wider text-slate-500 block mb-1 font-mono">
-                  Daemon Token
-                </span>
-                <div className="flex items-center justify-between gap-2">
-                  <code className="text-[11px] font-mono text-slate-200 truncate">
-                    {configData.token}
-                  </code>
-                  <button
-                    className="p-1 text-slate-400 hover:text-white"
-                    onClick={() => copyValue('Token', configData.token)}
-                  >
-                    {copiedField === 'Token' ? (
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    ) : (
-                      <Copy className="w-3.5 h-3.5" />
-                    )}
-                  </button>
+                {provisionSuccess && (
+                  <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center gap-2 text-xs font-mono text-emerald-300">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Wings wurde erfolgreich installiert und der Daemon läuft aktiv!</span>
+                  </div>
+                )}
+
+                {provisionError && (
+                  <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-center gap-2 text-xs font-mono text-rose-300">
+                    <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span>{provisionError}</span>
+                  </div>
+                )}
+
+                {provisionLogs && (
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider text-slate-500 block mb-1 font-mono">
+                      Installations-Protokoll & Daemon Output:
+                    </span>
+                    <pre className="p-3 rounded-xl bg-[#0d1117] border border-[#30363d] text-[10px] font-mono text-slate-300 overflow-auto max-h-48 whitespace-pre-wrap leading-relaxed">
+                      {provisionLogs}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB 2: 1-Line Universal Command */}
+            {configTab === 'curl' && (
+              <div className="space-y-3.5">
+                <div className="p-3 bg-cyan-500/10 border border-cyan-500/20 rounded-xl text-xs text-cyan-200">
+                  <span className="font-bold flex items-center gap-1.5 mb-1">
+                    <Terminal className="w-3.5 h-3.5" /> 1-Klick Terminal-Befehl für den Server
+                  </span>
+                  Führe diesen Einzeiler per SSH auf deinem externen Server aus. Das Skript installiert Docker, lädt Wings herunter, hinterlegt die Konfiguration und startet den Dienst automatisch.
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 mb-1.5">
+                    <span>Universal Installer Befehl (als Root ausführen):</span>
+                    <button
+                      className="flex items-center gap-1 text-cyan-400 hover:text-cyan-300 font-bold"
+                      onClick={() =>
+                        copyValue(
+                          'Command',
+                          `curl -fsSL "https://panel.pteronext.com/api/nodes/${configNodeId}/install-script?token=${configData.token}" | sudo bash`
+                        )
+                      }
+                    >
+                      {copiedField === 'Command' ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                      <span>Befehl kopieren</span>
+                    </button>
+                  </div>
+                  <pre className="p-3.5 rounded-xl bg-[#0d1117] border border-[#30363d] text-[11px] font-mono text-cyan-300 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed">
+                    {`curl -fsSL "https://panel.pteronext.com/api/nodes/${configNodeId}/install-script?token=${configData.token}" | sudo bash`}
+                  </pre>
+                </div>
+
+                <div className="p-3 bg-[#0d1117] rounded-xl border border-[#30363d] space-y-1 text-[11px] font-mono text-slate-400">
+                  <span className="font-bold text-slate-300 block mb-1">Was dieser Befehl automatisch tut:</span>
+                  <div>1. Erkennt Betriebssystem & Prozessor-Architektur (x86_64 / arm64)</div>
+                  <div>2. Installiert und startet Docker (falls noch nicht vorhanden)</div>
+                  <div>3. Lädt das offizielle Wings-Binary herunter (`/usr/local/bin/wings`)</div>
+                  <div>4. Schreibt die node-spezifische `/etc/pterodactyl/config.yml`</div>
+                  <div>5. Erstellt den Systemd-Dienst `wings.service` und startet ihn sofort</div>
                 </div>
               </div>
-            </div>
+            )}
 
-            <div>
-              <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 mb-1.5">
-                <div className="flex items-center gap-1.5">
-                  <Terminal className="w-3.5 h-3.5" />
-                  <span>/etc/pterodactyl/config.yml</span>
+            {/* TAB 3: Manual config.yml */}
+            {configTab === 'manual' && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="p-3 bg-[#0d1117] rounded-xl border border-[#30363d]">
+                    <span className="text-[10px] uppercase tracking-wider text-slate-500 block mb-1 font-mono">
+                      Token ID
+                    </span>
+                    <div className="flex items-center justify-between gap-2">
+                      <code className="text-[11px] font-mono text-slate-200 truncate">
+                        {configData.token_id}
+                      </code>
+                      <button
+                        className="p-1 text-slate-400 hover:text-white"
+                        onClick={() => copyValue('Token ID', configData.token_id)}
+                      >
+                        {copiedField === 'Token ID' ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-[#0d1117] rounded-xl border border-[#30363d]">
+                    <span className="text-[10px] uppercase tracking-wider text-slate-500 block mb-1 font-mono">
+                      Daemon Token
+                    </span>
+                    <div className="flex items-center justify-between gap-2">
+                      <code className="text-[11px] font-mono text-slate-200 truncate">
+                        {configData.token}
+                      </code>
+                      <button
+                        className="p-1 text-slate-400 hover:text-white"
+                        onClick={() => copyValue('Token', configData.token)}
+                      >
+                        {copiedField === 'Token' ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <button
-                  className="flex items-center gap-1 text-slate-300 hover:text-white"
-                  onClick={() => copyValue('Configuration', configData.yaml)}
-                >
-                  {copiedField === 'Configuration' ? (
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  ) : (
-                    <Copy className="w-3.5 h-3.5" />
-                  )}
-                  <span>Copy config.yml</span>
-                </button>
+
+                <div>
+                  <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 mb-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <Terminal className="w-3.5 h-3.5" />
+                      <span>/etc/pterodactyl/config.yml</span>
+                    </div>
+                    <button
+                      className="flex items-center gap-1 text-slate-300 hover:text-white"
+                      onClick={() => copyValue('Configuration', configData.yaml)}
+                    >
+                      {copiedField === 'Configuration' ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                      <span>Copy config.yml</span>
+                    </button>
+                  </div>
+                  <pre className="p-3.5 rounded-xl bg-[#0d1117] border border-[#30363d] text-[11px] font-mono text-emerald-400 overflow-auto max-h-72 whitespace-pre-wrap leading-relaxed">
+                    {configData.yaml}
+                  </pre>
+                </div>
               </div>
-              <pre className="p-3.5 rounded-xl bg-[#0d1117] border border-[#30363d] text-[11px] font-mono text-emerald-400 overflow-auto max-h-72 whitespace-pre-wrap leading-relaxed">
-                {configData.yaml}
-              </pre>
-            </div>
+            )}
           </div>
         ) : null}
       </Modal>
