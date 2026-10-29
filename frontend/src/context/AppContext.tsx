@@ -170,7 +170,7 @@ function mapBackendServerToFrontend(bServer: BackendServer): Server {
     suspended: Boolean(bServer.suspended),
     owner: bServer.owner?.username || (bServer.owner_id ? `User #${bServer.owner_id}` : undefined),
     ownerEmail: bServer.owner?.email || '',
-    ownerId: bServer.owner_id || bServer.owner?.id,
+    ownerId: (bServer.owner_id || bServer.owner?.id) ? Number(bServer.owner_id || bServer.owner?.id) : undefined,
     nodeId: bServer.node_id || bServer.node?.id,
     identifier: bServer.identifier || '',
     tags: [category.toLowerCase(), bServer.identifier || 'ptero'],

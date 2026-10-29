@@ -59,7 +59,7 @@ export const ServerListView: React.FC = () => {
   const isMyServer = (server: Server) => {
     if (!currentUser) return true;
     if (server.ownerId && currentUser.id) {
-      return server.ownerId === currentUser.id;
+      return String(server.ownerId) === String(currentUser.id);
     }
     const username = currentUser.username?.toLowerCase();
     const email = currentUser.email?.toLowerCase();

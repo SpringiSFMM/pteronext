@@ -24,6 +24,7 @@ export const CreateServerModal: React.FC = () => {
     adminEggs,
     createServer,
     addToast,
+    currentUser,
   } = useApp();
   const { language } = useTranslation();
 
@@ -49,7 +50,8 @@ export const CreateServerModal: React.FC = () => {
       setStep(1);
       setName('');
       setDescription('');
-      if (adminUsers.length > 0) setOwnerId(adminUsers[0].id);
+      const defaultOwner = currentUser?.id ? String(currentUser.id) : (adminUsers.length > 0 ? String(adminUsers[0].id) : '');
+      setOwnerId(defaultOwner);
       setNodeId('auto');
       if (adminNests.length > 0) {
         setNestId(adminNests[0].id);
@@ -57,7 +59,7 @@ export const CreateServerModal: React.FC = () => {
         if (eggsForNest.length > 0) setEggId(eggsForNest[0].id);
       }
     }
-  }, [isCreateServerOpen, adminUsers, adminNodes, adminNests, adminEggs]);
+  }, [isCreateServerOpen]);
 
   // When nest changes, update available eggs
   const availableEggs = adminEggs.filter((e) => e.nestId === nestId);
@@ -87,6 +89,7 @@ export const CreateServerModal: React.FC = () => {
       const payload: any = {
         name: name.trim(),
         description: description.trim(),
+        owner_id: ownerId ? Number(ownerId) : undefined,
         node_id: nodeId === 'auto' ? 0 : Number(nodeId),
         egg_id: eggId ? Number(eggId) : undefined,
         nest_id: nestId ? Number(nestId) : undefined,
@@ -366,6 +369,15 @@ export const CreateServerModal: React.FC = () => {
                 <span className="text-white font-bold">{(memoryMB / 1024).toFixed(1)} GB RAM</span>
                 {swapMB > 0 && <span> + <span className="text-emerald-400 font-bold">{(swapMB / 1024).toFixed(1)} GB Swap</span></span>}.
               </p>
+              {(() => {
+                const selectedOwner = adminUsers.find((u) => String(u.id) === String(ownerId));
+                return (
+                  <p className="text-slate-400 text-[11px] pt-1 border-t border-white/5">
+                    <span className="text-slate-500">{language === 'de' ? 'Eigentümer: ' : 'Owner: '}</span>
+                    <span className="text-cyan-400 font-semibold">{selectedOwner ? `${selectedOwner.username} (${selectedOwner.email})` : `#${ownerId || 'Default'}`}</span>
+                  </p>
+                );
+              })()}
             </div>
           </div>
         )}

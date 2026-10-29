@@ -62,7 +62,7 @@ export const ServerCard: React.FC<ServerCardProps> = ({
   const isMine = (() => {
     if (!currentUser) return true;
     if (server.ownerId && currentUser.id) {
-      return server.ownerId === currentUser.id;
+      return String(server.ownerId) === String(currentUser.id);
     }
     const username = currentUser.username?.toLowerCase();
     const email = currentUser.email?.toLowerCase();
