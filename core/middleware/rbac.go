@@ -29,6 +29,32 @@ func RequireAdmin() gin.HandlerFunc {
 	}
 }
 
+// RequireAdminOrBetaFeature verifies that the requesting user is either a Root Administrator,
+// or a user with Beta Tester access to the given feature slug.
+func RequireAdminOrBetaFeature(featureSlug string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user, ok := GetRequestUser(c)
+		if !ok || user == nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
+
+		if user.RootAdmin || (user.Role != nil && strings.ToLower(user.Role.Name) == "administrator") {
+			c.Next()
+			return
+		}
+
+		if user.HasBetaFeature(featureSlug, "", "") {
+			c.Next()
+			return
+		}
+
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+			"error": "This action requires administrative privileges or beta access for: " + featureSlug,
+		})
+	}
+}
+
 // RequirePermission verifies role-based permission for a specific resource and action.
 func RequirePermission(resource, action string) gin.HandlerFunc {
 	return func(c *gin.Context) {

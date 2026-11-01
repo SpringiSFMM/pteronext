@@ -135,6 +135,39 @@ export const Sidebar: React.FC = () => {
   const isSteam = isSteamGame(selectedServer);
   const isVoiceApp = isVoice(selectedServer);
 
+  const isRootAdmin = Boolean(currentUser?.rootAdmin || currentUser?.role === 'root_admin');
+  const hasDiscordBotAccess = isRootAdmin || Boolean(
+    currentUser?.isBetaTester && (
+      currentUser.betaFeatures?.includes('discord_bot_mgmt') ||
+      currentUser.betaFeatures?.includes('*') ||
+      (currentUser.betaDiscordScope && currentUser.betaDiscordScope.length > 0)
+    )
+  );
+
+  const sectionsToRender = useMemo(() => {
+    const base = GLOBAL_SECTIONS.filter((section) => {
+      if (section.id === 'admin') {
+        return isRootAdmin;
+      }
+      return true;
+    });
+
+    if (!isRootAdmin && hasDiscordBotAccess) {
+      return [
+        ...base,
+        {
+          id: 'beta-features',
+          label: language === 'de' ? 'Beta Features' : 'Beta Features',
+          items: [
+            { id: 'admin-discord-bot' as any, label: 'Discord Bot', icon: Bot, hint: 'Beta' },
+          ],
+        },
+      ];
+    }
+
+    return base;
+  }, [isRootAdmin, hasDiscordBotAccess, language]);
+
   const getCategoryLabel = (id: string, defaultLabel: string) => {
     switch (id) {
       case 'core': return t('cat_operations_core');
@@ -143,6 +176,7 @@ export const Sidebar: React.FC = () => {
       case 'security': return t('cat_security_team');
       case 'platform': return t('cat_platform');
       case 'admin': return t('cat_administration');
+      case 'beta-features': return language === 'de' ? 'Beta-Funktionen' : 'Beta Features';
       default: return defaultLabel;
     }
   };
@@ -838,12 +872,7 @@ export const Sidebar: React.FC = () => {
         ) : (
           /* Global navigation – grouped & smooth collapsible accordions */
           <div className="space-y-3">
-            {GLOBAL_SECTIONS.filter((section) => {
-              if (section.id === 'admin') {
-                return currentUser.role === 'root_admin' || !!currentUser.rootAdmin;
-              }
-              return true;
-            }).map((section) => {
+            {sectionsToRender.map((section) => {
               const isCollapsed = collapsedCategories[section.id] ?? false;
 
               if (isSidebarCollapsed) {

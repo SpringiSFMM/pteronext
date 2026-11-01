@@ -254,7 +254,7 @@ func (s *ServerService) BuildWingsConfiguration(server *models.Server) WingsServ
 			Type:  "command",
 			Value: stopCmd,
 		},
-		Configs: []interface{}{},
+		Configs: s.buildWingsConfigs(server),
 	}
 
 	return WingsServerData{
@@ -262,6 +262,127 @@ func (s *ServerService) BuildWingsConfiguration(server *models.Server) WingsServ
 		Settings:             settings,
 		ProcessConfiguration: processConfig,
 	}
+}
+
+// buildWingsConfigs translates Egg.ConfigFiles and default server properties (e.g. Minecraft server-port)
+// into Wings-compatible ConfigurationFiles structures so Wings automatically adjusts ports on every startup.
+func (s *ServerService) buildWingsConfigs(server *models.Server) []interface{} {
+	configs := make([]interface{}, 0)
+	hasServerProperties := false
+
+	allocPort := 25565
+	allocIP := "0.0.0.0"
+	if server.Allocation != nil {
+		if server.Allocation.Port > 0 {
+			allocPort = server.Allocation.Port
+		}
+		if server.Allocation.IP != "" && server.Allocation.IP != "0.0.0.0" {
+			allocIP = server.Allocation.IP
+		}
+	}
+
+	// 1. Parse Egg.ConfigFiles if available
+	if server.Egg != nil && len(server.Egg.ConfigFiles) > 0 {
+		for filename, fileCfgRaw := range server.Egg.ConfigFiles {
+			if strings.EqualFold(filename, "server.properties") {
+				hasServerProperties = true
+			}
+
+			cfgMap, ok := fileCfgRaw.(map[string]interface{})
+			if !ok {
+				continue
+			}
+
+			parserType := "properties"
+			if p, ok := cfgMap["parser"].(string); ok && p != "" {
+				parserType = p
+			}
+
+			replaceSlice := make([]map[string]interface{}, 0)
+
+			// Pterodactyl format: find: { "key": "value" }
+			if findRaw, ok := cfgMap["find"].(map[string]interface{}); ok {
+				for matchKey, targetVal := range findRaw {
+					valStr := fmt.Sprintf("%v", targetVal)
+					valStr = strings.ReplaceAll(valStr, "{{server.build.default.port}}", fmt.Sprintf("%d", allocPort))
+					valStr = strings.ReplaceAll(valStr, "{{server.build.env.SERVER_PORT}}", fmt.Sprintf("%d", allocPort))
+					valStr = strings.ReplaceAll(valStr, "{{server.build.default.ip}}", allocIP)
+					valStr = strings.ReplaceAll(valStr, "{{server.build.env.SERVER_IP}}", allocIP)
+
+					replaceSlice = append(replaceSlice, map[string]interface{}{
+						"match":        matchKey,
+						"replace_with": valStr,
+					})
+				}
+			}
+
+			// Pterodactyl replacement format: replace: [ { match: "...", replace_with: "..." } ]
+			if repRaw, ok := cfgMap["replace"].([]interface{}); ok {
+				for _, r := range repRaw {
+					if rMap, ok := r.(map[string]interface{}); ok {
+						matchKey := fmt.Sprintf("%v", rMap["match"])
+						valStr := fmt.Sprintf("%v", rMap["replace_with"])
+						valStr = strings.ReplaceAll(valStr, "{{server.build.default.port}}", fmt.Sprintf("%d", allocPort))
+						valStr = strings.ReplaceAll(valStr, "{{server.build.env.SERVER_PORT}}", fmt.Sprintf("%d", allocPort))
+						valStr = strings.ReplaceAll(valStr, "{{server.build.default.ip}}", allocIP)
+						valStr = strings.ReplaceAll(valStr, "{{server.build.env.SERVER_IP}}", allocIP)
+
+						repItem := map[string]interface{}{
+							"match":        matchKey,
+							"replace_with": valStr,
+						}
+						if ifVal, ok := rMap["if_value"].(string); ok && ifVal != "" {
+							repItem["if_value"] = ifVal
+						}
+						replaceSlice = append(replaceSlice, repItem)
+					}
+				}
+			}
+
+			configs = append(configs, map[string]interface{}{
+				"file":    filename,
+				"parser":  parserType,
+				"replace": replaceSlice,
+			})
+		}
+	}
+
+	// 2. Ensure server.properties is always automatically updated for Minecraft-based servers
+	isMinecraft := false
+	if server.Egg != nil {
+		lowerName := strings.ToLower(server.Egg.Name + " " + server.Egg.GetCategory() + " " + server.Egg.Description)
+		if strings.Contains(lowerName, "minecraft") || strings.Contains(lowerName, "paper") || strings.Contains(lowerName, "purpur") || strings.Contains(lowerName, "spigot") || strings.Contains(lowerName, "forge") || strings.Contains(lowerName, "fabric") || strings.Contains(lowerName, "bungee") || strings.Contains(lowerName, "velocity") {
+			isMinecraft = true
+		}
+	} else {
+		lowerName := strings.ToLower(server.Name + " " + server.Startup + " " + server.Image)
+		if strings.Contains(lowerName, "minecraft") || strings.Contains(lowerName, "paper") || strings.Contains(lowerName, "server.jar") {
+			isMinecraft = true
+		}
+	}
+
+	if isMinecraft && !hasServerProperties {
+		configs = append(configs, map[string]interface{}{
+			"file":   "server.properties",
+			"parser": "properties",
+			"replace": []map[string]interface{}{
+				{
+					"match":        "server-port",
+					"replace_with": fmt.Sprintf("%d", allocPort),
+				},
+				{
+					"match":        "query.port",
+					"replace_with": fmt.Sprintf("%d", allocPort),
+				},
+				{
+					"match":        "server-ip",
+					"replace_with": "0.0.0.0",
+				},
+			},
+		})
+	}
+
+	return configs
 }
 
 func eggIDStr(server *models.Server) string {

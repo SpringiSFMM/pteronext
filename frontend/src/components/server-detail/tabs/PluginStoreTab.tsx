@@ -78,21 +78,21 @@ const DEFAULT_POPULAR_PLUGINS: ModrinthProject[] = [
     categories: ['paper', 'spigot', 'purpur', 'bukkit'],
   },
   {
-    project_id: 'kkmrDlKT',
+    project_id: 'P1OZGk5p',
     title: 'ViaVersion',
     author: 'ViaVersion',
     description: 'Allows newer Minecraft client versions to connect to older server versions.',
     downloads: 3410000,
-    icon_url: 'https://cdn.modrinth.com/data/kkmrDlKT/0270a312ba3cfa86144570faeb7f86ebcb3ff6f5_96.webp',
+    icon_url: 'https://cdn.modrinth.com/data/P1OZGk5p/icon.png',
     categories: ['paper', 'spigot', 'purpur', 'bukkit'],
   },
   {
-    project_id: 'Wnxd13Ac',
+    project_id: 'wKkoqHrH',
     title: 'Geyser-Spigot',
     author: 'GeyserMC',
     description: 'A bridge allowing Minecraft Bedrock Edition players to join your Java server.',
     downloads: 1980000,
-    icon_url: 'https://cdn.modrinth.com/data/Wnxd13Ac/05eef3ba50c33e21820a402379373cf570f7bb1e_96.webp',
+    icon_url: 'https://cdn.modrinth.com/data/wKkoqHrH/icon.png',
     categories: ['paper', 'spigot', 'purpur'],
   },
   {
@@ -105,21 +105,21 @@ const DEFAULT_POPULAR_PLUGINS: ModrinthProject[] = [
     categories: ['paper', 'spigot', 'purpur'],
   },
   {
-    project_id: '75j8o75A',
+    project_id: 'hXiIvTyT',
     title: 'EssentialsX',
     author: 'EssentialsX',
     description: 'The essential plugin suite providing teleportation, economy, homes, warps, and moderation.',
     downloads: 4120000,
-    icon_url: 'https://cdn.modrinth.com/data/75j8o75A/icon.png',
+    icon_url: 'https://cdn.modrinth.com/data/hXiIvTyT/icon.png',
     categories: ['paper', 'spigot', 'purpur', 'bukkit'],
   },
   {
-    project_id: '17595507',
+    project_id: '1u6JkXh5',
     title: 'WorldEdit',
     author: 'EngineHub',
     description: 'In-game Minecraft map editor allowing fast terrain sculpting and block manipulation.',
     downloads: 6540000,
-    icon_url: 'https://cdn.modrinth.com/data/17595507/icon.png',
+    icon_url: 'https://cdn.modrinth.com/data/1u6JkXh5/icon.png',
     categories: ['paper', 'spigot', 'purpur', 'bukkit'],
   },
 ];
@@ -732,10 +732,10 @@ export const PluginStoreTab: React.FC = () => {
       if (downloadUrl) {
         await api.files.downloadRemote(selectedServer.uuid, '/plugins', filename, downloadUrl);
       } else {
-        await api.files.saveContent(
-          selectedServer.uuid,
-          `/plugins/${filename}`,
-          `# ${plugin.title} placeholder - restart container to load jar`
+        throw new Error(
+          language === 'de'
+            ? `Kein kompatibler Download für ${plugin.title} gefunden.`
+            : `Could not find a compatible build for ${plugin.title} on Modrinth.`
         );
       }
 

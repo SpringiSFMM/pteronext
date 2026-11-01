@@ -9,8 +9,44 @@ import (
 	"gorm.io/gorm"
 )
 
+// EnsureRoles ensures standard RBAC roles (Administrator, Member, Beta Tester) exist.
+func EnsureRoles(db *gorm.DB) error {
+	roles := []models.Role{
+		{
+			Name:        "Administrator",
+			Description: "Full administrative access to the entire panel ecosystem",
+		},
+		{
+			Name:        "Member",
+			Description: "Standard server management permissions",
+		},
+		{
+			Name:        "Beta Tester",
+			Description: "Early preview access to experimental features, preview APIs and canary tools",
+		},
+	}
+
+	for _, r := range roles {
+		var role models.Role
+		if err := db.Where("name = ?", r.Name).First(&role).Error; err != nil {
+			role = r
+			if err := db.Create(&role).Error; err != nil {
+				log.Printf("[DB WARN] Failed creating role %s: %v", r.Name, err)
+				continue
+			}
+			log.Printf("[DB] Created role: %s (ID: %d)", role.Name, role.ID)
+		}
+	}
+	return nil
+}
+
 // SeedDatabase inserts initial roles, default admin user, default node, allocation and demo server.
 func SeedDatabase(db *gorm.DB) error {
+	// Always ensure standard roles exist
+	if err := EnsureRoles(db); err != nil {
+		log.Printf("[DB WARN] EnsureRoles: %v", err)
+	}
+
 	var userCount int64
 	db.Model(&models.User{}).Count(&userCount)
 	if userCount > 0 {

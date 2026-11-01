@@ -133,6 +133,7 @@ const STORAGE_KEY = 'pteronext_admin_status_pages';
 export const AdminStatusPagesView: React.FC = () => {
   const { addToast } = useApp();
   const { language } = useTranslation();
+  const isDe = language === 'de';
 
   const [pages, setPages] = useState<StatusPageItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -240,13 +241,13 @@ export const AdminStatusPagesView: React.FC = () => {
 
   // Handle open Create Modal
   const handleOpenCreate = () => {
-    if (pages.length >= 1) {
+    if (pages.length >= 10) {
       addToast({
         title: language === 'de' ? 'Panel-Limit erreicht' : 'Limit Reached',
         description:
           language === 'de'
-            ? 'Pro Panel-Instanz ist maximal 1 Status-Seite erlaubt, um Server-Ressourcen zu schonen. Du kannst die bestehende Seite jederzeit bearbeiten.'
-            : 'Maximum 1 status page per panel instance allowed to conserve infrastructure resources. You can edit the existing page anytime.',
+            ? 'Maximal 10 Statusseiten pro Panel-Instanz erlaubt.'
+            : 'Maximum 10 status pages per panel instance allowed.',
         type: 'warning',
       });
       return;
@@ -429,13 +430,13 @@ export const AdminStatusPagesView: React.FC = () => {
       return;
     }
 
-    if (!editingPage && pages.length >= 1) {
+    if (!editingPage && pages.length >= 10) {
       addToast({
         title: language === 'de' ? 'Limit erreicht' : 'Limit Reached',
         description:
           language === 'de'
-            ? 'Pro Panel-Instanz ist maximal 1 Statusseite erlaubt.'
-            : 'Maximum 1 status page per panel allowed.',
+            ? 'Maximal 10 Statusseiten pro Panel-Instanz erlaubt.'
+            : 'Maximum 10 status pages per panel instance allowed.',
         type: 'error',
       });
       return;
@@ -791,7 +792,7 @@ export const AdminStatusPagesView: React.FC = () => {
   const handleAddComponent = () => {
     const newComp: StatusComponent = {
       id: `cmp_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-      name: 'Neuer Dienst',
+      name: language === 'de' ? 'Neuer Dienst' : 'New Service',
       target: '',
       status: 'operational',
       uptime_90d: 99.99,
@@ -841,11 +842,19 @@ export const AdminStatusPagesView: React.FC = () => {
             Uptime & Status Pages
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 max-w-2xl mt-1">
-            Verwalte gehostete Statusseiten unter{' '}
-            <span className="text-cyan-400 font-mono">
-              pteronext.com/status/&#123;project&#125;
-            </span>{' '}
-            mit automatischer Latenz- & Verfügbarkeitsprüfung, Discord Webhooks und Vorfallsberichten.
+            {isDe ? (
+              <>
+                Verwalte gehostete Statusseiten unter{' '}
+                <span className="text-cyan-400 font-mono">pteronext.com/status/&#123;project&#125;</span>{' '}
+                mit automatischer Latenz- & Verfügbarkeitsprüfung, Discord Webhooks und Vorfallsberichten.
+              </>
+            ) : (
+              <>
+                Manage hosted status pages under{' '}
+                <span className="text-cyan-400 font-mono">pteronext.com/status/&#123;project&#125;</span>{' '}
+                with automated latency & availability checks, Discord webhooks, and incident reports.
+              </>
+            )}
           </p>
         </div>
 
@@ -853,22 +862,23 @@ export const AdminStatusPagesView: React.FC = () => {
           <button
             onClick={() => fetchPages()}
             className="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 border border-slate-700/60 transition-all hover:text-white"
-            title="Aktualisieren"
+            title={isDe ? 'Aktualisieren' : 'Refresh'}
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
-          {pages.length >= 1 ? (
+          {pages.length > 0 && (
             <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800/80 border border-slate-700/60 text-slate-300 text-xs font-mono shadow-sm">
               <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#10b981]" />
-              <span className="text-slate-400">Limit: <strong className="text-white">1/1</strong> Statusseite</span>
+              <span className="text-slate-400">Limit: <strong className="text-white">{pages.length}/10</strong> {isDe ? 'Statusseiten' : 'Status Pages'}</span>
             </div>
-          ) : (
+          )}
+          {pages.length < 10 && (
             <button
               onClick={handleOpenCreate}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white text-xs font-bold font-mono transition-all shadow-[0_0_20px_rgba(6,182,212,0.3)] active:scale-95"
             >
               <Plus className="w-4 h-4" />
-              <span>{language === 'de' ? 'Statusseite erstellen' : 'Create Status Page'}</span>
+              <span>{isDe ? 'Statusseite erstellen' : 'Create Status Page'}</span>
             </button>
           )}
         </div>
@@ -879,7 +889,9 @@ export const AdminStatusPagesView: React.FC = () => {
         <div className="p-4 rounded-2xl bg-[#0d1117]/80 backdrop-blur-xl border border-white/[0.08] relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
           <div className="flex items-center justify-between">
-            <span className="text-xs font-mono uppercase tracking-wider text-slate-400">Aktive Statusseiten</span>
+            <span className="text-xs font-mono uppercase tracking-wider text-slate-400">
+              {isDe ? 'Aktive Statusseiten' : 'Active Status Pages'}
+            </span>
             <div className="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
               <Globe className="w-4 h-4" />
             </div>
@@ -888,14 +900,18 @@ export const AdminStatusPagesView: React.FC = () => {
             <span className="text-2xl font-bold font-mono text-white">
               {pages.filter((p) => p.is_active).length}
             </span>
-            <span className="text-[11px] font-mono text-emerald-400">von {pages.length} Online</span>
+            <span className="text-[11px] font-mono text-emerald-400">
+              {isDe ? `von ${pages.length} Online` : `of ${pages.length} Online`}
+            </span>
           </div>
         </div>
 
         <div className="p-4 rounded-2xl bg-[#0d1117]/80 backdrop-blur-xl border border-white/[0.08] relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
           <div className="flex items-center justify-between">
-            <span className="text-xs font-mono uppercase tracking-wider text-slate-400">Gemonitorte Dienste</span>
+            <span className="text-xs font-mono uppercase tracking-wider text-slate-400">
+              {isDe ? 'Gemonitorte Dienste' : 'Monitored Services'}
+            </span>
             <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
               <Server className="w-4 h-4" />
             </div>
@@ -904,7 +920,9 @@ export const AdminStatusPagesView: React.FC = () => {
             <span className="text-2xl font-bold font-mono text-white">
               {pages.reduce((acc, p) => acc + (p.components?.length || 0), 0)}
             </span>
-            <span className="text-[11px] font-mono text-slate-400">Services & Nodes</span>
+            <span className="text-[11px] font-mono text-slate-400">
+              {isDe ? 'Dienste & Nodes' : 'Services & Nodes'}
+            </span>
           </div>
         </div>
 
@@ -920,14 +938,18 @@ export const AdminStatusPagesView: React.FC = () => {
             <span className="text-2xl font-bold font-mono text-white">
               {pages.filter((p) => Boolean(p.discord_webhook_url)).length}
             </span>
-            <span className="text-[11px] font-mono text-indigo-400">Webhooks aktiv</span>
+            <span className="text-[11px] font-mono text-indigo-400">
+              {isDe ? 'Webhooks aktiv' : 'Webhooks active'}
+            </span>
           </div>
         </div>
 
         <div className="p-4 rounded-2xl bg-[#0d1117]/80 backdrop-blur-xl border border-white/[0.08] relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/10 rounded-full blur-2xl pointer-events-none" />
           <div className="flex items-center justify-between">
-            <span className="text-xs font-mono uppercase tracking-wider text-slate-400">Aktive Vorfälle</span>
+            <span className="text-xs font-mono uppercase tracking-wider text-slate-400">
+              {isDe ? 'Aktive Vorfälle' : 'Active Incidents'}
+            </span>
             <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400">
               <Flame className="w-4 h-4" />
             </div>
@@ -943,7 +965,9 @@ export const AdminStatusPagesView: React.FC = () => {
                 0
               )}
             </span>
-            <span className="text-[11px] font-mono text-emerald-400">Störungsüberwachung</span>
+            <span className="text-[11px] font-mono text-emerald-400">
+              {isDe ? 'Störungsüberwachung' : 'Incident Monitoring'}
+            </span>
           </div>
         </div>
       </div>
@@ -957,7 +981,7 @@ export const AdminStatusPagesView: React.FC = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={
-              language === 'de'
+              isDe
                 ? 'Statusseite suchen (Name, Slug, Beschreibung)...'
                 : 'Search status pages by name, slug...'
             }
@@ -965,7 +989,7 @@ export const AdminStatusPagesView: React.FC = () => {
           />
         </div>
         <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
-          <span>{filteredPages.length} von {pages.length} Seiten</span>
+          <span>{isDe ? `${filteredPages.length} von ${pages.length} Seiten` : `${filteredPages.length} of ${pages.length} pages`}</span>
         </div>
       </div>
 
@@ -981,18 +1005,22 @@ export const AdminStatusPagesView: React.FC = () => {
           <div className="mx-auto w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mb-3 text-cyan-400">
             <Radio className="w-6 h-6" />
           </div>
-          <h3 className="text-base font-semibold text-white">Keine Statusseiten gefunden</h3>
+          <h3 className="text-base font-semibold text-white">
+            {isDe ? 'Keine Statusseiten gefunden' : 'No status pages found'}
+          </h3>
           <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
             {search
-              ? 'Kein Eintrag entspricht deinen Suchkriterien.'
-              : 'Erstelle jetzt deine erste gehostete Uptime-Seite mit Live-Verfügbarkeitsprüfungen unter pteronext.com/status/{project}.'}
+              ? (isDe ? 'Kein Eintrag entspricht deinen Suchkriterien.' : 'No entries match your search criteria.')
+              : (isDe
+                  ? 'Erstelle jetzt deine erste gehostete Uptime-Seite mit Live-Verfügbarkeitsprüfungen unter pteronext.com/status/{project}.'
+                  : 'Create your first hosted uptime page with live availability checks under pteronext.com/status/{project}.')}
           </p>
           {pages.length < 1 && (
             <button
               onClick={handleOpenCreate}
               className="mt-4 px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-bold font-mono transition-all"
             >
-              Jetzt Statusseite anlegen
+              {isDe ? 'Jetzt Statusseite anlegen' : 'Create Status Page Now'}
             </button>
           )}
         </div>
@@ -1046,7 +1074,9 @@ export const AdminStatusPagesView: React.FC = () => {
                             : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
                         }`}
                       >
-                        {page.is_active ? 'Aktiv (Online)' : 'Deaktiviert (Offline)'}
+                        {page.is_active
+                          ? (isDe ? 'Aktiv (Online)' : 'Active (Online)')
+                          : (isDe ? 'Deaktiviert (Offline)' : 'Disabled (Offline)')}
                       </span>
 
                       {/* Discord Webhook indicator */}
@@ -1057,7 +1087,7 @@ export const AdminStatusPagesView: React.FC = () => {
                         </span>
                       ) : (
                         <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800/60 text-slate-400 border border-slate-700/60">
-                          Kein Webhook
+                          {isDe ? 'Kein Webhook' : 'No Webhook'}
                         </span>
                       )}
 
@@ -1065,7 +1095,9 @@ export const AdminStatusPagesView: React.FC = () => {
                       {activeIncidents.length > 0 && (
                         <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/40 animate-pulse flex items-center gap-1">
                           <Flame className="w-3 h-3" />
-                          {activeIncidents.length} Vorfall aktiv
+                          {isDe
+                            ? `${activeIncidents.length} ${activeIncidents.length === 1 ? 'Vorfall aktiv' : 'Vorfälle aktiv'}`
+                            : `${activeIncidents.length} ${activeIncidents.length === 1 ? 'incident active' : 'incidents active'}`}
                         </span>
                       )}
                     </div>
@@ -1078,7 +1110,7 @@ export const AdminStatusPagesView: React.FC = () => {
                         <button
                           onClick={() => handleCopyLink(page.slug, statusUrl)}
                           className="text-slate-500 hover:text-white transition-colors ml-1"
-                          title="URL kopieren"
+                          title={isDe ? 'URL kopieren' : 'Copy URL'}
                         >
                           {copiedSlug === page.slug ? (
                             <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -1094,14 +1126,14 @@ export const AdminStatusPagesView: React.FC = () => {
                         rel="noreferrer"
                         className="text-cyan-400 hover:underline flex items-center gap-1 text-[11px]"
                       >
-                        <span>Öffnen</span>
+                        <span>{isDe ? 'Öffnen' : 'Open'}</span>
                         <ExternalLink className="w-3 h-3" />
                       </a>
                     </div>
 
                     {/* Description */}
                     <p className="text-xs text-slate-300 line-clamp-2 max-w-3xl">
-                      {language === 'de'
+                      {isDe
                         ? page.description_de || page.description_en || 'Keine Beschreibung hinterlegt.'
                         : page.description_en || page.description_de || 'No description provided.'}
                     </p>
@@ -1110,7 +1142,7 @@ export const AdminStatusPagesView: React.FC = () => {
                     <div className="pt-2 flex flex-wrap items-center gap-2">
                       <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1">
                         <Layers className="w-3 h-3 text-slate-400" />
-                        {page.components?.length || 0} Dienste:
+                        {isDe ? `${page.components?.length || 0} Dienste:` : `${page.components?.length || 0} Services:`}
                       </span>
                       {page.components?.slice(0, 5).map((cmp) => (
                         <span
@@ -1137,7 +1169,7 @@ export const AdminStatusPagesView: React.FC = () => {
                       ))}
                       {(page.components?.length || 0) > 5 && (
                         <span className="text-[10px] font-mono text-slate-400">
-                          +{(page.components?.length || 0) - 5} weitere
+                          {isDe ? `+${(page.components?.length || 0) - 5} weitere` : `+${(page.components?.length || 0) - 5} more`}
                         </span>
                       )}
                     </div>
@@ -1152,7 +1184,7 @@ export const AdminStatusPagesView: React.FC = () => {
                           onClick={() => handleTestWebhook(page)}
                           disabled={testingWebhookId === page.id}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-xs font-mono font-medium transition-all"
-                          title="Discord Webhook Test senden"
+                          title={isDe ? 'Discord Webhook Test senden' : 'Send Discord webhook test'}
                         >
                           <Send className={`w-3.5 h-3.5 ${testingWebhookId === page.id ? 'animate-spin' : ''}`} />
                           <span>Webhook Test</span>
@@ -1163,10 +1195,10 @@ export const AdminStatusPagesView: React.FC = () => {
                       <button
                         onClick={() => handleOpenIncident(page)}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-mono font-medium transition-all"
-                        title="Neuen Vorfall oder Wartung ankündigen"
+                        title={isDe ? 'Neuen Vorfall oder Wartung ankündigen' : 'Announce incident or maintenance'}
                       >
                         <Flame className="w-3.5 h-3.5 text-rose-400" />
-                        <span>Vorfall posten</span>
+                        <span>{isDe ? 'Vorfall posten' : 'Post Incident'}</span>
                       </button>
                     </div>
 
@@ -1177,7 +1209,7 @@ export const AdminStatusPagesView: React.FC = () => {
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-mono font-medium transition-all"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
-                        <span>Bearbeiten</span>
+                        <span>{isDe ? 'Bearbeiten' : 'Edit'}</span>
                       </button>
 
                       {/* Toggle Active Button */}
@@ -1188,17 +1220,25 @@ export const AdminStatusPagesView: React.FC = () => {
                             ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/30'
                             : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
                         }`}
-                        title={page.is_active ? 'Statusseite pausieren/deaktivieren' : 'Statusseite online schalten'}
+                        title={
+                          page.is_active
+                            ? (isDe ? 'Statusseite pausieren/deaktivieren' : 'Pause/disable status page')
+                            : (isDe ? 'Statusseite online schalten' : 'Bring status page online')
+                        }
                       >
                         <Power className="w-3.5 h-3.5" />
-                        <span>{page.is_active ? 'Deaktivieren' : 'Aktivieren'}</span>
+                        <span>
+                          {page.is_active
+                            ? (isDe ? 'Deaktivieren' : 'Disable')
+                            : (isDe ? 'Aktivieren' : 'Enable')}
+                        </span>
                       </button>
 
                       {/* Delete Button */}
                       <button
                         onClick={() => handleDeletePage(page)}
                         className="p-1.5 rounded-xl bg-slate-800/40 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-slate-700/50 hover:border-rose-500/40 transition-all"
-                        title="Statusseite löschen"
+                        title={isDe ? 'Statusseite löschen' : 'Delete status page'}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -1262,18 +1302,20 @@ export const AdminStatusPagesView: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-mono font-medium text-slate-300 mb-1.5">
-                Eindeutiger Projektname <span className="text-cyan-400">*</span>
+                {isDe ? 'Eindeutiger Projektname' : 'Unique Project Name'} <span className="text-cyan-400">*</span>
               </label>
               <input
                 type="text"
                 required
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
-                placeholder="z. B. PteroNext Cloud Infrastructure"
+                placeholder={isDe ? 'z. B. PteroNext Cloud Infrastructure' : 'e.g. PteroNext Cloud Infrastructure'}
                 className="w-full px-3 py-2 bg-[#161b22] border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono"
               />
               <p className="text-[11px] text-slate-500 mt-1">
-                Jeder Name darf im Netzwerk nur einmal vergeben sein.
+                {isDe
+                  ? 'Jeder Name darf im Netzwerk nur einmal vergeben sein.'
+                  : 'Each name must be unique across the network.'}
               </p>
             </div>
 
@@ -1290,12 +1332,12 @@ export const AdminStatusPagesView: React.FC = () => {
                   required
                   value={formSlug}
                   onChange={(e) => setFormSlug(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '-'))}
-                  placeholder="mein-projekt"
+                  placeholder={isDe ? 'mein-projekt' : 'my-project'}
                   className="w-full px-3 py-2 bg-[#161b22] border border-slate-700 rounded-r-xl text-xs text-cyan-300 placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono"
                 />
               </div>
               <p className="text-[11px] text-slate-500 mt-1">
-                Direkter öffentlicher Pfad zur Statusseite.
+                {isDe ? 'Direkter öffentlicher Pfad zur Statusseite.' : 'Direct public path to the status page.'}
               </p>
             </div>
           </div>
@@ -1304,7 +1346,7 @@ export const AdminStatusPagesView: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-mono font-medium text-slate-300 mb-1.5">
-                Beschreibung (Deutsch)
+                {isDe ? 'Beschreibung (Deutsch)' : 'Description (German)'}
               </label>
               <textarea
                 rows={2}
@@ -1317,7 +1359,7 @@ export const AdminStatusPagesView: React.FC = () => {
 
             <div>
               <label className="block text-xs font-mono font-medium text-slate-300 mb-1.5">
-                Description (English)
+                {isDe ? 'Beschreibung (Englisch)' : 'Description (English)'}
               </label>
               <textarea
                 rows={2}
@@ -1333,7 +1375,7 @@ export const AdminStatusPagesView: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-[#0d1117] border border-slate-800">
             <div>
               <label className="block text-xs font-mono font-medium text-slate-300 mb-2">
-                Akzentfarbe / Branding-Theme
+                {isDe ? 'Akzentfarbe / Branding-Theme' : 'Accent Color / Branding Theme'}
               </label>
               <div className="grid grid-cols-3 gap-2">
                 {(Object.keys(THEME_PRESETS) as Array<StatusPageItem['theme_color']>).map((col) => {
@@ -1360,7 +1402,7 @@ export const AdminStatusPagesView: React.FC = () => {
 
             <div className="flex flex-col justify-center">
               <label className="block text-xs font-mono font-medium text-slate-300 mb-2">
-                Veröffentlichungsstatus
+                {isDe ? 'Veröffentlichungsstatus' : 'Publishing Status'}
               </label>
               <div className="flex items-center gap-3">
                 <button
@@ -1377,7 +1419,9 @@ export const AdminStatusPagesView: React.FC = () => {
                   />
                 </button>
                 <span className="text-xs font-mono text-slate-300">
-                  {formIsActive ? 'Öffentlich erreichbar (Online)' : 'Deaktiviert (Privat / Wartung)'}
+                  {formIsActive
+                    ? (isDe ? 'Öffentlich erreichbar (Online)' : 'Publicly accessible (Online)')
+                    : (isDe ? 'Deaktiviert (Privat / Wartung)' : 'Disabled (Private / Maintenance)')}
                 </span>
               </div>
             </div>
@@ -1388,7 +1432,7 @@ export const AdminStatusPagesView: React.FC = () => {
             <div className="flex items-center justify-between">
               <label className="text-xs font-mono font-medium text-slate-300 flex items-center gap-2">
                 <Bell className="w-3.5 h-3.5 text-indigo-400" />
-                Discord Webhook Benachrichtigungen
+                {isDe ? 'Discord Webhook Benachrichtigungen' : 'Discord Webhook Notifications'}
               </label>
               {formWebhook && (
                 <button
@@ -1403,7 +1447,7 @@ export const AdminStatusPagesView: React.FC = () => {
                   className="text-[11px] font-mono text-indigo-400 hover:text-indigo-300 hover:underline flex items-center gap-1"
                 >
                   <Send className="w-3 h-3" />
-                  <span>Webhook testen</span>
+                  <span>{isDe ? 'Webhook testen' : 'Test Webhook'}</span>
                 </button>
               )}
             </div>
@@ -1415,7 +1459,9 @@ export const AdminStatusPagesView: React.FC = () => {
               className="w-full px-3 py-2 bg-[#161b22] border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono"
             />
             <p className="text-[11px] text-slate-400">
-              Automatische Embed-Updates werden bei Statusänderungen oder neuen Vorfällen in diesen Discord-Kanal gepostet.
+              {isDe
+                ? 'Automatische Embed-Updates werden bei Statusänderungen oder neuen Vorfällen in diesen Discord-Kanal gepostet.'
+                : 'Automated embed updates will be posted to this Discord channel on status changes or incidents.'}
             </p>
           </div>
 
@@ -1425,10 +1471,14 @@ export const AdminStatusPagesView: React.FC = () => {
               <div>
                 <h4 className="text-xs font-mono font-bold text-white uppercase tracking-wider flex items-center gap-2">
                   <Zap className="w-4 h-4 text-cyan-400" />
-                  Gemonitorte Dienste & Komponenten ({formComponents.length})
+                  {isDe
+                    ? `Gemonitorte Dienste & Komponenten (${formComponents.length})`
+                    : `Monitored Services & Components (${formComponents.length})`}
                 </h4>
                 <p className="text-[11px] text-slate-400">
-                  Uptime wird über echte Ping/HTTP-Prüfungen gemessen (keine manuellen Fantasiezahlen).
+                  {isDe
+                    ? 'Uptime wird über echte Ping/HTTP-Prüfungen gemessen (keine manuellen Fantasiezahlen).'
+                    : 'Uptime is measured via real ping/HTTP checks (no manual guesswork).'}
                 </p>
               </div>
               <button
@@ -1437,7 +1487,7 @@ export const AdminStatusPagesView: React.FC = () => {
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-mono transition-all"
               >
                 <Plus className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Dienst hinzufügen</span>
+                <span>{isDe ? 'Dienst hinzufügen' : 'Add Service'}</span>
               </button>
             </div>
 
@@ -1453,7 +1503,7 @@ export const AdminStatusPagesView: React.FC = () => {
                       type="text"
                       value={cmp.name}
                       onChange={(e) => handleUpdateComponent(idx, { name: e.target.value })}
-                      placeholder="Name (z. B. Wings Node 1)"
+                      placeholder={isDe ? 'Name (z. B. Wings Node 1)' : 'Name (e.g. Wings Node 1)'}
                       className="flex-1 min-w-[130px] px-2.5 py-1.5 bg-[#0d1117] border border-slate-700 rounded-lg text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
                     />
 
@@ -1462,7 +1512,7 @@ export const AdminStatusPagesView: React.FC = () => {
                       type="text"
                       value={cmp.target || ''}
                       onChange={(e) => handleUpdateComponent(idx, { target: e.target.value })}
-                      placeholder="Host:Port oder URL (z. B. wings.pteronext.com:8080)"
+                      placeholder={isDe ? 'Host:Port oder URL (z. B. wings.pteronext.com:8080)' : 'Host:Port or URL (e.g. wings.pteronext.com:8080)'}
                       className="flex-1 min-w-[160px] px-2.5 py-1.5 bg-[#0d1117] border border-slate-700 rounded-lg text-xs text-cyan-300 font-mono focus:outline-none focus:border-cyan-500"
                     />
 
@@ -1484,10 +1534,14 @@ export const AdminStatusPagesView: React.FC = () => {
                       onClick={() => handleCheckComponent(idx)}
                       disabled={checkingCompIdx === idx}
                       className="px-2.5 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-mono flex items-center gap-1.5 transition-all shrink-0"
-                      title="Dienst jetzt anpingen / prüfen"
+                      title={isDe ? 'Dienst jetzt anpingen / prüfen' : 'Ping / check service now'}
                     >
                       <Zap className={`w-3.5 h-3.5 text-cyan-400 ${checkingCompIdx === idx ? 'animate-spin' : ''}`} />
-                      <span>{checkingCompIdx === idx ? 'Prüfe...' : '⚡ Prüfen'}</span>
+                      <span>
+                        {checkingCompIdx === idx
+                          ? (isDe ? 'Prüfe...' : 'Checking...')
+                          : (isDe ? '⚡ Prüfen' : '⚡ Check')}
+                      </span>
                     </button>
 
                     {/* Delete button */}
@@ -1495,7 +1549,7 @@ export const AdminStatusPagesView: React.FC = () => {
                       type="button"
                       onClick={() => handleRemoveComponent(idx)}
                       className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors shrink-0"
-                      title="Dienst entfernen"
+                      title={isDe ? 'Dienst entfernen' : 'Remove service'}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -1523,16 +1577,20 @@ export const AdminStatusPagesView: React.FC = () => {
                         <span className="text-cyan-400">Ping: {cmp.latency_ms}ms</span>
                       )}
 
-                      <span className="text-emerald-400">Verfügbarkeit: {cmp.uptime_90d}%</span>
+                      <span className="text-emerald-400">
+                        {isDe ? `Verfügbarkeit: ${cmp.uptime_90d}%` : `Uptime: ${cmp.uptime_90d}%`}
+                      </span>
 
                       {cmp.last_verified && (
-                        <span className="text-slate-500">Geprüft um: {cmp.last_verified}</span>
+                        <span className="text-slate-500">
+                          {isDe ? `Geprüft um: ${cmp.last_verified}` : `Checked at: ${cmp.last_verified}`}
+                        </span>
                       )}
                     </div>
 
                     {/* Manual override for maintenance */}
                     <div className="flex items-center gap-1.5">
-                      <span className="text-slate-500 text-[10px]">Modus:</span>
+                      <span className="text-slate-500 text-[10px]">{isDe ? 'Modus:' : 'Mode:'}</span>
                       <select
                         value={cmp.status}
                         onChange={(e) =>
@@ -1597,14 +1655,18 @@ export const AdminStatusPagesView: React.FC = () => {
         <form id="incidentPublishForm" onSubmit={handleSaveIncident} className="space-y-4 pb-2">
           <div>
             <label className="block text-xs font-mono font-medium text-slate-300 mb-1.5">
-              Titel des Vorfalls <span className="text-rose-400">*</span>
+              {isDe ? 'Titel des Vorfalls' : 'Incident Title'} <span className="text-rose-400">*</span>
             </label>
             <input
               type="text"
               required
               value={incTitle}
               onChange={(e) => setIncTitle(e.target.value)}
-              placeholder="z. B. Erhöhte Latenz auf Wings Node 1 / Geplante Wartung"
+              placeholder={
+                isDe
+                  ? 'z. B. Erhöhte Latenz auf Wings Node 1 / Geplante Wartung'
+                  : 'e.g. Increased Latency on Wings Node 1 / Scheduled Maintenance'
+              }
               className="w-full px-3 py-2 bg-[#161b22] border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 font-mono"
             />
           </div>
@@ -1612,49 +1674,53 @@ export const AdminStatusPagesView: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-mono font-medium text-slate-300 mb-1.5">
-                Schweregrad
+                {isDe ? 'Schweregrad' : 'Severity'}
               </label>
               <select
                 value={incSeverity}
                 onChange={(e) => setIncSeverity(e.target.value as StatusIncident['severity'])}
                 className="w-full px-3 py-2 bg-[#161b22] border border-slate-700 rounded-xl text-xs text-slate-300 font-mono focus:outline-none focus:border-rose-500"
               >
-                <option value="minor">🟡 Minor / Geringe Beeinträchtigung</option>
-                <option value="major">🟠 Major / Erheblicher Teilausfall</option>
-                <option value="critical">🔴 Critical / Kritischer Gesamtausfall</option>
-                <option value="maintenance">🔵 Wartungsarbeiten (Geplant)</option>
+                <option value="minor">{isDe ? '🟡 Minor / Geringe Beeinträchtigung' : '🟡 Minor / Minor Impact'}</option>
+                <option value="major">{isDe ? '🟠 Major / Erheblicher Teilausfall' : '🟠 Major / Partial Outage'}</option>
+                <option value="critical">{isDe ? '🔴 Critical / Kritischer Gesamtausfall' : '🔴 Critical / Major Outage'}</option>
+                <option value="maintenance">{isDe ? '🔵 Wartungsarbeiten (Geplant)' : '🔵 Scheduled Maintenance'}</option>
               </select>
             </div>
 
             <div>
               <label className="block text-xs font-mono font-medium text-slate-300 mb-1.5">
-                Aktueller Status
+                {isDe ? 'Aktueller Status' : 'Current Status'}
               </label>
               <select
                 value={incStatus}
                 onChange={(e) => setIncStatus(e.target.value as StatusIncident['status'])}
                 className="w-full px-3 py-2 bg-[#161b22] border border-slate-700 rounded-xl text-xs text-slate-300 font-mono focus:outline-none focus:border-rose-500"
               >
-                <option value="investigating">🔍 Untersuche (Investigating)</option>
-                <option value="identified">🎯 Identifiziert (Identified)</option>
-                <option value="monitoring">👀 Beobachtung (Monitoring)</option>
-                <option value="resolved">✅ Behoben (Resolved)</option>
-                <option value="scheduled">📅 Geplant (Scheduled)</option>
-                <option value="in_progress">⚙️ In Arbeit (In Progress)</option>
-                <option value="completed">🎉 Abgeschlossen (Completed)</option>
+                <option value="investigating">{isDe ? '🔍 Untersuche (Investigating)' : '🔍 Investigating'}</option>
+                <option value="identified">{isDe ? '🎯 Identifiziert (Identified)' : '🎯 Identified'}</option>
+                <option value="monitoring">{isDe ? '👀 Beobachtung (Monitoring)' : '👀 Monitoring'}</option>
+                <option value="resolved">{isDe ? '✅ Behoben (Resolved)' : '✅ Resolved'}</option>
+                <option value="scheduled">{isDe ? '📅 Geplant (Scheduled)' : '📅 Scheduled'}</option>
+                <option value="in_progress">{isDe ? '⚙️ In Arbeit (In Progress)' : '⚙️ In Progress'}</option>
+                <option value="completed">{isDe ? '🎉 Abgeschlossen (Completed)' : '🎉 Completed'}</option>
               </select>
             </div>
           </div>
 
           <div>
             <label className="block text-xs font-mono font-medium text-slate-300 mb-1.5">
-              Nachricht & Details für Status-Besucher
+              {isDe ? 'Nachricht & Details für Status-Besucher' : 'Message & Details for Visitors'}
             </label>
             <textarea
               rows={3}
               value={incMessage}
               onChange={(e) => setIncMessage(e.target.value)}
-              placeholder="Wir untersuchen derzeit vereinzelte Verbindungsabbrüche zum Datenbank-Cluster. Techniker sind informiert."
+              placeholder={
+                isDe
+                  ? 'Wir untersuchen derzeit vereinzelte Verbindungsabbrüche zum Datenbank-Cluster. Techniker sind informiert.'
+                  : 'We are currently investigating intermittent connectivity issues to the database cluster. Technicians are notified.'
+              }
               className="w-full px-3 py-2 bg-[#161b22] border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 resize-none font-sans"
             />
           </div>
@@ -1670,7 +1736,9 @@ export const AdminStatusPagesView: React.FC = () => {
                 className="rounded border-slate-700 text-indigo-500 focus:ring-0 w-4 h-4"
               />
               <label htmlFor="incDiscordCheck" className="text-xs font-mono text-slate-300 cursor-pointer">
-                Diesen Vorfall sofort via Discord Webhook an den Alarm-Channel senden
+                {isDe
+                  ? 'Diesen Vorfall sofort via Discord Webhook an den Alarm-Channel senden'
+                  : 'Send this incident immediately via Discord Webhook to the alert channel'}
               </label>
             </div>
           )}

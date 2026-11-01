@@ -167,12 +167,16 @@ export const SettingsTab: React.FC = () => {
     installMinecraftVersion,
     updateServerAdminSettings,
     adminNodes,
+    adminUsers,
+    currentUser,
     reinstallServer,
   } = useApp();
   const { language } = useTranslation();
+  const isRootAdmin = Boolean(currentUser?.rootAdmin || currentUser?.role === 'root_admin');
 
   const [name, setName] = useState(selectedServer?.name || '');
   const [description, setDescription] = useState(selectedServer?.description || '');
+  const [selectedOwnerId, setSelectedOwnerId] = useState<string>('');
   const [startupCommand, setStartupCommand] = useState(
     selectedServer?.startup ||
       'java -Xms128M -XX:MaxRAMPercentage=95.0 -Dterminal.jline=false -Dterminal.ansi=true -jar {{SERVER_JARFILE}}'
@@ -450,8 +454,18 @@ export const SettingsTab: React.FC = () => {
     if (selectedServer.startup) {
       setStartupCommand(selectedServer.startup);
     }
+    if (selectedServer.ownerId) {
+      setSelectedOwnerId(String(selectedServer.ownerId));
+    } else if (selectedServer.owner) {
+      const found = adminUsers.find(
+        (u) => u.username.toLowerCase() === selectedServer.owner?.toLowerCase()
+      );
+      setSelectedOwnerId(found ? String(found.id) : '');
+    }
   }, [
     selectedServer?.uuid,
+    selectedServer?.ownerId,
+    selectedServer?.owner,
     selectedServer?.startup,
     selectedServer?.name,
     selectedServer?.description,
@@ -459,6 +473,7 @@ export const SettingsTab: React.FC = () => {
     selectedServer?.stats.memoryLimit,
     selectedServer?.stats.diskLimit,
     selectedServer?.cpuLimit,
+    adminUsers,
   ]);
 
   if (!selectedServer) {
@@ -489,6 +504,10 @@ export const SettingsTab: React.FC = () => {
     if (!selectedServer) return;
     setIsSavingGeneral(true);
     try {
+      const targetUser = isRootAdmin && selectedOwnerId
+        ? adminUsers.find((u) => String(u.id) === String(selectedOwnerId))
+        : undefined;
+
       await updateServerAdminSettings(selectedServer.uuid, {
         name: name.trim(),
         description: description.trim(),
@@ -496,6 +515,8 @@ export const SettingsTab: React.FC = () => {
         memoryMB: Number(memoryMB),
         cpuLimit: Number(cpuLimit),
         diskMB: Number(diskMB),
+        owner: targetUser ? targetUser.username : undefined,
+        ownerId: targetUser ? Number(targetUser.id) : undefined,
       });
     } finally {
       setIsSavingGeneral(false);
@@ -742,6 +763,32 @@ export const SettingsTab: React.FC = () => {
               className="w-full bg-[#0d1017] border border-slate-800 hover:border-slate-700 focus:border-[var(--theme-accent,#e5a93c)] rounded-xl px-3.5 py-2.5 text-xs text-white font-mono focus:outline-none transition-colors"
             />
           </div>
+
+          {isRootAdmin && adminUsers.length > 0 && (
+            <div className="p-3.5 rounded-xl bg-amber-500/5 border border-amber-500/20 space-y-1.5">
+              <label className="block text-xs font-mono uppercase text-amber-400 font-medium flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                {language === 'de' ? 'Server-Eigentümer übertragen (Root Admin)' : 'Transfer Server Ownership (Root Admin)'}
+              </label>
+              <select
+                value={selectedOwnerId}
+                onChange={(e) => setSelectedOwnerId(e.target.value)}
+                className="w-full bg-[#0d1017] border border-amber-500/30 hover:border-amber-500/50 focus:border-amber-500 rounded-xl px-3.5 py-2 text-xs text-white font-mono focus:outline-none transition-colors"
+              >
+                <option value="">{language === 'de' ? '-- Eigentümer wählen --' : '-- Select Owner --'}</option>
+                {adminUsers.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.username} ({u.email}){Number(u.id) === Number(selectedServer.ownerId) ? (language === 'de' ? ' — Aktueller Besitzer' : ' — Current Owner') : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-slate-400 font-mono">
+                {language === 'de'
+                  ? `Aktueller Servereigentümer: ${selectedServer.owner || selectedServer.ownerEmail || 'Admin'}`
+                  : `Current server owner: ${selectedServer.owner || selectedServer.ownerEmail || 'Admin'}`}
+              </p>
+            </div>
+          )}
 
           {/* Hardware & Resource Limits */}
           <div className="pt-3 border-t border-slate-800/80">

@@ -237,6 +237,32 @@ export interface Translations {
   users_root_admin_desc: string;
   users_create_button: string;
   users_creating: string;
+  users_role_admin: string;
+  users_role_beta: string;
+  users_role_member: string;
+  users_account_type_beta: string;
+  users_tab_overview: string;
+  users_tab_beta: string;
+  users_beta_status: string;
+  users_beta_status_desc: string;
+  users_beta_enable: string;
+  users_beta_disable: string;
+  users_beta_features_title: string;
+  users_beta_features_desc: string;
+  users_beta_server_scope_title: string;
+  users_beta_server_scope_desc: string;
+  users_beta_server_scope_all: string;
+  users_beta_server_scope_custom: string;
+  users_beta_discord_scope_title: string;
+  users_beta_discord_scope_desc: string;
+  users_beta_discord_scope_all: string;
+  users_beta_discord_scope_custom: string;
+  users_beta_select_all: string;
+  users_beta_deselect_all: string;
+  users_beta_save: string;
+  users_beta_saving: string;
+  users_beta_saved_toast: string;
+  users_role_select_title: string;
 
   // Admin Databases & Nests
   admin_nests_title: string;
@@ -498,6 +524,32 @@ export const translations: Record<Language, Translations> = {
     users_root_admin_desc: 'Gewährt uneingeschränkten Zugriff auf alle Server und Einstellungen',
     users_create_button: 'Benutzer erstellen',
     users_creating: 'Wird erstellt...',
+    users_role_admin: 'Administrator',
+    users_role_beta: 'Beta Tester',
+    users_role_member: 'Mitglied',
+    users_account_type_beta: 'Beta-Teilnehmer',
+    users_tab_overview: 'Übersicht & Info',
+    users_tab_beta: 'Rollen & Beta-Rechte',
+    users_beta_status: 'Beta-Tester Status',
+    users_beta_status_desc: 'Ermöglicht den Vorabzugriff auf experimentelle Funktionen und Canary-Module',
+    users_beta_enable: 'Beta-Tester Modus aktiv',
+    users_beta_disable: 'Beta-Tester Modus deaktiviert',
+    users_beta_features_title: 'Granulare Feature-Freigaben',
+    users_beta_features_desc: 'Bestimme präzise, welche experimentellen Module dieser Benutzer testen darf',
+    users_beta_server_scope_title: 'Panel Server Begrenzung',
+    users_beta_server_scope_desc: 'Schränke Beta-Rechte auf bestimmte Server ein oder erlaube globalen Zugriff',
+    users_beta_server_scope_all: 'Globaler Zugriff (Alle Panel-Server)',
+    users_beta_server_scope_custom: 'Auf bestimmte Server begrenzen',
+    users_beta_discord_scope_title: 'Discord Server Begrenzung',
+    users_beta_discord_scope_desc: 'Schränke bot-bezogene Beta-Features auf bestimmte Discord Guilds ein',
+    users_beta_discord_scope_all: 'Globaler Discord-Zugriff (Alle Guilds)',
+    users_beta_discord_scope_custom: 'Auf bestimmte Discord Server begrenzen',
+    users_beta_select_all: 'Alle auswählen',
+    users_beta_deselect_all: 'Alle abwählen',
+    users_beta_save: 'Berechtigungen speichern',
+    users_beta_saving: 'Speichere...',
+    users_beta_saved_toast: 'Rollen- und Beta-Berechtigungen wurden erfolgreich aktualisiert',
+    users_role_select_title: 'Hauptrolle zuweisen',
 
     // Admin Databases & Nests
     admin_nests_title: 'Nests & Egg-Templates',
@@ -758,6 +810,32 @@ export const translations: Record<Language, Translations> = {
     users_root_admin_desc: 'Full administrative access across all cluster nodes and instances',
     users_create_button: 'Create User',
     users_creating: 'Creating...',
+    users_role_admin: 'Administrator',
+    users_role_beta: 'Beta Tester',
+    users_role_member: 'Member',
+    users_account_type_beta: 'Beta Participant',
+    users_tab_overview: 'Overview & Info',
+    users_tab_beta: 'Roles & Beta Access',
+    users_beta_status: 'Beta Tester Status',
+    users_beta_status_desc: 'Enables early preview access to experimental features and canary modules',
+    users_beta_enable: 'Beta Tester Mode Active',
+    users_beta_disable: 'Beta Tester Mode Disabled',
+    users_beta_features_title: 'Granular Feature Gates',
+    users_beta_features_desc: 'Precisely define which preview modules this user is authorized to test',
+    users_beta_server_scope_title: 'Panel Server Scope',
+    users_beta_server_scope_desc: 'Restrict beta permissions to specific servers or grant global access',
+    users_beta_server_scope_all: 'Global Access (All Panel Servers)',
+    users_beta_server_scope_custom: 'Restrict to specific servers',
+    users_beta_discord_scope_title: 'Discord Server Scope',
+    users_beta_discord_scope_desc: 'Restrict bot-related beta features to specific Discord guilds',
+    users_beta_discord_scope_all: 'Global Discord Access (All Guilds)',
+    users_beta_discord_scope_custom: 'Restrict to specific Discord servers',
+    users_beta_select_all: 'Select All',
+    users_beta_deselect_all: 'Deselect All',
+    users_beta_save: 'Save Permissions',
+    users_beta_saving: 'Saving...',
+    users_beta_saved_toast: 'Roles and beta tester permissions updated successfully',
+    users_role_select_title: 'Assign Primary Role',
 
     // Admin Databases & Nests
     admin_nests_title: 'Nests & Egg Templates',

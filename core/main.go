@@ -160,6 +160,11 @@ func main() {
 		log.Fatalf("[FATAL] Auto-migration failed: %v", err)
 	}
 
+	// Always ensure core RBAC roles (Administrator, Member, Beta Tester) exist
+	if err := database.EnsureRoles(db); err != nil {
+		log.Printf("[WARN] Failed ensuring core roles: %v", err)
+	}
+
 	// Seed database if not skipped
 	if !*skipSeedFlag {
 		if err := database.SeedDatabase(db); err != nil {
@@ -196,7 +201,7 @@ func main() {
 	wsHub := services.NewWebSocketHub(wingsClient, db)
 	auditService := services.NewAuditService(db)
 	statsService := services.NewStatsService(db, cfg.DBPath)
-	fileService := services.NewFileService(db, filepath.Dir(cfg.DBPath))
+	fileService := services.NewFileService(db, filepath.Dir(cfg.DBPath), wingsClient)
 	webhookService := services.NewWebhookService(db)
 	backupService := services.NewBackupService(db, fileService, webhookService, filepath.Dir(cfg.DBPath))
 	scannerService := services.NewSecurityScannerService()

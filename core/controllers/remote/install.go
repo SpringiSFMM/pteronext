@@ -1,6 +1,7 @@
 package remote
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -68,6 +69,29 @@ exit 0
 			script = egg.ScriptInstall
 		}
 	}
+
+	allocPort := 25565
+	if server.AllocationID > 0 {
+		var alloc models.Allocation
+		if err := c.db.First(&alloc, server.AllocationID).Error; err == nil && alloc.Port > 0 {
+			allocPort = alloc.Port
+		}
+	}
+
+	postHook := fmt.Sprintf(`
+# PteroNext automated post-install configuration
+cd /mnt/server || exit 0
+if [ -f "server.properties" ]; then
+    echo "[Installer] Setting server-port=%d and query.port=%d in server.properties..."
+    sed -i -e "s/^server-port=.*/server-port=%d/g" server.properties
+    sed -i -e "s/^query.port=.*/query.port=%d/g" server.properties
+    sed -i -e "s/^server-ip=.*/server-ip=0.0.0.0/g" server.properties
+fi
+if [ ! -f "eula.txt" ]; then
+    echo "eula=true" > eula.txt
+fi
+`, allocPort, allocPort, allocPort, allocPort)
+	script = script + "\n" + postHook
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"container_image": containerImage,

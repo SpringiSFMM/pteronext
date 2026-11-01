@@ -19,13 +19,14 @@ import (
 )
 
 type DiscordController struct {
-	db          *gorm.DB
-	authService *services.AuthService
-	botService  *services.DiscordBotService
+	db           *gorm.DB
+	authService  *services.AuthService
+	botService   *services.DiscordBotService
+	auditService *services.AuditService
 }
 
-func NewDiscordController(db *gorm.DB, authService *services.AuthService, botService *services.DiscordBotService) *DiscordController {
-	return &DiscordController{db: db, authService: authService, botService: botService}
+func NewDiscordController(db *gorm.DB, authService *services.AuthService, botService *services.DiscordBotService, auditService *services.AuditService) *DiscordController {
+	return &DiscordController{db: db, authService: authService, botService: botService, auditService: auditService}
 }
 
 type DiscordConfigRequest struct {
@@ -812,5 +813,490 @@ func (d *DiscordController) GetUserByDiscordID(c *gin.Context) {
 			"discord_id":       user.DiscordID,
 			"discord_username": user.DiscordUsername,
 		},
+	})
+}
+
+// ─────────────────────────────────────────────────────────────
+// BOT GUILD & FEATURE MANAGEMENT (ADMIN DASHBOARD)
+// ─────────────────────────────────────────────────────────────
+
+// GetBotStatus handles GET /api/admin/integrations/discord/status
+func (d *DiscordController) GetBotStatus(c *gin.Context) {
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get("http://127.0.0.1:25566/api/bot/status")
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success":     true,
+			"bot_running": d.botService.IsRunning(),
+			"bot_tag":     "PteroNext.com#7367",
+		})
+		return
+	}
+	defer resp.Body.Close()
+
+	var data map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success":     true,
+			"bot_running": true,
+			"bot_tag":     data["bot"],
+			"details":     data,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":     true,
+		"bot_running": true,
+		"bot_tag":     "PteroNext.com#7367",
+	})
+}
+
+// GetBotGuilds handles GET /api/admin/integrations/discord/guilds
+func (d *DiscordController) GetBotGuilds(c *gin.Context) {
+	user, _ := middleware.GetRequestUser(c)
+	client := &http.Client{Timeout: 4 * time.Second}
+	resp, err := client.Get("http://127.0.0.1:25566/api/bot/guilds")
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success":     false,
+			"bot_running": d.botService.IsRunning(),
+			"bot_tag":     "PteroNext.com#7367",
+			"guilds":      []interface{}{},
+			"error":       "Discord Bot Sync-Server ist offline oder startet noch.",
+		})
+		return
+	}
+	defer resp.Body.Close()
+
+	var data map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Ungültige Antwort vom Bot Sync-Server"})
+		return
+	}
+
+	data["bot_running"] = true
+	if data["bot"] != nil {
+		data["bot_tag"] = data["bot"]
+	} else {
+		data["bot_tag"] = "PteroNext.com#7367"
+	}
+
+	// Filter guilds by user's BetaDiscordScope if not root admin
+	if user != nil && !user.RootAdmin {
+		var scope []string
+		if err := json.Unmarshal([]byte(user.BetaDiscordScope), &scope); err == nil && len(scope) > 0 {
+			hasWildcard := false
+			for _, s := range scope {
+				if strings.TrimSpace(s) == "*" {
+					hasWildcard = true
+					break
+				}
+			}
+			if !hasWildcard {
+				if rawGuilds, ok := data["guilds"].([]interface{}); ok {
+					var filtered []interface{}
+					for _, rg := range rawGuilds {
+						if gm, ok := rg.(map[string]interface{}); ok {
+							gid := fmt.Sprintf("%v", gm["id"])
+							for _, allowed := range scope {
+								if strings.TrimSpace(allowed) == gid {
+									filtered = append(filtered, gm)
+									break
+								}
+							}
+						}
+					}
+					data["guilds"] = filtered
+				}
+			}
+		}
+	}
+
+	c.JSON(resp.StatusCode, data)
+}
+
+type ClaimGuildRequest struct {
+	GuildID string `json:"guild_id" binding:"required"`
+}
+
+// ClaimBotGuild handles POST /api/admin/integrations/discord/guilds/claim
+// Allows a Beta Tester (or admin) to register/claim their Discord server if their linked Discord account is the server owner.
+func (d *DiscordController) ClaimBotGuild(c *gin.Context) {
+	user, ok := middleware.GetRequestUser(c)
+	if !ok || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	// 1. Check if user has linked their Discord account
+	if strings.TrimSpace(user.DiscordID) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success":    false,
+			"needs_link": true,
+			"error":      "Bitte verknüpfe zuerst deinen Discord-Account in den Profileinstellungen, um die Inhaberschaft deines Discord-Servers verifizieren zu können.",
+			"error_en":   "Please link your Discord account in your Profile Settings first to verify ownership of your Discord server.",
+		})
+		return
+	}
+
+	var req ClaimGuildRequest
+	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.GuildID) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success":  false,
+			"error":    "Bitte gib eine gültige Discord Server-ID (Guild ID) ein.",
+			"error_en": "Please provide a valid Discord Server ID (Guild ID).",
+		})
+		return
+	}
+
+	cleanGuildID := strings.TrimSpace(req.GuildID)
+
+	// 2. Fetch guild details from Bot Sync Server or Discord REST API
+	client := &http.Client{Timeout: 5 * time.Second}
+	var foundGuild map[string]interface{}
+
+	resp, err := client.Get("http://127.0.0.1:25566/api/bot/guilds")
+	if err == nil {
+		defer resp.Body.Close()
+		var data map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&data); err == nil {
+			if rawGuilds, ok := data["guilds"].([]interface{}); ok {
+				for _, rg := range rawGuilds {
+					if gm, ok := rg.(map[string]interface{}); ok {
+						if fmt.Sprintf("%v", gm["id"]) == cleanGuildID {
+							foundGuild = gm
+							break
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// If not found in sync server cache, query Discord API directly with bot token
+	if foundGuild == nil {
+		var tokenSetting models.SystemSetting
+		d.db.Where("key = 'discord_bot_token'").First(&tokenSetting)
+		botToken := strings.TrimSpace(tokenSetting.Value)
+
+		if botToken != "" {
+			reqDiscord, _ := http.NewRequest("GET", fmt.Sprintf("https://discord.com/api/v10/guilds/%s", cleanGuildID), nil)
+			reqDiscord.Header.Set("Authorization", "Bot "+botToken)
+			reqDiscord.Header.Set("User-Agent", "PteroNext-Panel")
+
+			respDiscord, errDiscord := client.Do(reqDiscord)
+			if errDiscord == nil {
+				defer respDiscord.Body.Close()
+				if respDiscord.StatusCode == http.StatusOK {
+					var discordGuild map[string]interface{}
+					if err := json.NewDecoder(respDiscord.Body).Decode(&discordGuild); err == nil {
+						foundGuild = discordGuild
+					}
+				}
+			}
+		}
+	}
+
+	// If guild is still not found, bot is not on that server
+	if foundGuild == nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success":    false,
+			"not_found":  true,
+			"invite_url": "https://discord.com/oauth2/authorize?client_id=1560663382296895608&permissions=8&scope=bot%20applications.commands",
+			"error":      "Der PteroNext-Bot befindet sich nicht auf diesem Discord-Server oder die Server-ID existiert nicht. Bitte lade den Bot zuerst auf deinen Discord-Server ein.",
+			"error_en":   "The PteroNext bot is not present on this Discord server or the server ID does not exist. Please invite the bot to your server first.",
+		})
+		return
+	}
+
+	// 3. Verify Server Ownership
+	ownerID := fmt.Sprintf("%v", foundGuild["owner_id"])
+	if ownerID == "" {
+		ownerID = fmt.Sprintf("%v", foundGuild["ownerId"])
+	}
+
+	guildName := fmt.Sprintf("%v", foundGuild["name"])
+	if guildName == "" {
+		guildName = "Discord Server (" + cleanGuildID + ")"
+	}
+
+	if !user.RootAdmin && ownerID != user.DiscordID {
+		c.JSON(http.StatusForbidden, gin.H{
+			"success":  false,
+			"error":    fmt.Sprintf("Verifikation fehlgeschlagen: Du bist nicht der Eigentümer dieses Discord-Servers. Dieser Server gehört dem Discord-Account mit ID %s (deine verknüpfte Discord-ID: %s). Nur der Server-Owner kann den Server freischalten.", ownerID, user.DiscordID),
+			"error_en": fmt.Sprintf("Verification failed: You are not the owner of this Discord server. This server is owned by Discord account ID %s (your linked Discord ID: %s). Only the server owner can claim this server.", ownerID, user.DiscordID),
+		})
+		return
+	}
+
+	// 4. Update user's BetaDiscordScope
+	var scope []string
+	_ = json.Unmarshal([]byte(user.BetaDiscordScope), &scope)
+
+	alreadyInScope := false
+	for _, s := range scope {
+		if strings.TrimSpace(s) == cleanGuildID || strings.TrimSpace(s) == "*" {
+			alreadyInScope = true
+			break
+		}
+	}
+
+	if !alreadyInScope {
+		scope = append(scope, cleanGuildID)
+		newBytes, _ := json.Marshal(scope)
+		user.BetaDiscordScope = string(newBytes)
+		d.db.Model(&user).Update("beta_discord_scope", user.BetaDiscordScope)
+	}
+
+	// Ensure user has beta tester status & discord_bot_mgmt enabled
+	if !user.IsBetaTester && !user.RootAdmin {
+		user.IsBetaTester = true
+		d.db.Model(&user).Update("is_beta_tester", true)
+	}
+	var features []string
+	_ = json.Unmarshal([]byte(user.BetaFeatures), &features)
+	hasFeature := false
+	for _, f := range features {
+		if f == "discord_bot_mgmt" || f == "*" {
+			hasFeature = true
+			break
+		}
+	}
+	if !hasFeature && !user.RootAdmin {
+		features = append(features, "discord_bot_mgmt")
+		featBytes, _ := json.Marshal(features)
+		user.BetaFeatures = string(featBytes)
+		d.db.Model(&user).Update("beta_features", user.BetaFeatures)
+	}
+
+	// 5. Audit logging
+	_ = d.auditService.Log(&user.ID, "user", nil, "discord:claim_guild", map[string]interface{}{
+		"guild_id":   cleanGuildID,
+		"guild_name": guildName,
+		"discord_id": user.DiscordID,
+		"owner_id":   ownerID,
+	}, c.ClientIP())
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":            true,
+		"message":            fmt.Sprintf("Discord-Server '%s' wurde erfolgreich für deinen Account freigeschaltet!", guildName),
+		"message_en":         fmt.Sprintf("Discord server '%s' has been successfully linked and unlocked for your account!", guildName),
+		"guild": gin.H{
+			"id":       cleanGuildID,
+			"name":     guildName,
+			"icon":     foundGuild["icon"],
+			"is_owner": true,
+		},
+		"beta_discord_scope": scope,
+	})
+}
+
+// GetBotCommands handles GET /api/admin/integrations/discord/commands
+func (d *DiscordController) GetBotCommands(c *gin.Context) {
+	client := &http.Client{Timeout: 4 * time.Second}
+	resp, err := client.Get("http://127.0.0.1:25566/api/bot/commands")
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success":  false,
+			"commands": []interface{}{},
+			"error":    "Discord Bot Sync-Server ist offline oder startet noch.",
+		})
+		return
+	}
+	defer resp.Body.Close()
+
+	var data map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Ungültige Antwort vom Bot Sync-Server"})
+		return
+	}
+
+	c.JSON(resp.StatusCode, data)
+}
+
+// GetBotGuildConfig handles GET /api/admin/integrations/discord/guilds/:guild_id/config
+func (d *DiscordController) GetBotGuildConfig(c *gin.Context) {
+	user, _ := middleware.GetRequestUser(c)
+	guildID := strings.TrimSpace(c.Param("guild_id"))
+	if guildID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "guild_id parameter required"})
+		return
+	}
+
+	if user != nil && !user.RootAdmin && !user.HasBetaFeature("discord_bot_mgmt", "", guildID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Zugriff verweigert: Du hast keine Berechtigung für diesen Discord-Server."})
+		return
+	}
+
+	client := &http.Client{Timeout: 4 * time.Second}
+	resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:25566/api/bot/guilds/%s/config", url.PathEscape(guildID)))
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Bot Sync-Server nicht erreichbar"})
+		return
+	}
+	defer resp.Body.Close()
+
+	var data map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Ungültige Antwort vom Bot Sync-Server"})
+		return
+	}
+
+	c.JSON(resp.StatusCode, data)
+}
+
+// SaveBotGuildConfig handles POST /api/admin/integrations/discord/guilds/:guild_id/config
+func (d *DiscordController) SaveBotGuildConfig(c *gin.Context) {
+	user, ok := middleware.GetRequestUser(c)
+	if !ok || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	guildID := strings.TrimSpace(c.Param("guild_id"))
+	if guildID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "guild_id parameter required"})
+		return
+	}
+
+	if !user.RootAdmin && !user.HasBetaFeature("discord_bot_mgmt", "", guildID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Zugriff verweigert: Du hast keine Berechtigung für diesen Discord-Server."})
+		return
+	}
+
+	var payload map[string]interface{}
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON payload"})
+		return
+	}
+
+	// 1. Fetch current config before applying updates to generate detailed change diff
+	httpClient := &http.Client{Timeout: 5 * time.Second}
+	oldConfig := make(map[string]interface{})
+	oldResp, err := httpClient.Get(fmt.Sprintf("http://127.0.0.1:25566/api/bot/guilds/%s/config", url.PathEscape(guildID)))
+	if err == nil && oldResp.StatusCode == http.StatusOK {
+		var oldData struct {
+			Config map[string]interface{} `json:"config"`
+		}
+		if err := json.NewDecoder(oldResp.Body).Decode(&oldData); err == nil && oldData.Config != nil {
+			oldConfig = oldData.Config
+		}
+		oldResp.Body.Close()
+	}
+
+	// 2. Mark updated_by
+	payload["updated_by"] = fmt.Sprintf("%s (User #%d)", user.Username, user.ID)
+
+	// 3. Forward update to Bot Sync-Server
+	bodyBytes, _ := json.Marshal(payload)
+	postResp, err := httpClient.Post(
+		fmt.Sprintf("http://127.0.0.1:25566/api/bot/guilds/%s/config", url.PathEscape(guildID)),
+		"application/json",
+		bytes.NewReader(bodyBytes),
+	)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Bot Sync-Server nicht erreichbar: " + err.Error()})
+		return
+	}
+	defer postResp.Body.Close()
+
+	var resultData map[string]interface{}
+	_ = json.NewDecoder(postResp.Body).Decode(&resultData)
+
+	// 4. Calculate detailed diff between oldConfig and payload for Audit Log
+	var changes []string
+	readableNames := map[string]string{
+		"leveling_enabled":             "Level & XP System",
+		"tickets_enabled":              "Support Tickets",
+		"moderation_enabled":           "Auto-Mod & Security",
+		"suggestions_enabled":          "Suggestions & Voting",
+		"giveaways_enabled":            "Giveaways",
+		"ticket_transcripts_enabled":   "Ticket Transcripts",
+		"ticket_claim_enabled":         "Ticket Claiming",
+		"level_roles_enabled":          "Level Role Rewards",
+		"level_pings_enabled":          "Level Up Pings",
+		"welcome_dm_enabled":           "Welcome DM",
+		"automod_links_enabled":        "Anti-Link Filter",
+		"automod_spam_enabled":         "Anti-Spam Filter",
+		"ai_assistant_enabled":         "AI Troubleshooter",
+		"starboard_enabled":            "Starboard",
+		"welcome_channel_id":           "Welcome Channel",
+		"leave_channel_id":             "Leave Channel",
+		"log_channel_id":               "Audit / Mod-Logs Channel",
+		"ticket_category_id":           "Ticket Category",
+		"ticket_transcript_channel_id": "Ticket Transcripts Channel",
+		"ticket_support_role_id":       "Ticket Support Role",
+		"level_up_channel_id":          "Level-Up Channel",
+		"suggestion_channel_id":        "Suggestions Channel",
+		"starboard_channel_id":         "Starboard Channel",
+		"alerts_channel_id":            "Alerts Channel",
+		"welcome_message":              "Welcome Message Template",
+		"leave_message":                "Leave Message Template",
+		"ticket_welcome_message":       "Ticket Welcome Message",
+		"level_up_message":             "Level Up Message",
+		"disabled_commands":            "Disabled Commands",
+	}
+
+	for k, newVal := range payload {
+		if k == "updated_by" || k == "guild_id" {
+			continue
+		}
+		label := readableNames[k]
+		if label == "" {
+			label = k
+		}
+
+		oldVal := oldConfig[k]
+		newValStr := fmt.Sprintf("%v", newVal)
+		oldValStr := fmt.Sprintf("%v", oldVal)
+
+		if newValStr != oldValStr {
+			changes = append(changes, fmt.Sprintf("%s: %s -> %s", label, oldValStr, newValStr))
+		}
+	}
+
+	guildName := fmt.Sprintf("Guild %s", guildID)
+	if name, ok := payload["guild_name"].(string); ok && name != "" {
+		guildName = name
+	} else if name, ok := oldConfig["guild_name"].(string); ok && name != "" {
+		guildName = name
+	}
+
+	// 5. Record Detailed Audit Log Entry
+	if d.auditService != nil {
+		diffSummary := fmt.Sprintf("Admin %s updated Discord Bot configuration for %s (%d changes)", user.Username, guildName, len(changes))
+		_ = d.auditService.Log(
+			&user.ID,
+			"user",
+			nil,
+			"discord:bot_config_updated",
+			map[string]interface{}{
+				"guild_id":   guildID,
+				"guild_name": guildName,
+				"changes":    changes,
+				"summary":    diffSummary,
+				"timestamp":  time.Now().UTC().Format(time.RFC3339),
+			},
+			c.ClientIP(),
+		)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": fmt.Sprintf("Discord Bot Konfiguration für %s erfolgreich gespeichert und live angewendet!", guildName),
+		"changes": changes,
+		"config":  resultData["config"],
+	})
+}
+
+// GetBotAuditLogs handles GET /api/admin/integrations/discord/audit-logs
+func (d *DiscordController) GetBotAuditLogs(c *gin.Context) {
+	var logs []models.AuditLog
+	d.db.Where("event LIKE 'discord:%'").Order("id desc").Limit(50).Find(&logs)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"logs":    logs,
 	})
 }

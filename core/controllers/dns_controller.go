@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"regexp"
 	"strings"
@@ -144,6 +145,19 @@ func (dc *DNSController) ListServerDomains(c *gin.Context) {
 			serverPort = server.Allocation.Port
 		}
 	}
+	if (targetIP == "217.20.120.126" || targetIP == "0.0.0.0") && server.NodeID > 0 {
+		var node models.Node
+		if err := dc.db.Select("id, fqdn").First(&node, server.NodeID).Error; err == nil && node.FQDN != "" {
+			if ip := net.ParseIP(node.FQDN); ip != nil {
+				targetIP = node.FQDN
+			} else {
+				ips, err := net.LookupIP(node.FQDN)
+				if err == nil && len(ips) > 0 {
+					targetIP = ips[0].String()
+				}
+			}
+		}
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"domains":               formattedDomains,
@@ -233,6 +247,19 @@ func (dc *DNSController) CreateServerDomain(c *gin.Context) {
 			serverPort = server.Allocation.Port
 		}
 	}
+	if (targetIP == "217.20.120.126" || targetIP == "0.0.0.0") && server.NodeID > 0 {
+		var node models.Node
+		if err := dc.db.Select("id, fqdn").First(&node, server.NodeID).Error; err == nil && node.FQDN != "" {
+			if ip := net.ParseIP(node.FQDN); ip != nil {
+				targetIP = node.FQDN
+			} else {
+				ips, err := net.LookupIP(node.FQDN)
+				if err == nil && len(ips) > 0 {
+					targetIP = ips[0].String()
+				}
+			}
+		}
+	}
 
 	recordIDA := fmt.Sprintf("cf_a_%d", time.Now().UnixNano())
 	recordIDSRV := fmt.Sprintf("cf_srv_%d", time.Now().UnixNano())
@@ -303,6 +330,13 @@ func (dc *DNSController) CreateServerDomain(c *gin.Context) {
 	}
 
 	// 2b. If Relay is not running, fallback to direct Cloudflare if credentials exist
+	directCFSuccess := false
+	if !relaySuccess && apiToken == "" {
+		apiToken = os.Getenv("CLOUDFLARE_API_TOKEN")
+	}
+	if !relaySuccess && zoneID == "" {
+		zoneID = os.Getenv("CLOUDFLARE_ZONE_ID")
+	}
 	if !relaySuccess && apiToken != "" && zoneID != "" {
 		client := &http.Client{Timeout: 10 * time.Second}
 
@@ -327,6 +361,7 @@ func (dc *DNSController) CreateServerDomain(c *gin.Context) {
 			}
 			if err := json.NewDecoder(aResp.Body).Decode(&res); err == nil && res.Success && res.Result.ID != "" {
 				recordIDA = res.Result.ID
+				directCFSuccess = true
 			}
 			aResp.Body.Close()
 		}
@@ -361,6 +396,11 @@ func (dc *DNSController) CreateServerDomain(c *gin.Context) {
 			}
 			srvResp.Body.Close()
 		}
+	}
+
+	if !relaySuccess && !directCFSuccess {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Cloudflare-Registrierung fehlgeschlagen: Die Subdomain konnte weder über den DNS-Relay-Dienst noch über die Cloudflare-Direktschnittstelle registriert werden."})
+		return
 	}
 
 	// 3. Persist record in database

@@ -91,7 +91,12 @@ export const AdminServersView: React.FC = () => {
     setEditingServer(server);
     setEditName(server.name);
     setEditDesc(server.description || '');
-    setEditOwner(server.owner || 'admin');
+    const foundUser = adminUsers.find(
+      (u) =>
+        (server.ownerId && Number(u.id) === Number(server.ownerId)) ||
+        (server.owner && u.username.toLowerCase() === server.owner.toLowerCase())
+    );
+    setEditOwner(foundUser ? foundUser.username : (server.owner || adminUsers[0]?.username || 'admin'));
     setEditMemory(server.stats.memoryLimit || 2048);
     setEditCpu(server.cpuLimit || server.stats.cpu || 200);
     setEditDisk(server.stats.diskLimit || 10240);
@@ -109,10 +114,14 @@ export const AdminServersView: React.FC = () => {
     e.preventDefault();
     if (!editingServer) return;
     setIsSubmitting(true);
+    const targetUser = adminUsers.find(
+      (u) => u.username.toLowerCase() === editOwner.toLowerCase() || String(u.id) === String(editOwner)
+    );
     const success = await updateServerAdminSettings(editingServer.uuid || editingServer.id, {
       name: editName.trim(),
       description: editDesc.trim(),
-      owner: editOwner,
+      owner: targetUser ? targetUser.username : editOwner,
+      ownerId: targetUser ? Number(targetUser.id) : undefined,
       memoryMB: Number(editMemory),
       cpuLimit: Number(editCpu),
       diskMB: Number(editDisk),

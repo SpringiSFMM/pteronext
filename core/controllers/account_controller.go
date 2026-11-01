@@ -60,6 +60,10 @@ func (a *AccountController) GetAccount(c *gin.Context) {
 			"root_admin":         freshUser.RootAdmin,
 			"two_factor_enabled": freshUser.TwoFactorEnabled,
 			"role":               freshUser.Role,
+			"is_beta_tester":     freshUser.IsBetaTester,
+			"beta_features":      freshUser.BetaFeatures,
+			"beta_server_scope":  freshUser.BetaServerScope,
+			"beta_discord_scope": freshUser.BetaDiscordScope,
 		},
 	})
 }

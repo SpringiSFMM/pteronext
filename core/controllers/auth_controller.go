@@ -95,6 +95,10 @@ func (a *AuthController) Login(c *gin.Context) {
 			"root_admin":         user.RootAdmin,
 			"two_factor_enabled": user.TwoFactorEnabled,
 			"role":               user.Role,
+			"is_beta_tester":     user.IsBetaTester,
+			"beta_features":      user.BetaFeatures,
+			"beta_server_scope":  user.BetaServerScope,
+			"beta_discord_scope": user.BetaDiscordScope,
 		},
 	})
 }

@@ -45,10 +45,16 @@ export interface ToastMessage {
 export interface CurrentUser {
   id?: number;
   username: string;
-  role: 'root_admin' | 'admin' | 'user';
+  role: 'root_admin' | 'admin' | 'user' | 'beta_tester';
   rootAdmin?: boolean;
   email: string;
   avatar: string;
+  discordId?: string;
+  discordUsername?: string;
+  isBetaTester?: boolean;
+  betaFeatures?: string[];
+  betaServerScope?: string[];
+  betaDiscordScope?: string[];
 }
 
 // -------------------------------------------------------------
@@ -263,6 +269,52 @@ function initialsAvatar(name: string): string {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
+function parseUserBetaScopes(u: any): CurrentUser {
+  const isRoot = Boolean(u.root_admin || u.rootAdmin);
+  const isBeta = Boolean(
+    u.is_beta_tester ||
+    u.isBetaTester ||
+    (u.role?.name && u.role.name.toLowerCase().includes('beta')) ||
+    (u.role_name && u.role_name.toLowerCase().includes('beta'))
+  );
+
+  let betaFeatures: string[] = [];
+  if (Array.isArray(u.beta_features)) betaFeatures = u.beta_features;
+  else if (Array.isArray(u.betaFeatures)) betaFeatures = u.betaFeatures;
+  else if (typeof u.beta_features === 'string') {
+    try { betaFeatures = JSON.parse(u.beta_features); } catch {}
+  }
+
+  let betaServerScope: string[] = [];
+  if (Array.isArray(u.beta_server_scope)) betaServerScope = u.beta_server_scope;
+  else if (Array.isArray(u.betaServerScope)) betaServerScope = u.betaServerScope;
+  else if (typeof u.beta_server_scope === 'string') {
+    try { betaServerScope = JSON.parse(u.beta_server_scope); } catch {}
+  }
+
+  let betaDiscordScope: string[] = [];
+  if (Array.isArray(u.beta_discord_scope)) betaDiscordScope = u.beta_discord_scope;
+  else if (Array.isArray(u.betaDiscordScope)) betaDiscordScope = u.betaDiscordScope;
+  else if (typeof u.beta_discord_scope === 'string') {
+    try { betaDiscordScope = JSON.parse(u.beta_discord_scope); } catch {}
+  }
+
+  return {
+    id: u.id,
+    username: u.username,
+    role: (isRoot ? 'root_admin' : isBeta ? 'beta_tester' : 'user') as CurrentUser['role'],
+    rootAdmin: isRoot,
+    email: u.email,
+    avatar: u.avatar_url || u.avatar || initialsAvatar(u.username),
+    discordId: u.discord_id || u.discordId || '',
+    discordUsername: u.discord_username || u.discordUsername || '',
+    isBetaTester: isBeta,
+    betaFeatures,
+    betaServerScope,
+    betaDiscordScope,
+  };
+}
+
 function mapBackendNestToAdmin(nest: BackendNest): AdminNest {
   return {
     id: String(nest.id),
@@ -335,7 +387,18 @@ function mapBackendNodeToAdmin(
   };
 }
 
-function mapBackendUserToAdmin(user: AuthUser & { created_at?: string; avatar_url?: string; avatar?: string; is_subuser?: boolean; subuser_servers?: string[]; servers_count?: number; discord_id?: string; discord_username?: string }, serversCount = 0): AdminUser {
+function parseJsonArray(val: any): string[] {
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string' && val.trim().startsWith('[')) {
+    try {
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {}
+  }
+  return [];
+}
+
+function mapBackendUserToAdmin(user: AuthUser & { created_at?: string; avatar_url?: string; avatar?: string; is_subuser?: boolean; subuser_servers?: string[]; servers_count?: number; discord_id?: string; discord_username?: string; role_id?: number; role_name?: string; is_beta_tester?: boolean; beta_features?: any; beta_server_scope?: any; beta_discord_scope?: any; beta_features_list?: string[]; beta_servers_list?: string[]; beta_discord_list?: string[] }, serversCount = 0): AdminUser {
   return {
     id: String(user.id),
     uuid: (user as any).uuid || '',
@@ -351,6 +414,12 @@ function mapBackendUserToAdmin(user: AuthUser & { created_at?: string; avatar_ur
     subuserServers: (user as any).subuser_servers || [],
     discordId: (user as any).discord_id || '',
     discordUsername: (user as any).discord_username || '',
+    roleId: (user as any).role_id,
+    roleName: (user as any).role_name || (user.root_admin ? 'Administrator' : ((user as any).is_beta_tester ? 'Beta Tester' : 'Member')),
+    isBetaTester: !!((user as any).is_beta_tester || (user as any).role_name === 'Beta Tester'),
+    betaFeatures: (user as any).beta_features_list || parseJsonArray((user as any).beta_features),
+    betaServerScope: (user as any).beta_servers_list || parseJsonArray((user as any).beta_server_scope),
+    betaDiscordScope: (user as any).beta_discord_list || parseJsonArray((user as any).beta_discord_scope),
   };
 }
 
@@ -450,7 +519,13 @@ interface AppContextType {
     email: string;
     password: string;
     root_admin?: boolean;
+    role_name?: string;
+    is_beta_tester?: boolean;
+    beta_features?: string[];
+    beta_server_scope?: string[];
+    beta_discord_scope?: string[];
   }) => Promise<boolean>;
+  updateAdminUser: (id: string, updates: any) => Promise<boolean>;
   deleteAdminUser: (id: string) => Promise<boolean>;
 
   // Admin Databases
@@ -1385,15 +1460,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const meRes = await api.auth.me();
       if (meRes?.user) {
         const u = meRes.user as any;
-        isRoot = !!u.root_admin;
-        setCurrentUser({
-          id: u.id,
-          username: u.username,
-          role: isRoot ? 'root_admin' : 'user',
-          rootAdmin: isRoot,
-          email: u.email,
-          avatar: u.avatar_url || u.avatar || initialsAvatar(u.username),
-        });
+        const parsed = parseUserBetaScopes(u);
+        isRoot = !!parsed.rootAdmin;
+        setCurrentUser(parsed);
       }
     } catch (e) {
       console.warn('[AppContext] Could not fetch current user (/api/auth/me):', e);
@@ -1570,21 +1639,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         meRes = await api.auth.me();
         if (isMounted && meRes?.user) {
           const u = meRes.user as any;
-          const isRoot = !!u.root_admin;
-          setCurrentUser({
-            id: u.id,
-            username: u.username,
-            role: isRoot ? 'root_admin' : 'user',
-            rootAdmin: isRoot,
-            email: u.email,
-            avatar: u.avatar_url || u.avatar || initialsAvatar(u.username),
-          });
+          const parsed = parseUserBetaScopes(u);
+          const isRoot = !!parsed.rootAdmin;
+          setCurrentUser(parsed);
           setIsAuthenticated(true);
 
-          // Route Guard: if authenticated user is non-admin and activeView is an admin view, immediately kick to dashboard
+          // Route Guard: if authenticated user is non-admin and activeView is an admin view, check beta feature exception
           if (!isRoot) {
             setActiveViewState((currentView) => {
               if (currentView.startsWith('admin-')) {
+                // Allow beta testers with discord_bot_mgmt feature or '*' to access admin-discord-bot
+                const hasBotAccess = parsed.isBetaTester && (
+                  parsed.betaFeatures?.includes('discord_bot_mgmt') ||
+                  parsed.betaFeatures?.includes('*') ||
+                  (parsed.betaDiscordScope && parsed.betaDiscordScope.length > 0)
+                );
+                if (currentView === 'admin-discord-bot' && hasBotAccess) {
+                  return currentView;
+                }
                 window.history.replaceState({}, '', '/');
                 return 'dashboard';
               }
@@ -3064,6 +3136,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     email: string;
     password: string;
     root_admin?: boolean;
+    role_name?: string;
+    is_beta_tester?: boolean;
+    beta_features?: string[];
+    beta_server_scope?: string[];
+    beta_discord_scope?: string[];
   }): Promise<boolean> => {
     try {
       await api.users.create(payload);
@@ -3078,6 +3155,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addToast({
         title: 'User Creation Failed',
         description: err?.message || 'The panel core rejected the account.',
+        type: 'error',
+      });
+      return false;
+    }
+  };
+
+  const updateAdminUser = async (id: string, updates: any): Promise<boolean> => {
+    try {
+      await api.users.update(id, updates);
+      await refreshAdminData();
+      addToast({
+        title: language === 'de' ? 'Benutzer aktualisiert' : 'User Updated',
+        description: language === 'de' ? 'Rollen- und Beta-Berechtigungen wurden erfolgreich gespeichert.' : 'Roles and beta permissions were saved successfully.',
+        type: 'success',
+      });
+      return true;
+    } catch (err: any) {
+      addToast({
+        title: language === 'de' ? 'Aktualisierung fehlgeschlagen' : 'Update Failed',
+        description: err?.message || 'Failed updating user account.',
         type: 'error',
       });
       return false;
@@ -3345,6 +3442,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       name?: string;
       description?: string;
       owner?: string;
+      ownerId?: number;
       ownerEmail?: string;
       memoryMB?: number;
       cpuLimit?: number;
@@ -3369,6 +3467,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const updatePayload: Record<string, any> = {};
       if (updates.name !== undefined) updatePayload.name = updates.name;
       if (updates.description !== undefined) updatePayload.description = updates.description;
+      if (updates.owner !== undefined) updatePayload.owner = updates.owner;
+      if (updates.ownerId !== undefined) updatePayload.owner_id = updates.ownerId;
       if (updates.memoryMB !== undefined) updatePayload.memory = updates.memoryMB;
       if (updates.cpuLimit !== undefined) updatePayload.cpu = updates.cpuLimit;
       if (updates.diskMB !== undefined) updatePayload.disk = updates.diskMB;
@@ -3719,6 +3819,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         createAdminNode,
         deleteAdminNode,
         createAdminUser,
+        updateAdminUser,
         deleteAdminUser,
         adminDatabaseHosts,
         adminGlobalDatabases,

@@ -138,6 +138,28 @@ export interface AdminUser {
   subuserServers?: string[];
   discordId?: string;
   discordUsername?: string;
+  roleId?: number;
+  roleName?: string;
+  isBetaTester?: boolean;
+  betaFeatures?: string[];
+  betaServerScope?: string[];
+  betaDiscordScope?: string[];
+}
+
+export interface BetaFeatureCatalogItem {
+  key: string;
+  name: string;
+  name_de: string;
+  description: string;
+  description_de: string;
+  category: string;
+  icon: string;
+}
+
+export interface RoleItem {
+  id: number;
+  name: string;
+  description: string;
 }
 
 export interface EggVariable {

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -157,6 +159,11 @@ func (w *WingsClient) getAuthTokens(node *models.Node) []string {
 
 // doRequest performs a request to the Wings daemon trying candidate URLs and auth formats.
 func (w *WingsClient) doRequest(node *models.Node, method, subPath string, payload []byte) (*http.Response, error) {
+	return w.doRequestWithContentType(node, method, subPath, payload, "application/json")
+}
+
+// doRequestWithContentType performs a request to the Wings daemon with a specified Content-Type header.
+func (w *WingsClient) doRequestWithContentType(node *models.Node, method, subPath string, payload []byte, contentType string) (*http.Response, error) {
 	if node == nil {
 		return nil, fmt.Errorf("node is nil")
 	}
@@ -181,8 +188,8 @@ func (w *WingsClient) doRequest(node *models.Node, method, subPath string, paylo
 			}
 
 			req.Header.Set("Authorization", "Bearer "+token)
-			if payload != nil {
-				req.Header.Set("Content-Type", "application/json")
+			if payload != nil && contentType != "" {
+				req.Header.Set("Content-Type", contentType)
 			}
 			req.Header.Set("Accept", "application/json, application/vnd.pterodactyl.v1+json")
 
@@ -485,5 +492,219 @@ func (w *WingsClient) SyncServer(node *models.Node, serverUUID string) error {
 		return fmt.Errorf("wings sync server returned status %d: %s", resp.StatusCode, string(body))
 	}
 
+	return nil
+}
+
+// PingNode sends a quick request to the node's Wings daemon to check reachability.
+func (w *WingsClient) PingNode(node *models.Node) error {
+	if node == nil {
+		return fmt.Errorf("node is nil")
+	}
+	resp, err := w.doRequest(node, http.MethodGet, "/api/system", nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 500 {
+		return fmt.Errorf("wings returned status %d", resp.StatusCode)
+	}
+	return nil
+}
+
+type wingsFileEntry struct {
+	Name      string `json:"name"`
+	Created   string `json:"created"`
+	Modified  string `json:"modified"`
+	Mode      string `json:"mode"`
+	ModeBits  string `json:"mode_bits"`
+	Size      int64  `json:"size"`
+	Directory bool   `json:"directory"`
+	File      bool   `json:"file"`
+	Symlink   bool   `json:"symlink"`
+	Mime      string `json:"mime"`
+}
+
+// ListFiles lists directory contents directly from the Wings daemon on the remote node.
+func (w *WingsClient) ListFiles(node *models.Node, serverUUID, dir string) ([]FileItem, error) {
+	if node == nil {
+		return nil, fmt.Errorf("node is nil")
+	}
+	cleanDir := "/" + strings.TrimPrefix(filepath.Clean("/"+dir), "/")
+	subPath := fmt.Sprintf("/api/servers/%s/files/list-directory?directory=%s", serverUUID, url.QueryEscape(cleanDir))
+
+	resp, err := w.doRequest(node, http.MethodGet, subPath, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("wings returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var rawEntries []wingsFileEntry
+	if err := json.NewDecoder(resp.Body).Decode(&rawEntries); err != nil {
+		return nil, err
+	}
+
+	var items []FileItem
+	for _, entry := range rawEntries {
+		if entry.Name == ".pteronext_initialized" || entry.Name == ".pteronext_migrated" || entry.Name == ".DS_Store" {
+			continue
+		}
+		itemType := "file"
+		if entry.Directory {
+			itemType = "directory"
+		}
+		itemRelPath := "/" + strings.TrimPrefix(filepath.Join(cleanDir, entry.Name), "/")
+
+		modTime, _ := time.Parse(time.RFC3339, entry.Modified)
+		if modTime.IsZero() {
+			modTime, _ = time.Parse("2006-01-02T15:04:05Z", entry.Modified)
+		}
+
+		item := FileItem{
+			Name:        entry.Name,
+			Path:        itemRelPath,
+			Type:        itemType,
+			Size:        entry.Size,
+			Modified:    formatRelativeTime(modTime),
+			Permissions: entry.Mode,
+			Editable:    !entry.Directory && isEditableFile(entry.Name),
+		}
+		items = append(items, item)
+	}
+
+	return items, nil
+}
+
+// GetFileContent retrieves text content of a file from Wings daemon.
+func (w *WingsClient) GetFileContent(node *models.Node, serverUUID, filePath string) (string, error) {
+	if node == nil {
+		return "", fmt.Errorf("node is nil")
+	}
+	cleanPath := "/" + strings.TrimPrefix(filepath.Clean("/"+filePath), "/")
+	subPath := fmt.Sprintf("/api/servers/%s/files/contents?file=%s", serverUUID, url.QueryEscape(cleanPath))
+
+	resp, err := w.doRequest(node, http.MethodGet, subPath, nil)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("wings returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+// WriteFile writes content to a file via Wings daemon.
+func (w *WingsClient) WriteFile(node *models.Node, serverUUID, filePath, content string) error {
+	if node == nil {
+		return fmt.Errorf("node is nil")
+	}
+	cleanPath := "/" + strings.TrimPrefix(filepath.Clean("/"+filePath), "/")
+	subPath := fmt.Sprintf("/api/servers/%s/files/write?file=%s", serverUUID, url.QueryEscape(cleanPath))
+
+	resp, err := w.doRequestWithContentType(node, http.MethodPost, subPath, []byte(content), "text/plain")
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("wings returned status %d: %s", resp.StatusCode, string(body))
+	}
+	return nil
+}
+
+// CreateDirectory creates a directory via Wings daemon.
+func (w *WingsClient) CreateDirectory(node *models.Node, serverUUID, path, name string) error {
+	if node == nil {
+		return fmt.Errorf("node is nil")
+	}
+	cleanPath := "/" + strings.TrimPrefix(filepath.Clean("/"+path), "/")
+	payload, err := json.Marshal(map[string]string{
+		"name": name,
+		"path": cleanPath,
+	})
+	if err != nil {
+		return err
+	}
+
+	resp, err := w.doRequest(node, http.MethodPost, fmt.Sprintf("/api/servers/%s/files/create-directory", serverUUID), payload)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("wings returned status %d: %s", resp.StatusCode, string(body))
+	}
+	return nil
+}
+
+// DeleteFiles deletes files/directories via Wings daemon.
+func (w *WingsClient) DeleteFiles(node *models.Node, serverUUID, root string, files []string) error {
+	if node == nil {
+		return fmt.Errorf("node is nil")
+	}
+	cleanRoot := "/" + strings.TrimPrefix(filepath.Clean("/"+root), "/")
+	payload, err := json.Marshal(map[string]interface{}{
+		"root":  cleanRoot,
+		"files": files,
+	})
+	if err != nil {
+		return err
+	}
+
+	resp, err := w.doRequest(node, http.MethodPost, fmt.Sprintf("/api/servers/%s/files/delete", serverUUID), payload)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("wings returned status %d: %s", resp.StatusCode, string(body))
+	}
+	return nil
+}
+
+// RenameFile renames or moves a file via Wings daemon.
+func (w *WingsClient) RenameFile(node *models.Node, serverUUID, root, from, to string) error {
+	if node == nil {
+		return fmt.Errorf("node is nil")
+	}
+	cleanRoot := "/" + strings.TrimPrefix(filepath.Clean("/"+root), "/")
+	payload, err := json.Marshal(map[string]interface{}{
+		"root": cleanRoot,
+		"files": []map[string]string{
+			{"from": from, "to": to},
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	resp, err := w.doRequest(node, http.MethodPut, fmt.Sprintf("/api/servers/%s/files/rename", serverUUID), payload)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("wings returned status %d: %s", resp.StatusCode, string(body))
+	}
 	return nil
 }

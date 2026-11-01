@@ -141,6 +141,7 @@ type CreateServerRequest struct {
 	Name         string                 `json:"name" binding:"required"`
 	Description  string                 `json:"description"`
 	OwnerID      *uint                  `json:"owner_id"`
+	Owner        *string                `json:"owner"`
 	NodeID       uint                   `json:"node_id"`
 	AllocationID uint                   `json:"allocation_id"`
 	NestID       *uint                  `json:"nest_id"`
@@ -366,7 +367,16 @@ func (s *ServerController) CreateServer(c *gin.Context) {
 
 	targetOwnerID := user.ID
 	if req.OwnerID != nil && *req.OwnerID > 0 {
-		targetOwnerID = *req.OwnerID
+		var checkUser models.User
+		if err := s.db.First(&checkUser, *req.OwnerID).Error; err == nil {
+			targetOwnerID = checkUser.ID
+		}
+	} else if req.Owner != nil && strings.TrimSpace(*req.Owner) != "" {
+		ownerQuery := strings.TrimSpace(*req.Owner)
+		var checkUser models.User
+		if err := s.db.Where("username = ? OR email = ?", ownerQuery, ownerQuery).First(&checkUser).Error; err == nil {
+			targetOwnerID = checkUser.ID
+		}
 	}
 
 	server := models.Server{
@@ -490,6 +500,8 @@ type UpdateServerRequest struct {
 	SwapMB      *int64  `json:"swap_mb"`
 	Suspended   *bool   `json:"suspended"`
 	IsSuspended *bool   `json:"is_suspended"`
+	OwnerID     *uint   `json:"owner_id"`
+	Owner       *string `json:"owner"`
 }
 
 // UpdateServer handles PATCH /api/servers/:uuid
@@ -547,6 +559,35 @@ func (s *ServerController) UpdateServer(c *gin.Context) {
 		updates["suspended"] = *req.Suspended
 	} else if req.IsSuspended != nil {
 		updates["suspended"] = *req.IsSuspended
+	}
+
+	// Reassign server ownership (Root Administrator only)
+	if user != nil && user.RootAdmin {
+		var newOwner models.User
+		var hasNewOwner bool
+		if req.OwnerID != nil && *req.OwnerID > 0 {
+			if err := s.db.First(&newOwner, *req.OwnerID).Error; err == nil {
+				hasNewOwner = true
+			}
+		}
+		if !hasNewOwner && req.Owner != nil && strings.TrimSpace(*req.Owner) != "" {
+			ownerQuery := strings.TrimSpace(*req.Owner)
+			if err := s.db.Where("username = ? OR email = ?", ownerQuery, ownerQuery).First(&newOwner).Error; err == nil {
+				hasNewOwner = true
+			}
+		}
+
+		if hasNewOwner && newOwner.ID != server.OwnerID {
+			oldOwnerID := server.OwnerID
+			updates["owner_id"] = newOwner.ID
+			_ = s.auditService.Log(&user.ID, "user", &server.ID, "server:transfer_owner", map[string]interface{}{
+				"server_name":        server.Name,
+				"server_uuid":        server.UUID,
+				"old_owner_id":       oldOwnerID,
+				"new_owner_id":       newOwner.ID,
+				"new_owner_username": newOwner.Username,
+			}, c.ClientIP())
+		}
 	}
 
 	if len(updates) > 0 {

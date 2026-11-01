@@ -35,18 +35,27 @@ type FileItem struct {
 }
 
 type FileService struct {
-	db      *gorm.DB
-	dataDir string
+	db          *gorm.DB
+	dataDir     string
+	wingsClient *WingsClient
 }
 
-func NewFileService(db *gorm.DB, dataDir string) *FileService {
+func NewFileService(db *gorm.DB, dataDir string, wingsClient ...*WingsClient) *FileService {
 	if dataDir == "" {
 		dataDir = "./data"
 	}
-	return &FileService{
+	fs := &FileService{
 		db:      db,
 		dataDir: dataDir,
 	}
+	if len(wingsClient) > 0 && wingsClient[0] != nil {
+		fs.wingsClient = wingsClient[0]
+	}
+	return fs
+}
+
+func (f *FileService) SetWingsClient(wc *WingsClient) {
+	f.wingsClient = wc
 }
 
 // GetServerBaseDir safely resolves and initializes the filesystem volume for a server.
@@ -525,6 +534,18 @@ func isEditableFile(name string) bool {
 
 // ListDirectory lists files and folders inside a server directory.
 func (f *FileService) ListDirectory(serverUUID, relPath string) ([]FileItem, error) {
+	// If server is on a remote node and WingsClient is available, fetch live listing directly from Wings daemon!
+	var server models.Server
+	if err := f.db.Preload("Node").Where("uuid = ?", serverUUID).First(&server).Error; err == nil {
+		if f.isRemoteNode(&server) && f.wingsClient != nil && server.Node != nil {
+			if items, wErr := f.wingsClient.ListFiles(server.Node, serverUUID, relPath); wErr == nil {
+				return items, nil
+			} else {
+				log.Printf("[MULTI-NODE] Wings ListFiles failed for server %s (%s): %v, falling back to local disk", serverUUID, server.Node.FQDN, wErr)
+			}
+		}
+	}
+
 	baseDir, err := f.GetServerBaseDir(serverUUID)
 	if err != nil {
 		return nil, err
@@ -599,6 +620,18 @@ func formatRelativeTime(t time.Time) string {
 
 // GetFileContent reads the text content of a file.
 func (f *FileService) GetFileContent(serverUUID, relPath string) (string, error) {
+	// If server is on a remote node and WingsClient is available, fetch content directly from Wings daemon!
+	var server models.Server
+	if err := f.db.Preload("Node").Where("uuid = ?", serverUUID).First(&server).Error; err == nil {
+		if f.isRemoteNode(&server) && f.wingsClient != nil && server.Node != nil {
+			if content, wErr := f.wingsClient.GetFileContent(server.Node, serverUUID, relPath); wErr == nil {
+				return content, nil
+			} else {
+				log.Printf("[MULTI-NODE] Wings GetFileContent failed for server %s: %v, falling back to local disk", serverUUID, wErr)
+			}
+		}
+	}
+
 	baseDir, err := f.GetServerBaseDir(serverUUID)
 	if err != nil {
 		return "", err
@@ -619,6 +652,25 @@ func (f *FileService) GetFileContent(serverUUID, relPath string) (string, error)
 
 // WriteFile writes string content into a file.
 func (f *FileService) WriteFile(serverUUID, relPath, content string) error {
+	// If server is on a remote node and WingsClient is available, write directly via Wings daemon!
+	var server models.Server
+	if err := f.db.Preload("Node").Where("uuid = ?", serverUUID).First(&server).Error; err == nil {
+		if f.isRemoteNode(&server) && f.wingsClient != nil && server.Node != nil {
+			if wErr := f.wingsClient.WriteFile(server.Node, serverUUID, relPath, content); wErr == nil {
+				// Also update local cache if baseDir exists
+				if baseDir, bErr := f.GetServerBaseDir(serverUUID); bErr == nil {
+					if targetPath, tErr := f.resolveSafePath(baseDir, relPath); tErr == nil {
+						_ = os.MkdirAll(filepath.Dir(targetPath), 0755)
+						_ = os.WriteFile(targetPath, []byte(content), 0644)
+					}
+				}
+				return nil
+			} else {
+				log.Printf("[MULTI-NODE] Wings WriteFile failed for server %s: %v, falling back to local disk & rsync", serverUUID, wErr)
+			}
+		}
+	}
+
 	baseDir, err := f.GetServerBaseDir(serverUUID)
 	if err != nil {
 		return err
@@ -642,6 +694,13 @@ func (f *FileService) WriteFile(serverUUID, relPath, content string) error {
 
 // DeleteFiles deletes one or more files / folders inside root.
 func (f *FileService) DeleteFiles(serverUUID, root string, files []string) error {
+	var server models.Server
+	if err := f.db.Preload("Node").Where("uuid = ?", serverUUID).First(&server).Error; err == nil {
+		if f.isRemoteNode(&server) && f.wingsClient != nil && server.Node != nil {
+			_ = f.wingsClient.DeleteFiles(server.Node, serverUUID, root, files)
+		}
+	}
+
 	baseDir, err := f.GetServerBaseDir(serverUUID)
 	if err != nil {
 		return err
@@ -662,12 +721,25 @@ func (f *FileService) DeleteFiles(serverUUID, root string, files []string) error
 		}
 	}
 	f.deleteRemoteFiles(serverUUID, root, files)
-	f.triggerRemoteSync(serverUUID, baseDir)
 	return lastErr
 }
 
 // CreateDirectory creates a new subfolder.
 func (f *FileService) CreateDirectory(serverUUID, root, name string) error {
+	var server models.Server
+	if err := f.db.Preload("Node").Where("uuid = ?", serverUUID).First(&server).Error; err == nil {
+		if f.isRemoteNode(&server) && f.wingsClient != nil && server.Node != nil {
+			if wErr := f.wingsClient.CreateDirectory(server.Node, serverUUID, root, name); wErr == nil {
+				if baseDir, bErr := f.GetServerBaseDir(serverUUID); bErr == nil {
+					if target, tErr := f.resolveSafePath(baseDir, filepath.Join(root, name)); tErr == nil {
+						_ = os.MkdirAll(target, 0755)
+					}
+				}
+				return nil
+			}
+		}
+	}
+
 	baseDir, err := f.GetServerBaseDir(serverUUID)
 	if err != nil {
 		return err
@@ -687,6 +759,23 @@ func (f *FileService) CreateDirectory(serverUUID, root, name string) error {
 
 // Rename renames a file or folder.
 func (f *FileService) Rename(serverUUID, root, from, to string) error {
+	var server models.Server
+	if err := f.db.Preload("Node").Where("uuid = ?", serverUUID).First(&server).Error; err == nil {
+		if f.isRemoteNode(&server) && f.wingsClient != nil && server.Node != nil {
+			if wErr := f.wingsClient.RenameFile(server.Node, serverUUID, root, from, to); wErr == nil {
+				if baseDir, bErr := f.GetServerBaseDir(serverUUID); bErr == nil {
+					cleanRoot := filepath.Clean("/" + root)
+					if src, sErr := f.resolveSafePath(baseDir, filepath.Join(cleanRoot, from)); sErr == nil {
+						if dst, dErr := f.resolveSafePath(baseDir, filepath.Join(cleanRoot, to)); dErr == nil {
+							_ = os.Rename(src, dst)
+						}
+					}
+				}
+				return nil
+			}
+		}
+	}
+
 	baseDir, err := f.GetServerBaseDir(serverUUID)
 	if err != nil {
 		return err
@@ -1352,7 +1441,7 @@ func (f *FileService) syncToRemoteNode(server *models.Server, baseDir string) er
 	remotePrepCmd := fmt.Sprintf("mkdir -p '%s'", primaryDir)
 	_ = f.getSSHCommand(host, remotePrepCmd).Run()
 
-	// 2. Perform rsync with --delete to cleanly sync deletions immediately
+	// 2. Perform rsync without deleting remote runtime files (plugins, world data, logs generated on node)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -1364,7 +1453,7 @@ func (f *FileService) syncToRemoteNode(server *models.Server, baseDir string) er
 
 	src := filepath.Clean(baseDir) + "/"
 	dst := fmt.Sprintf("root@%s:%s/", host, primaryDir)
-	rsyncCmd := exec.CommandContext(ctx, "rsync", "-az", "--delete", "-e", sshRsyncE, src, dst)
+	rsyncCmd := exec.CommandContext(ctx, "rsync", "-az", "-e", sshRsyncE, src, dst)
 	out, err := rsyncCmd.CombinedOutput()
 	if err != nil {
 		log.Printf("[MULTI-NODE] rsync to %s failed: %v, out: %s. Falling back to scp...", host, err, string(out))

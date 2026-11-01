@@ -62,7 +62,7 @@ func SetupRouter(
 	systemUpdateCtrl := controllers.NewSystemUpdateController()
 	router.GET("/api/system/updates/check", systemUpdateCtrl.CheckUpdate)
 
-	discordCtrl := controllers.NewDiscordController(db, authService, discordBotService)
+	discordCtrl := controllers.NewDiscordController(db, authService, discordBotService, auditService)
 	router.GET("/api/auth/discord/status", discordCtrl.GetPublicStatus)
 	router.GET("/api/auth/discord/login", discordCtrl.DiscordLogin)
 	router.GET("/api/auth/discord/redirect", discordCtrl.DiscordLogin)
@@ -87,7 +87,7 @@ func SetupRouter(
 	auditCtrl := controllers.NewAuditController(db)
 	wsCtrl := controllers.NewWebSocketController(wsHub)
 	nestCtrl := controllers.NewNestController(db)
-	userAdminCtrl := controllers.NewUserAdminController(db)
+	userAdminCtrl := controllers.NewUserAdminController(db, auditService)
 	backupCtrl := controllers.NewBackupController(backupService)
 	webhookCtrl := controllers.NewWebhookController(db, webhookService)
 
@@ -436,15 +436,18 @@ func SetupRouter(
 			eggsAdminGroup.DELETE("/:id", nestCtrl.DeleteEgg)
 		}
 
-		// Admin User Management
+		// Admin User Management & RBAC Roles
 		adminUsersGroup := apiGroup.Group("/admin/users")
 		adminUsersGroup.Use(middleware.RequireAdmin())
 		{
 			adminUsersGroup.GET("", userAdminCtrl.ListUsers)
+			adminUsersGroup.GET("/beta-features", userAdminCtrl.ListBetaFeatures)
 			adminUsersGroup.POST("", userAdminCtrl.CreateUser)
 			adminUsersGroup.PUT("/:id", userAdminCtrl.UpdateUser)
 			adminUsersGroup.DELETE("/:id", userAdminCtrl.DeleteUser)
 		}
+
+		apiGroup.GET("/admin/roles", middleware.RequireAdmin(), userAdminCtrl.ListRoles)
 
 		// Admin Database Management
 		adminDatabasesGroup := apiGroup.Group("/admin/databases")
@@ -467,15 +470,28 @@ func SetupRouter(
 
 		// Admin Integrations (Discord OAuth2 & Bot, Cloudflare DNS)
 		adminIntegrationsGroup := apiGroup.Group("/admin/integrations")
-		adminIntegrationsGroup.Use(middleware.RequireAdmin())
 		{
-			adminIntegrationsGroup.GET("/discord", discordCtrl.GetDiscordConfig)
-			adminIntegrationsGroup.POST("/discord", discordCtrl.SaveDiscordConfig)
-			adminIntegrationsGroup.POST("/discord/test", discordCtrl.TestDiscordConnection)
-			adminIntegrationsGroup.GET("/discord/roles", discordCtrl.GetDiscordRoles)
-			adminIntegrationsGroup.POST("/discord/sync-commands", discordCtrl.SyncSlashCommands)
-			adminIntegrationsGroup.GET("/cloudflare", dnsCtrl.GetCloudflareConfig)
-			adminIntegrationsGroup.POST("/cloudflare", dnsCtrl.SaveCloudflareConfig)
+			// Admin-only credentials & global controls
+			adminIntegrationsGroup.GET("/discord", middleware.RequireAdmin(), discordCtrl.GetDiscordConfig)
+			adminIntegrationsGroup.POST("/discord", middleware.RequireAdmin(), discordCtrl.SaveDiscordConfig)
+			adminIntegrationsGroup.POST("/discord/test", middleware.RequireAdmin(), discordCtrl.TestDiscordConnection)
+			adminIntegrationsGroup.GET("/discord/roles", middleware.RequireAdmin(), discordCtrl.GetDiscordRoles)
+			adminIntegrationsGroup.POST("/discord/sync-commands", middleware.RequireAdmin(), discordCtrl.SyncSlashCommands)
+			adminIntegrationsGroup.GET("/cloudflare", middleware.RequireAdmin(), dnsCtrl.GetCloudflareConfig)
+			adminIntegrationsGroup.POST("/cloudflare", middleware.RequireAdmin(), dnsCtrl.SaveCloudflareConfig)
+
+			// Discord Bot Deep Management (Modules, Commands, Messages, Channels, Audit Logs) - Admin or Beta Tester
+			botGroup := adminIntegrationsGroup.Group("/discord")
+			botGroup.Use(middleware.RequireAdminOrBetaFeature("discord_bot_mgmt"))
+			{
+				botGroup.GET("/status", discordCtrl.GetBotStatus)
+				botGroup.GET("/guilds", discordCtrl.GetBotGuilds)
+				botGroup.POST("/guilds/claim", discordCtrl.ClaimBotGuild)
+				botGroup.GET("/guilds/:guild_id/config", discordCtrl.GetBotGuildConfig)
+				botGroup.POST("/guilds/:guild_id/config", discordCtrl.SaveBotGuildConfig)
+				botGroup.GET("/commands", discordCtrl.GetBotCommands)
+				botGroup.GET("/audit-logs", discordCtrl.GetBotAuditLogs)
+			}
 		}
 
 		// Pterodactyl & Pelican Importer (1-Click Migration)

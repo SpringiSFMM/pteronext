@@ -76,8 +76,17 @@ const MainViewContent: React.FC = () => {
     );
   }
 
-  // If a non-admin attempted to visit an admin view, render DashboardView instead
-  const effectiveView = (!isRootAdmin && activeView.startsWith('admin-')) ? 'dashboard' : activeView;
+  const hasDiscordBotAccess = isRootAdmin || Boolean(
+    currentUser?.isBetaTester && (
+      currentUser.betaFeatures?.includes('discord_bot_mgmt') ||
+      currentUser.betaFeatures?.includes('*') ||
+      (currentUser.betaDiscordScope && currentUser.betaDiscordScope.length > 0)
+    )
+  );
+
+  // If a non-admin attempted to visit an admin view, render DashboardView unless permitted via Beta access
+  const isAllowedAdminView = isRootAdmin || (activeView === 'admin-discord-bot' && hasDiscordBotAccess);
+  const effectiveView = (!isAllowedAdminView && activeView.startsWith('admin-')) ? 'dashboard' : activeView;
 
   return (
     <AppLayout>
@@ -95,7 +104,7 @@ const MainViewContent: React.FC = () => {
       {isRootAdmin && effectiveView === 'admin-users' && <AdminUsersView />}
       {isRootAdmin && effectiveView === 'admin-eggs' && <AdminEggsView />}
       {isRootAdmin && effectiveView === 'admin-databases' && <AdminDatabasesView />}
-      {isRootAdmin && effectiveView === 'admin-discord-bot' && <AdminDiscordBotView />}
+      {hasDiscordBotAccess && effectiveView === 'admin-discord-bot' && <AdminDiscordBotView />}
       {isRootAdmin && effectiveView === 'admin-status-pages' && <AdminStatusPagesView />}
       {isRootAdmin && effectiveView === 'admin-designer' && <AdminDesignerView />}
     </AppLayout>
