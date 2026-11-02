@@ -1236,6 +1236,8 @@ func (d *DiscordController) SaveBotGuildConfig(c *gin.Context) {
 		"ticket_welcome_message":       "Ticket Welcome Message",
 		"level_up_message":             "Level Up Message",
 		"disabled_commands":            "Disabled Commands",
+		"autorole_enabled":             "Auto-Role System",
+		"autorole_role_id":             "Auto-Role Target Role",
 	}
 
 	for k, newVal := range payload {
@@ -1288,6 +1290,63 @@ func (d *DiscordController) SaveBotGuildConfig(c *gin.Context) {
 		"changes": changes,
 		"config":  resultData["config"],
 	})
+}
+
+// SyncBotGuildAutorole handles POST /api/admin/integrations/discord/guilds/:guild_id/sync-autorole
+func (d *DiscordController) SyncBotGuildAutorole(c *gin.Context) {
+	user, ok := middleware.GetRequestUser(c)
+	if !ok || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	guildID := strings.TrimSpace(c.Param("guild_id"))
+	if guildID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "guild_id parameter required"})
+		return
+	}
+
+	if !user.RootAdmin && !user.HasBetaFeature("discord_bot_mgmt", "", guildID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Zugriff verweigert: Du hast keine Berechtigung für diesen Discord-Server."})
+		return
+	}
+
+	httpClient := &http.Client{Timeout: 30 * time.Second}
+	resp, err := httpClient.Post(
+		fmt.Sprintf("http://127.0.0.1:25566/api/bot/guilds/%s/sync-autorole", url.PathEscape(guildID)),
+		"application/json",
+		nil,
+	)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Bot Sync-Server nicht erreichbar: " + err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+
+	var data map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Ungültige Antwort vom Bot Sync-Server"})
+		return
+	}
+
+	// Record audit log for mass role sync
+	if d.auditService != nil && resp.StatusCode == http.StatusOK {
+		_ = d.auditService.Log(
+			&user.ID,
+			"user",
+			nil,
+			"discord:bot_autorole_synced",
+			map[string]interface{}{
+				"guild_id":       guildID,
+				"assigned_count": data["assigned_count"],
+				"role_name":      data["role_name"],
+				"timestamp":      time.Now().UTC().Format(time.RFC3339),
+			},
+			c.ClientIP(),
+		)
+	}
+
+	c.JSON(resp.StatusCode, data)
 }
 
 // GetBotAuditLogs handles GET /api/admin/integrations/discord/audit-logs

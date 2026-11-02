@@ -33,6 +33,7 @@ import {
   Sparkles,
   Trophy,
   Users,
+  UserPlus,
   Plus,
 } from 'lucide-react';
 import { useTranslation } from '../../i18n/useTranslation';
@@ -79,8 +80,18 @@ interface GuildConfig {
   welcome_dm_enabled: boolean;
   automod_links_enabled: boolean;
   automod_spam_enabled: boolean;
+  automod_wordfilter_enabled?: boolean;
+  automod_bad_words?: string[];
+  automod_antiinvite_enabled?: boolean;
+  automod_ghostping_enabled?: boolean;
+  automod_link_whitelist?: string[];
+  automod_action?: string;
+  automod_exempt_roles?: string[];
+  automod_exempt_channels?: string[];
   ai_assistant_enabled: boolean;
   starboard_enabled: boolean;
+  autorole_enabled?: boolean;
+  autorole_role_id?: string | null;
   welcome_channel_id?: string | null;
   leave_channel_id?: string | null;
   log_channel_id?: string | null;
@@ -165,10 +176,21 @@ export const AdminDiscordBotView: React.FC = () => {
 
     mod_automod_title: isDe ? 'Auto-Mod & Sicherheits-Schutz' : 'Auto-Mod & Security Protection',
     mod_automod_desc: isDe
-      ? 'Blockiert Einladungslinks, verdächtige Domains, Mass-Mentions und schützt den Chat vor Spam.'
-      : 'Blocks invite links, suspicious domains, mass mentions, and protects chat from spam.',
-    mod_automod_links: isDe ? 'Links blockieren' : 'Block Links',
-    mod_automod_spam: isDe ? 'Anti-Spam Filter' : 'Anti-Spam Filter',
+      ? 'Blockiert unerwünschte Links, Einladungslinks, Schimpfwörter, Ghost-Pings und Chat-Spam.'
+      : 'Blocks unauthorized links, invite links, blacklisted words, ghost pings, and chat spam.',
+    mod_automod_links: isDe ? 'Anti-Links Filter' : 'Anti-Links Filter',
+    mod_automod_spam: isDe ? 'Anti-Spam Flooding' : 'Anti-Spam Flooding',
+    mod_automod_wordfilter: isDe ? 'Wortfilter (Anti-Bypass)' : 'Word Filter (Anti-Bypass)',
+    mod_automod_antiinvite: isDe ? 'Anti-Invites (Discord-Links)' : 'Anti-Invites (Discord Invites)',
+    mod_automod_ghostping: isDe ? 'Anti-Ghost-Pings' : 'Anti-Ghost-Pings',
+    mod_automod_badwords_lbl: isDe ? 'Benutzerdefinierte Schimpfwörter (Kommagetrennt):' : 'Custom Blacklisted Words (Comma-separated):',
+    mod_automod_whitelist_lbl: isDe ? 'Erlaubte Link-Domains (Whitelist):' : 'Allowed Link Domains (Whitelist):',
+    mod_automod_action_lbl: isDe ? 'Sanktions-Maßnahme bei Verstoß:' : 'Enforcement Action:',
+    mod_branding_title: isDe ? 'PteroNext Plattform-Werbung & Branding' : 'PteroNext Platform Branding & Footer',
+    mod_branding_desc: isDe
+      ? 'Das offizielle PteroNext-Branding ("⚡ Powered by PteroNext • pteronext.com") ist fest in allen Embeds und Bot-Nachrichten integriert und kann nicht deaktiviert werden.'
+      : 'Official PteroNext branding ("⚡ Powered by PteroNext • pteronext.com") is permanently embedded in all bot messages and cannot be disabled.',
+    mod_branding_badge: isDe ? '🔒 Dauerhaft Aktiv (Nicht entfernbar)' : '🔒 Permanently Active (Immutable)',
 
     mod_moderation_title: isDe ? 'Moderations-Suite (/warn, /ban)' : 'Moderation Suite (/warn, /ban)',
     mod_moderation_desc: isDe
@@ -199,6 +221,16 @@ export const AdminDiscordBotView: React.FC = () => {
     mod_ai_desc: isDe
       ? 'Beantwortet Server- und Support-Fragen autonom basierend auf der PteroNext Dokumentation.'
       : 'Autonomously answers server and support inquiries based on PteroNext documentation.',
+
+    mod_autorole_title: isDe ? 'Auto-Role / Beitritts-Rolle' : 'Auto-Role on Join',
+    mod_autorole_desc: isDe
+      ? 'Weist neuen Mitgliedern beim Beitreten automatisch die konfigurierte Rolle zu.'
+      : 'Automatically assigns the selected role to new members upon joining the server.',
+    mod_autorole_sync_btn: isDe ? 'Auf alle Mitglieder anwenden (Sync)' : 'Sync to All Members',
+    mod_autorole_syncing: isDe ? 'Wende Rolle an...' : 'Syncing Role...',
+    lbl_autorole_role: isDe ? '👤 Auto-Rolle (Automatisch bei Beitritt vergeben)' : '👤 Auto-Role (Assigned on Member Join)',
+    lbl_autorole_role_select: isDe ? 'Ziel-Rolle für neue Mitglieder:' : 'Target Role for New Members:',
+    role_autorole_none: isDe ? '-- Keine Auto-Rolle (Deaktiviert) --' : '-- No Auto-Role assigned (Disabled) --',
 
     // Channels
     channels_title: isDe ? 'Kanal- & Rollen-Zuweisung für' : 'Channel & Role Mappings for',
@@ -310,10 +342,20 @@ export const AdminDiscordBotView: React.FC = () => {
     welcome_dm_enabled: true,
     automod_links_enabled: true,
     automod_spam_enabled: true,
+    automod_wordfilter_enabled: true,
+    automod_antiinvite_enabled: true,
+    automod_ghostping_enabled: true,
+    automod_bad_words: [],
+    automod_link_whitelist: ['pteronext.com', 'github.com', 'youtube.com', 'youtu.be', 'tenor.com', 'giphy.com'],
+    automod_action: 'delete_warn',
     ai_assistant_enabled: true,
     starboard_enabled: true,
+    autorole_enabled: true,
+    autorole_role_id: null,
     disabled_commands: [],
   });
+
+  const [isSyncingAutorole, setIsSyncingAutorole] = useState(false);
 
   // Commands & Audit Data
   const [commands, setCommands] = useState<BotCommand[]>([]);
@@ -515,6 +557,43 @@ export const AdminDiscordBotView: React.FC = () => {
       ...prev,
       [key]: current + ' ' + placeholder,
     }));
+  };
+
+  const handleSyncAutorole = async () => {
+    if (!selectedGuildId) return;
+    if (!guildConfig.autorole_role_id) {
+      addToast({
+        title: isDe ? 'Keine Auto-Rolle gewählt' : 'No Auto-Role Selected',
+        description: isDe
+          ? 'Bitte wähle zuerst eine Discord-Rolle für das Auto-Role System aus und speichere die Einstellungen.'
+          : 'Please select a Discord role for the Auto-Role system first and save changes.',
+        type: 'warning',
+      });
+      return;
+    }
+
+    try {
+      setIsSyncingAutorole(true);
+      const res = await api.post(`/admin/integrations/discord/guilds/${selectedGuildId}/sync-autorole`);
+      if (res.data?.success) {
+        addToast({
+          title: isDe ? 'Auto-Role Sync erfolgreich!' : 'Auto-Role Sync Complete!',
+          description: isDe
+            ? `Rolle "@${res.data.role_name}" wurde an ${res.data.assigned_count} neue Mitglieder vergeben (${res.data.already_had_count} hatten sie bereits).`
+            : `Role "@${res.data.role_name}" was assigned to ${res.data.assigned_count} members (${res.data.already_had_count} already had it).`,
+          type: 'success',
+        });
+        fetchAuditLogs();
+      }
+    } catch (err: any) {
+      addToast({
+        title: isDe ? 'Synchronisation fehlgeschlagen' : 'Sync Failed',
+        description: err.response?.data?.error || err.message,
+        type: 'error',
+      });
+    } finally {
+      setIsSyncingAutorole(false);
+    }
   };
 
   const handleToggleCommand = (cmdName: string) => {
@@ -1026,53 +1105,158 @@ export const AdminDiscordBotView: React.FC = () => {
             </div>
 
             {/* Auto-Mod & Security */}
-            <div className="glass-panel p-5 rounded-2xl border border-slate-800 bg-[#161b22]/90 flex items-start justify-between gap-4">
+            <div className="glass-panel p-5 rounded-2xl border border-slate-800 bg-[#161b22]/90 space-y-4 md:col-span-2">
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 text-white font-bold text-sm">
+                    <Lock className="w-4 h-4 text-rose-400" />
+                    <span>{t.mod_automod_title}</span>
+                  </div>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    {t.mod_automod_desc}
+                  </p>
+                </div>
+
+                <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+                  <input
+                    type="checkbox"
+                    checked={guildConfig.moderation_enabled}
+                    onChange={() => handleModuleToggle('moderation_enabled')}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-600"></div>
+                </label>
+              </div>
+
+              {/* Sub-Toggles Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-2 border-t border-slate-800/80">
+                <label className="flex items-center gap-2 cursor-pointer p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 transition">
+                  <input
+                    type="checkbox"
+                    checked={guildConfig.automod_wordfilter_enabled !== false}
+                    onChange={() => handleModuleToggle('automod_wordfilter_enabled')}
+                    className="rounded border-slate-700 bg-slate-800 text-cyan-500 focus:ring-0"
+                  />
+                  <span className="text-xs text-slate-300 font-medium">{t.mod_automod_wordfilter}</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 transition">
+                  <input
+                    type="checkbox"
+                    checked={guildConfig.automod_links_enabled !== false}
+                    onChange={() => handleModuleToggle('automod_links_enabled')}
+                    className="rounded border-slate-700 bg-slate-800 text-cyan-500 focus:ring-0"
+                  />
+                  <span className="text-xs text-slate-300 font-medium">{t.mod_automod_links}</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 transition">
+                  <input
+                    type="checkbox"
+                    checked={guildConfig.automod_antiinvite_enabled !== false}
+                    onChange={() => handleModuleToggle('automod_antiinvite_enabled')}
+                    className="rounded border-slate-700 bg-slate-800 text-cyan-500 focus:ring-0"
+                  />
+                  <span className="text-xs text-slate-300 font-medium">{t.mod_automod_antiinvite}</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 transition">
+                  <input
+                    type="checkbox"
+                    checked={guildConfig.automod_ghostping_enabled !== false}
+                    onChange={() => handleModuleToggle('automod_ghostping_enabled')}
+                    className="rounded border-slate-700 bg-slate-800 text-cyan-500 focus:ring-0"
+                  />
+                  <span className="text-xs text-slate-300 font-medium">{t.mod_automod_ghostping}</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 transition">
+                  <input
+                    type="checkbox"
+                    checked={guildConfig.automod_spam_enabled !== false}
+                    onChange={() => handleModuleToggle('automod_spam_enabled')}
+                    className="rounded border-slate-700 bg-slate-800 text-cyan-500 focus:ring-0"
+                  />
+                  <span className="text-xs text-slate-300 font-medium">{t.mod_automod_spam}</span>
+                </label>
+              </div>
+
+              {/* Detailed Configuration Inputs */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold text-slate-400">
+                    {t.mod_automod_action_lbl}
+                  </label>
+                  <select
+                    value={guildConfig.automod_action || 'delete_warn'}
+                    onChange={(e) => setGuildConfig((prev) => ({ ...prev, automod_action: e.target.value }))}
+                    className="w-full text-xs px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-cyan-500"
+                  >
+                    <option value="delete_warn">Warn in DM + Delete message</option>
+                    <option value="delete_only">Delete message only (Silent)</option>
+                    <option value="timeout">Delete + 10-Minute Timeout</option>
+                    <option value="escalate">Full Escalation Matrix (Warn → 15m → 24h → Ban)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold text-slate-400">
+                    {t.mod_automod_whitelist_lbl}
+                  </label>
+                  <input
+                    type="text"
+                    value={Array.isArray(guildConfig.automod_link_whitelist) ? guildConfig.automod_link_whitelist.join(', ') : 'pteronext.com, youtube.com, github.com'}
+                    onChange={(e) => {
+                      const list = e.target.value.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+                      setGuildConfig((prev) => ({ ...prev, automod_link_whitelist: list }));
+                    }}
+                    placeholder="pteronext.com, youtube.com, github.com"
+                    className="w-full text-xs px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500 font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold text-slate-400">
+                    {t.mod_automod_badwords_lbl}
+                  </label>
+                  <input
+                    type="text"
+                    value={Array.isArray(guildConfig.automod_bad_words) ? guildConfig.automod_bad_words.join(', ') : ''}
+                    onChange={(e) => {
+                      const list = e.target.value.split(',').map((s) => s.trim()).filter(Boolean);
+                      setGuildConfig((prev) => ({ ...prev, automod_bad_words: list }));
+                    }}
+                    placeholder="wort1, wort2, wort3..."
+                    className="w-full text-xs px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* PteroNext Branding & Advertising (Permanent Policy) */}
+            <div className="glass-panel p-5 rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-[#161b22]/90 to-[#0e1726]/90 flex items-start justify-between gap-4 md:col-span-2">
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2 text-white font-bold text-sm">
-                  <Lock className="w-4 h-4 text-rose-400" />
-                  <span>{t.mod_automod_title}</span>
+                  <Zap className="w-4 h-4 text-cyan-400" />
+                  <span>{t.mod_branding_title}</span>
+                  <span className="text-[10px] bg-cyan-950/80 text-cyan-400 border border-cyan-700/50 px-2 py-0.5 rounded-full font-mono">
+                    {t.mod_branding_badge}
+                  </span>
                 </div>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  {t.mod_automod_desc}
+                  {t.mod_branding_desc}
                 </p>
-                <div className="flex items-center gap-3 pt-2 text-[11px] text-slate-400">
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={guildConfig.automod_links_enabled}
-                      onChange={() => handleModuleToggle('automod_links_enabled')}
-                      className="rounded border-slate-700 bg-slate-800 text-cyan-500 focus:ring-0"
-                    />
-                    <span>{t.mod_automod_links}</span>
-                  </label>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={guildConfig.automod_spam_enabled}
-                      onChange={() => handleModuleToggle('automod_spam_enabled')}
-                      className="rounded border-slate-700 bg-slate-800 text-cyan-500 focus:ring-0"
-                    />
-                    <span>{t.mod_automod_spam}</span>
-                  </label>
+                <div className="pt-1 text-[11px] text-cyan-300/80 font-mono flex items-center gap-1.5">
+                  <span>⚡ Powered by PteroNext • pteronext.com</span>
                 </div>
               </div>
 
-              <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
-                <input
-                  type="checkbox"
-                  checked={guildConfig.automod_links_enabled || guildConfig.automod_spam_enabled}
-                  onChange={() => {
-                    const next = !(guildConfig.automod_links_enabled || guildConfig.automod_spam_enabled);
-                    setGuildConfig((prev) => ({
-                      ...prev,
-                      automod_links_enabled: next,
-                      automod_spam_enabled: next,
-                    }));
-                  }}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-600"></div>
-              </label>
+              <div className="shrink-0 mt-1">
+                <div className="px-3 py-1.5 rounded-xl bg-slate-800/90 border border-slate-700 text-[11px] text-slate-300 font-mono flex items-center gap-1.5 shadow-sm">
+                  <Lock className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Locked</span>
+                </div>
+              </div>
             </div>
 
             {/* Moderation */}
@@ -1214,6 +1398,79 @@ export const AdminDiscordBotView: React.FC = () => {
                 />
                 <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-600"></div>
               </label>
+            </div>
+
+            {/* Auto-Role Module */}
+            <div className="glass-panel p-5 rounded-2xl border border-slate-800 bg-[#161b22]/90 flex flex-col justify-between gap-4 md:col-span-2">
+              <div className="space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-white font-bold text-sm">
+                      <UserPlus className="w-4 h-4 text-cyan-400" />
+                      <span>{t.mod_autorole_title}</span>
+                      <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono">
+                        {guildConfig.autorole_enabled !== false && guildConfig.autorole_role_id ? 'ACTIVE' : 'IDLE'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      {t.mod_autorole_desc}
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+                    <input
+                      type="checkbox"
+                      checked={guildConfig.autorole_enabled !== false}
+                      onChange={() => handleModuleToggle('autorole_enabled')}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-600"></div>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-mono text-slate-300 font-semibold flex items-center justify-between">
+                      <span>{t.lbl_autorole_role_select}</span>
+                      {guildConfig.autorole_role_id && (
+                        <button
+                          type="button"
+                          onClick={() => handleChannelSelect('autorole_role_id', '')}
+                          className="text-[10px] text-rose-400 hover:text-rose-300"
+                        >
+                          {t.channels_remove}
+                        </button>
+                      )}
+                    </label>
+                    <select
+                      value={guildConfig.autorole_role_id || ''}
+                      onChange={(e) => handleChannelSelect('autorole_role_id', e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-[#0d1117] border border-slate-800 text-white focus:outline-none focus:border-cyan-500 text-xs font-mono"
+                    >
+                      <option value="">{t.role_autorole_none}</option>
+                      {guildRoles.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          @{r.name} ({r.id})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col justify-end space-y-1.5">
+                    <label className="text-[11px] font-mono text-slate-400">
+                      {isDe ? 'Bestehende Mitglieder nachrüsten:' : 'Retroactive Member Sync:'}
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleSyncAutorole}
+                      disabled={isSyncingAutorole || !guildConfig.autorole_role_id}
+                      className="w-full px-3.5 py-2 rounded-xl bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-400 border border-cyan-500/30 text-xs font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-mono"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isSyncingAutorole ? 'animate-spin' : ''}`} />
+                      <span>{isSyncingAutorole ? t.mod_autorole_syncing : t.mod_autorole_sync_btn}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1386,6 +1643,33 @@ export const AdminDiscordBotView: React.FC = () => {
                 className="w-full px-3.5 py-2.5 rounded-xl bg-[#0d1117] border border-slate-800 text-white focus:outline-none focus:border-cyan-500 text-xs"
               >
                 <option value="">{t.role_none}</option>
+                {guildRoles.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    @{r.name} ({r.id})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Auto-Role on Member Join */}
+            <div className="space-y-1.5">
+              <label className="text-slate-300 font-semibold flex items-center justify-between">
+                <span>{t.lbl_autorole_role}</span>
+                {guildConfig.autorole_role_id && (
+                  <button
+                    onClick={() => handleChannelSelect('autorole_role_id', '')}
+                    className="text-[10px] text-rose-400 hover:text-rose-300"
+                  >
+                    {t.channels_remove}
+                  </button>
+                )}
+              </label>
+              <select
+                value={guildConfig.autorole_role_id || ''}
+                onChange={(e) => handleChannelSelect('autorole_role_id', e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#0d1117] border border-slate-800 text-white focus:outline-none focus:border-cyan-500 text-xs"
+              >
+                <option value="">{t.role_autorole_none}</option>
                 {guildRoles.map((r) => (
                   <option key={r.id} value={r.id}>
                     @{r.name} ({r.id})

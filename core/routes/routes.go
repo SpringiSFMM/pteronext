@@ -489,6 +489,7 @@ func SetupRouter(
 				botGroup.POST("/guilds/claim", discordCtrl.ClaimBotGuild)
 				botGroup.GET("/guilds/:guild_id/config", discordCtrl.GetBotGuildConfig)
 				botGroup.POST("/guilds/:guild_id/config", discordCtrl.SaveBotGuildConfig)
+				botGroup.POST("/guilds/:guild_id/sync-autorole", discordCtrl.SyncBotGuildAutorole)
 				botGroup.GET("/commands", discordCtrl.GetBotCommands)
 				botGroup.GET("/audit-logs", discordCtrl.GetBotAuditLogs)
 			}
