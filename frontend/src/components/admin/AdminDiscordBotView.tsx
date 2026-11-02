@@ -128,6 +128,18 @@ interface AuditLogEntry {
   actor_id?: number;
 }
 
+interface ClusterNode {
+  node_id: string;
+  cluster_name: string;
+  hostname: string;
+  ip_address: string;
+  role: 'leader' | 'standby' | 'offline';
+  is_leader: boolean;
+  last_heartbeat: string;
+  started_at: string;
+  metadata?: any;
+}
+
 export const AdminDiscordBotView: React.FC = () => {
   const { addToast, currentUser, setIsAccountSettingsOpen } = useApp();
   const { language } = useTranslation();
@@ -307,7 +319,7 @@ export const AdminDiscordBotView: React.FC = () => {
   const [syncing, setSyncing] = useState(false);
 
   // Active Navigation Tab
-  const [activeTab, setActiveTab] = useState<'modules' | 'channels' | 'messages' | 'commands' | 'audit' | 'credentials'>('modules');
+  const [activeTab, setActiveTab] = useState<'modules' | 'channels' | 'messages' | 'commands' | 'audit' | 'credentials' | 'cluster'>('modules');
 
   // Integration credentials state
   const [enabled, setEnabled] = useState(false);
@@ -356,6 +368,8 @@ export const AdminDiscordBotView: React.FC = () => {
   });
 
   const [isSyncingAutorole, setIsSyncingAutorole] = useState(false);
+  const [clusterNodes, setClusterNodes] = useState<ClusterNode[]>([]);
+  const [isTriggeringFailover, setIsTriggeringFailover] = useState(false);
 
   // Commands & Audit Data
   const [commands, setCommands] = useState<BotCommand[]>([]);
@@ -382,8 +396,43 @@ export const AdminDiscordBotView: React.FC = () => {
       fetchGuilds(),
       fetchCommands(),
       fetchAuditLogs(),
+      fetchClusterNodes(),
     ]);
     setLoading(false);
+  };
+
+  const fetchClusterNodes = async () => {
+    try {
+      const res = await api.get('/admin/integrations/discord/cluster');
+      if (res.data?.success && Array.isArray(res.data.nodes)) {
+        setClusterNodes(res.data.nodes);
+      }
+    } catch (_) {}
+  };
+
+  const handleTriggerFailover = async () => {
+    try {
+      setIsTriggeringFailover(true);
+      const res = await api.post('/admin/integrations/discord/cluster/failover');
+      if (res.data?.success) {
+        addToast({
+          title: isDe ? 'Cluster Failover ausgelöst!' : 'Cluster Failover Triggered!',
+          description: isDe
+            ? 'Aktiver Leader tritt freiwillig zurück. Standby-Knoten übernimmt innerhalb weniger Sekunden die Führung.'
+            : 'Active leader stepping down. Standby node will assume leadership within seconds.',
+          type: 'success',
+        });
+        setTimeout(fetchClusterNodes, 2000);
+      }
+    } catch (err: any) {
+      addToast({
+        title: isDe ? 'Failover fehlgeschlagen' : 'Failover Failed',
+        description: err.response?.data?.error || err.message,
+        type: 'error',
+      });
+    } finally {
+      setIsTriggeringFailover(false);
+    }
   };
 
   const fetchStatus = async () => {
@@ -596,20 +645,51 @@ export const AdminDiscordBotView: React.FC = () => {
     }
   };
 
-  const handleToggleCommand = (cmdName: string) => {
-    setGuildConfig((prev) => {
-      const currentList = Array.isArray(prev.disabled_commands) ? [...prev.disabled_commands] : [];
-      const index = currentList.indexOf(cmdName);
-      if (index >= 0) {
-        currentList.splice(index, 1);
-      } else {
-        currentList.push(cmdName);
+  const handleToggleCommand = async (cmdName: string) => {
+    const currentList = Array.isArray(guildConfig.disabled_commands) ? [...guildConfig.disabled_commands] : [];
+    const index = currentList.indexOf(cmdName);
+    const willBeDisabled = index === -1;
+    if (index >= 0) {
+      currentList.splice(index, 1);
+    } else {
+      currentList.push(cmdName);
+    }
+
+    const newCfg = {
+      ...guildConfig,
+      disabled_commands: currentList,
+    };
+    setGuildConfig(newCfg);
+
+    if (selectedGuildId) {
+      try {
+        setSavingGuild(true);
+        const res = await api.post(`/admin/integrations/discord/guilds/${selectedGuildId}/config`, newCfg);
+        if (res.data?.success) {
+          addToast({
+            title: isDe 
+              ? (willBeDisabled ? `Befehl /${cmdName} deaktiviert!` : `Befehl /${cmdName} aktiviert!`) 
+              : (willBeDisabled ? `Command /${cmdName} disabled!` : `Command /${cmdName} enabled!`),
+            description: isDe 
+              ? `Änderung wurde sofort gespeichert und live für ${selectedGuild?.name || 'den Server'} wirksam.`
+              : `Change saved to database and applied live for ${selectedGuild?.name || 'the server'}.`,
+            type: willBeDisabled ? 'warning' : 'success',
+          });
+          setGuilds((prev) =>
+            prev.map((g) => (g.id === selectedGuildId ? { ...g, config: res.data.config } : g))
+          );
+          fetchAuditLogs();
+        }
+      } catch (err: any) {
+        addToast({
+          title: isDe ? 'Fehler beim Speichern' : 'Save Error',
+          description: err.response?.data?.error || err.message,
+          type: 'error',
+        });
+      } finally {
+        setSavingGuild(false);
       }
-      return {
-        ...prev,
-        disabled_commands: currentList,
-      };
-    });
+    }
   };
 
   const handleSaveGuildConfig = async () => {
@@ -813,7 +893,7 @@ export const AdminDiscordBotView: React.FC = () => {
             <span>{t.refresh}</span>
           </button>
 
-          {activeTab !== 'credentials' && activeTab !== 'audit' && (
+          {activeTab !== 'credentials' && activeTab !== 'audit' && activeTab !== 'cluster' && (
             <button
               type="button"
               onClick={handleSaveGuildConfig}
@@ -863,7 +943,7 @@ export const AdminDiscordBotView: React.FC = () => {
       {/* ─────────────────────────────────────────────────────────────
           2. GUILD SELECTOR BAR (ACTIVE ON CONFIG TABS)
       ───────────────────────────────────────────────────────────── */}
-      {activeTab !== 'credentials' && activeTab !== 'audit' && (
+      {activeTab !== 'credentials' && activeTab !== 'audit' && activeTab !== 'cluster' && (
         <div className="glass-panel p-4 rounded-2xl border border-slate-800 bg-[#161b22]/70 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider font-mono flex items-center gap-1.5">
@@ -995,6 +1075,24 @@ export const AdminDiscordBotView: React.FC = () => {
         >
           <History className="w-4 h-4" />
           <span>{t.tab_audit}</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveTab('cluster');
+            fetchClusterNodes();
+          }}
+          className={`px-4 py-2 rounded-xl text-xs font-medium transition-all flex items-center gap-2 ${
+            activeTab === 'cluster'
+              ? 'bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 font-bold'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+          }`}
+        >
+          <Layers className="w-4 h-4" />
+          <span>{isDe ? 'Cluster Netzwerk (HA)' : 'Cluster Network (HA)'}</span>
+          <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-cyan-500/20 text-cyan-300 font-mono border border-cyan-500/30">
+            {clusterNodes.length > 0 ? `${clusterNodes.length} Nodes` : 'HA'}
+          </span>
         </button>
 
         {isRootAdmin && (
@@ -2203,6 +2301,130 @@ export const AdminDiscordBotView: React.FC = () => {
               {savingCreds ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
               <span>{t.creds_save_btn}</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          TAB 7: CLUSTER NETZWERK & FAILOVER (HIGH AVAILABILITY)
+      ───────────────────────────────────────────────────────────── */}
+      {activeTab === 'cluster' && (
+        <div className="space-y-6">
+          <div className="glass-panel p-6 rounded-2xl border border-slate-800 bg-[#161b22]/90 space-y-5">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+              <div>
+                <div className="flex items-center gap-2 text-white font-bold text-sm font-mono">
+                  <Layers className="w-4 h-4 text-cyan-400" />
+                  <span>{isDe ? 'PteroNext Discord Bot — Hochverfügbarkeits-Cluster (HA)' : 'PteroNext Discord Bot — High Availability (HA) Cluster'}</span>
+                </div>
+                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                  {isDe
+                    ? 'Automatisches Failover-Netzwerk: Fällt ein Cluster-Knoten oder Server aus, übernimmt automatisch die nächste Standby-Instanz nahtlos das Gateway & die Bot-Steuerung.'
+                    : 'Automated failover network: If any cluster node fails, the next standby instance immediately and seamlessly assumes active leadership.'}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={fetchClusterNodes}
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-mono font-medium transition-all flex items-center gap-2"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>{t.refresh}</span>
+                </button>
+
+                {isRootAdmin && (
+                  <button
+                    type="button"
+                    onClick={handleTriggerFailover}
+                    disabled={isTriggeringFailover}
+                    className="px-3.5 py-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 text-xs font-mono font-bold transition-all flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <Zap className={`w-3.5 h-3.5 ${isTriggeringFailover ? 'animate-spin' : ''}`} />
+                    <span>{isTriggeringFailover ? (isDe ? 'Wechsle Leader...' : 'Switching...') : (isDe ? 'Failover erzwingen' : 'Trigger Failover')}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Cluster Nodes List */}
+            <div className="space-y-3">
+              <h3 className="text-xs font-mono text-slate-400 uppercase tracking-wider font-semibold">
+                {isDe ? 'Aktive Cluster-Instanzen & Heartbeats' : 'Registered Cluster Nodes & Heartbeats'}
+              </h3>
+
+              {clusterNodes.length === 0 ? (
+                <div className="p-4 rounded-xl bg-[#0d1117] border border-slate-800 text-center text-xs text-slate-400 font-mono">
+                  {isDe ? 'Keine Cluster-Knoten gefunden. Starte den Bot, um diesen Knoten zu registrieren.' : 'No cluster nodes found. Start the bot to register this node.'}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-3">
+                  {clusterNodes.map((node) => {
+                    const isLeaderNode = node.is_leader || node.role === 'leader';
+                    const isOffline = node.role === 'offline';
+                    const hbDate = new Date(node.last_heartbeat);
+                    const secondsAgo = Math.max(0, Math.round((Date.now() - hbDate.getTime()) / 1000));
+
+                    return (
+                      <div
+                        key={node.node_id}
+                        className={`p-4 rounded-xl border flex flex-col md:flex-row md:items-center justify-between gap-3 transition-all ${
+                          isLeaderNode
+                            ? 'bg-cyan-950/20 border-cyan-500/40 shadow-lg shadow-cyan-950/20'
+                            : isOffline
+                            ? 'bg-slate-900/40 border-slate-800/60 opacity-60'
+                            : 'bg-[#0d1117] border-slate-800'
+                        }`}
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-white font-mono text-xs font-bold flex items-center gap-1.5">
+                              <Server className="w-3.5 h-3.5 text-slate-400" />
+                              {node.node_id}
+                            </span>
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase border ${
+                                isLeaderNode
+                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                  : isOffline
+                                  ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                                  : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                              }`}
+                            >
+                              {isLeaderNode ? '👑 ACTIVE LEADER' : isOffline ? 'OFFLINE' : 'STANDBY (FAILOVER READY)'}
+                            </span>
+                          </div>
+                          <div className="text-[11px] font-mono text-slate-400 flex flex-wrap items-center gap-x-4 gap-y-1">
+                            <span>Host: <strong className="text-slate-300">{node.hostname}</strong></span>
+                            <span>IP: <strong className="text-slate-300">{node.ip_address}</strong></span>
+                            <span>Cluster: <strong className="text-slate-300">{node.cluster_name}</strong></span>
+                          </div>
+                        </div>
+
+                        <div className="text-right text-[11px] font-mono text-slate-400">
+                          <div>Heartbeat: <strong className={secondsAgo < 10 ? 'text-emerald-400' : 'text-amber-400'}>{secondsAgo}s ago</strong></div>
+                          <div className="text-[10px] text-slate-500">Gestartet: {new Date(node.started_at).toLocaleTimeString()}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Multi-Node Cluster Setup Guide */}
+            <div className="mt-6 p-4 rounded-xl bg-[#0d1117]/80 border border-slate-800/80 space-y-2">
+              <div className="flex items-center gap-2 text-xs font-mono font-bold text-white">
+                <Info className="w-4 h-4 text-cyan-400" />
+                <span>{isDe ? 'Wie füge ich weitere Cluster-Instanzen hinzu?' : 'How to deploy additional cluster nodes?'}</span>
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed font-mono">
+                {isDe
+                  ? 'Erstelle auf jedem gewünschten PteroNext-Node oder Server einen weiteren Bot-Container mit den gleichen Umgebungsvariablen (DISCORD_TOKEN, DATABASE_URL) und setze z. B. CLUSTER_NODE_ID=node-backup-02. Die Instanzen synchronisieren sich automatisch über PostgreSQL!'
+                  : 'Deploy another bot container on any PteroNext node with the same DISCORD_TOKEN and DATABASE_URL and specify e.g. CLUSTER_NODE_ID=node-backup-02. Instances elect leaders automatically over PostgreSQL!'}
+              </p>
+            </div>
           </div>
         </div>
       )}

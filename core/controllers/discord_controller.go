@@ -1359,3 +1359,67 @@ func (d *DiscordController) GetBotAuditLogs(c *gin.Context) {
 		"logs":    logs,
 	})
 }
+
+// GetBotClusterNodes handles GET /api/admin/integrations/discord/cluster
+func (d *DiscordController) GetBotClusterNodes(c *gin.Context) {
+	user, _ := middleware.GetRequestUser(c)
+	if user != nil && !user.RootAdmin && !user.HasBetaFeature("discord_bot_mgmt", "", "") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Zugriff verweigert."})
+		return
+	}
+
+	httpClient := &http.Client{Timeout: 4 * time.Second}
+	resp, err := httpClient.Get("http://127.0.0.1:25566/api/bot/cluster")
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Bot Sync-Server nicht erreichbar"})
+		return
+	}
+	defer resp.Body.Close()
+
+	var data map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Ungültige Antwort vom Bot Sync-Server"})
+		return
+	}
+
+	c.JSON(resp.StatusCode, data)
+}
+
+// TriggerBotClusterFailover handles POST /api/admin/integrations/discord/cluster/failover
+func (d *DiscordController) TriggerBotClusterFailover(c *gin.Context) {
+	user, ok := middleware.GetRequestUser(c)
+	if !ok || user == nil || !user.RootAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Admin rights required for manual cluster failover."})
+		return
+	}
+
+	httpClient := &http.Client{Timeout: 5 * time.Second}
+	resp, err := httpClient.Post("http://127.0.0.1:25566/api/bot/cluster/failover", "application/json", nil)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Bot Sync-Server nicht erreichbar: " + err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+
+	var data map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Ungültige Antwort"})
+		return
+	}
+
+	if d.auditService != nil {
+		_ = d.auditService.Log(
+			&user.ID,
+			"user",
+			nil,
+			"discord:cluster_failover_triggered",
+			map[string]interface{}{
+				"summary":   fmt.Sprintf("Admin %s triggered manual Discord Bot cluster failover", user.Username),
+				"timestamp": time.Now().UTC().Format(time.RFC3339),
+			},
+			c.ClientIP(),
+		)
+	}
+
+	c.JSON(resp.StatusCode, data)
+}

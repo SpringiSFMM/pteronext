@@ -492,6 +492,8 @@ func SetupRouter(
 				botGroup.POST("/guilds/:guild_id/sync-autorole", discordCtrl.SyncBotGuildAutorole)
 				botGroup.GET("/commands", discordCtrl.GetBotCommands)
 				botGroup.GET("/audit-logs", discordCtrl.GetBotAuditLogs)
+				botGroup.GET("/cluster", discordCtrl.GetBotClusterNodes)
+				botGroup.POST("/cluster/failover", discordCtrl.TriggerBotClusterFailover)
 			}
 		}
 
