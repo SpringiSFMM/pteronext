@@ -3,6 +3,20 @@ This file is a running track of new features and fixes to each version of the pa
 
 This project follows [Semantic Versioning](http://semver.org) guidelines.
 
+## v2.9.4
+### Added
+* **Steam UDP A2S Query & RCON Terminal**: Echte Live-Serverabfragen via UDP-Protokoll (A2S_INFO, A2S_PLAYER, A2S_RULES) für CS2, Rust, ARK, Palworld, TF2 und Source-Server inklusive Ping-Anzeige, Spielerlisten mit Spielzeit, Server-Variablen und integriertem RCON-Befehlsterminal.
+* **Anvil Region Chunk Visualizer (World Manager)**: Interaktiver Canvas-Chunk-Viewer für Minecraft-Welten mit Live-Scanning von Region-Dateien (`.mca`), Chunk-Attribut-Inspektion und 1-Klick Dimensions-Resets.
+* **Vollständige UI & Backend Synchronisation**: Alle zuvor simulierten Tabs und Mock-Endpunkte wurden durch echte Go-Backend-Controller und Datenbank-Persistenz ersetzt (Git Deployments, WebSuite, Voice Dashboard für TS3/Mumble, Bot Suite).
+* **Schedules & Daemon Automation**: Neue `/execute` (Sofort-Ausführung) und `/toggle` Endpunkte für Zeitpläne mit direkter Wings-Daemon-Anbindung.
+* **Persistenter Reverse Proxy & SSL Engine**: Dauerhafte Speicherung aller Domain-Mappings, Port-Weiterleitungen und SSL-Zertifikats-Status in der Datenbank (`pteronext.db`).
+* **Globaler Design-System & Theme Manager**: Persistente Speicherung von Custom-Farben, Brand-Tokens und Dark-Mode-Anpassungen im Backend für alle Benutzer.
+
+### Fixed
+* **API Key Identifier Generation**: Behebung von Längenvalidierungsfehlern bei der Generierung von Client- und Application-API-Keys (`ptlc_...`).
+* **Egg Loader Seeder Lookup**: Korrigierter relativer Pfad-Lookup beim Einlesen von Server-Eggs (`eggs/`) beim Systemstart.
+* **Node Telemetry & Metrics Desync**: Bereinigte ClusterMetricsGrid-Berechnungen und stabile Telemetrie-Aggregation.
+
 ## v2.9.3
 ### Added
 * **1-Klick Modpack & Version-Installer**: Vollautomatisierter 1-Klick-Modpack-Installer für CurseForge, Modrinth und FTB-Pakete (ATM9, Better MC, Cobblemon, Prominence II, Fabulously Optimized) sowie nativer Version-Switcher für PaperMC, Purpur, Fabric, Forge und NeoForge ohne FTP-Dateitransfers.

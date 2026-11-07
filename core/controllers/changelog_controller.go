@@ -159,15 +159,66 @@ func (ch *ChangelogController) GetChangelog(c *gin.Context) {
 
 	rawReleases := []ReleaseItem{
 		{
+			Version:       "v2.9.4",
+			Date:          "November 2026",
+			Title:         "Steam UDP A2S Query & RCON, World Manager Chunk Visualizer & Full Daemon Sync",
+			TitleEN:       "Steam UDP A2S Query & RCON, World Manager Chunk Visualizer & Full Daemon Sync",
+			Description:   "Release v2.9.4: Vollwertige Steam UDP A2S-Liveabfragen und RCON-Terminal, interaktiver Anvil Region Chunk Visualizer im World Manager, vollständige Backend-Synchronisation und Persistenz aller UI-Features (Git-Deployments, WebSuite, Voice Dashboard, Bot Suite) sowie Wings-Daemon Schedule-Steuerung.",
+			DescriptionEN: "Release v2.9.4: Full Steam UDP A2S live querying and integrated RCON terminal, interactive Anvil Region Chunk Visualizer in World Manager, complete backend synchronization and persistence across all UI features (Git Deployments, WebSuite, Voice Dashboard, Bot Suite), and native Wings daemon schedule controls.",
+			Tag:           "LATEST STABLE",
+			TagEN:         "LATEST STABLE",
+			IsLatest:      true,
+			Highlights: []string{
+				"GameQuery Engine (Steam A2S & RCON): Live-Abfragen von Spielerlisten, Ping und Server-Regeln sowie RCON-Terminal",
+				"World Manager Chunk Visualizer: Interaktive Canvas-Darstellung von Minecraft-Regionen (.mca) und Chunks",
+				"Vollständige UI & Backend Synchronisation: Echte Persistenz für Git-Deployments, WebSuite, Voice Dashboard & Bot Suite",
+				"Schedules & Daemon Automation: Sofort-Ausführen (/execute) und Umschalten (/toggle) mit direkter Wings-Daemon-Anbindung",
+				"Persistenter Reverse Proxy: Gespeicherte Domain-Mappings und Port-Weiterleitungen in der Datenbank",
+			},
+			HighlightsEN: []string{
+				"GameQuery Engine (Steam A2S & RCON): Live queries for player rosters, ping, and server rules with RCON terminal",
+				"World Manager Chunk Visualizer: Interactive canvas rendering for Minecraft region files (.mca) and chunks",
+				"Full UI & Backend Synchronization: True database persistence for Git Deployments, WebSuite, Voice Dashboard & Bot Suite",
+				"Schedules & Daemon Automation: Instant execution (/execute) and toggles with direct Wings daemon integration",
+				"Persistent Reverse Proxy: Durable domain mappings and port forwardings stored in SQLite/PostgreSQL database",
+			},
+			Features: []string{
+				"Steam UDP A2S Query & RCON Terminal für alle Valve/Source-kompatiblen Gameserver",
+				"Anvil Region Chunk Visualizer im World Manager",
+				"Echte Wings-Daemon-Befehle für Git-Pulls und Container-Builds",
+				"Backend-Persistenz für Voice Server Kanäle und globale Design-Tokens",
+			},
+			FeaturesEN: []string{
+				"Steam UDP A2S Query & RCON Terminal across Valve/Source-compatible game servers",
+				"Anvil Region Chunk Visualizer in World Manager",
+				"Real Wings daemon execution for Git repository pulls and container builds",
+				"Backend persistence for voice server channels and global theme tokens",
+			},
+			Security: []string{
+				"Behebung der Validierungslänge bei API-Key-Identifiern (ptlc_...)",
+				"Sichere Pfad-Auflösung beim Einlesen von Server-Eggs",
+			},
+			SecurityEN: []string{
+				"Remediated length validation for API key identifiers (ptlc_...)",
+				"Secure path resolution during server egg initialization",
+			},
+			Improvements: []string{
+				"Bereinigte Cluster-Telemetrie und konsolidierte Metrik-Aggregation im Dashboard",
+			},
+			ImprovementsEN: []string{
+				"Refined cluster telemetry and consolidated metric aggregation in dashboard",
+			},
+		},
+		{
 			Version:       "v2.9.3",
 			Date:          "October 2026",
 			Title:         "1-Klick Modpack & Version Switcher & Multi-Server Bulk Access",
 			TitleEN:       "1-Click Modpack & Version Switcher & Multi-Server Bulk Access",
 			Description:   "Release v2.9.3: Vollautomatischer 1-Klick Modpack-Installer (CurseForge, Modrinth, FTB) und nativer Version-Switcher sowie Multi-Server Bulk Access & Batch Actions zur gleichzeitigen Steuerung mehrerer Instanzen direkt über die Server-Matrix.",
 			DescriptionEN: "Release v2.9.3: Automated 1-click modpack deployments (CurseForge, Modrinth, FTB) with native software version switching, alongside Multi-Server Bulk Access & Batch Actions for simultaneous multi-instance control directly from the server matrix.",
-			Tag:           "LATEST STABLE",
-			TagEN:         "LATEST STABLE",
-			IsLatest:      true,
+			Tag:           "STABLE",
+			TagEN:         "STABLE",
+			IsLatest:      false,
 			Highlights: []string{
 				"1-Klick Modpack & Version Switcher: Vollautomatische Modpack-Installationen und direkter Wechsel der Minecraft-Software (Paper, Purpur, Fabric, Forge, NeoForge)",
 				"Multi-Server Bulk Access & Batch Actions: Gleichzeitige Steuerung (Start, Stopp, Neustart, Kill) über die Server-Matrix mit intuitiver Mehrfachauswahl",
