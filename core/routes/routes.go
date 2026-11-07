@@ -81,7 +81,7 @@ func SetupRouter(
 	// Server, Node, Schedule, Database, APIKey, Audit, and WebSocket controllers
 	serverCtrl := controllers.NewServerController(db, serverService, wingsClient, wsHub, auditService, webhookService, fileService)
 	nodeCtrl := controllers.NewNodeController(db, cfg)
-	schedCtrl := controllers.NewScheduleController(db)
+	schedCtrl := controllers.NewScheduleController(db, wingsClient, wsHub)
 	dbCtrl := controllers.NewDatabaseController(db)
 	apiKeyCtrl := controllers.NewAPIKeyController(db)
 	auditCtrl := controllers.NewAuditController(db)
@@ -104,6 +104,7 @@ func SetupRouter(
 	migrationCtrl := controllers.NewMigrationController(db)
 	reverseProxyCtrl := controllers.NewReverseProxyController(db)
 	importerCtrl := controllers.NewImporterController(db, wingsClient)
+	gameQueryCtrl := controllers.NewGameQueryController(db, wingsClient)
 
 	// Webhook notification endpoint for DNS Relay Micro-Service (no user session cookie required)
 	router.POST("/api/servers/:uuid/dns/notify", dnsCtrl.HandleRelayRevocationNotification)
@@ -170,6 +171,8 @@ func SetupRouter(
 			serverAccess.GET("/schedules", schedCtrl.ListSchedules)
 			serverAccess.POST("/schedules", schedCtrl.CreateSchedule)
 			serverAccess.DELETE("/schedules/:id", schedCtrl.DeleteSchedule)
+			serverAccess.POST("/schedules/:id/toggle", schedCtrl.ToggleSchedule)
+			serverAccess.POST("/schedules/:id/execute", schedCtrl.ExecuteSchedule)
 
 			// Databases
 			serverAccess.GET("/databases", dbCtrl.ListDatabases)
@@ -182,6 +185,10 @@ func SetupRouter(
 			serverAccess.POST("/subusers", subuserCtrl.CreateSubuser)
 			serverAccess.PUT("/subusers/:id", subuserCtrl.UpdateSubuser)
 			serverAccess.DELETE("/subusers/:id", subuserCtrl.DeleteSubuser)
+			serverAccess.GET("/users", subuserCtrl.ListSubusers)
+			serverAccess.POST("/users", subuserCtrl.CreateSubuser)
+			serverAccess.PUT("/users/:id", subuserCtrl.UpdateSubuser)
+			serverAccess.DELETE("/users/:id", subuserCtrl.DeleteSubuser)
 
 			// Files (Filesystem persistence on node)
 			fileCtrl := controllers.NewFileController(fileService, db)
@@ -309,6 +316,14 @@ func SetupRouter(
 			serverAccess.GET("/world/meta", worldRegionCtrl.GetWorldMeta)
 			serverAccess.GET("/world/region", worldRegionCtrl.GetRegionData)
 
+			// Steam Game Query & RCON
+			serverAccess.GET("/steam/query", gameQueryCtrl.QuerySteam)
+			serverAccess.POST("/steam/rcon", gameQueryCtrl.SendRcon)
+
+			// TeamSpeak / Voice Dashboard
+			serverAccess.GET("/voice/status", gameQueryCtrl.GetVoiceStatus)
+			serverAccess.POST("/voice/channels", gameQueryCtrl.SaveVoiceChannels)
+
 			// Auto-Updater für Cores (Paper, Purpur, Velocity) & Plugins mit Nightly-Cron & Auto-Revert
 			autoUpdateCtrl := controllers.NewAutoUpdateController(db, fileService, wingsClient)
 			serverAccess.GET("/auto-updater", autoUpdateCtrl.GetConfig)
@@ -383,6 +398,12 @@ func SetupRouter(
 			// Theme preferences (Personal User Theme)
 			accountGroup.GET("/theme", accountCtrl.GetUserTheme)
 			accountGroup.PUT("/theme", accountCtrl.UpdateUserTheme)
+
+			// Notes & Server Groups persistence
+			accountGroup.GET("/notes", accountCtrl.GetNotes)
+			accountGroup.POST("/notes", accountCtrl.SaveNotes)
+			accountGroup.GET("/server-groups", accountCtrl.GetServerGroups)
+			accountGroup.POST("/server-groups", accountCtrl.SaveServerGroups)
 
 			// API Keys
 			accountGroup.GET("/api-keys", apiKeyCtrl.ListAPIKeys)

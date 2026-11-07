@@ -47,7 +47,7 @@ interface EventTriggerRule {
 }
 
 export const SchedulesTab: React.FC = () => {
-  const { schedules, toggleSchedule, triggerScheduleNow, addSchedule, addToast, selectedServer } = useApp();
+  const { schedules, toggleSchedule, triggerScheduleNow, deleteSchedule, addSchedule, addToast, selectedServer } = useApp();
   const { t, language } = useTranslation();
 
   // Mode switcher: 'cron' or 'events'
@@ -454,6 +454,13 @@ export const SchedulesTab: React.FC = () => {
                     }`}
                   >
                     {sch.isActive ? 'Pause' : 'Activate'}
+                  </button>
+                  <button
+                    onClick={() => deleteSchedule(sch.id)}
+                    className="p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 font-mono text-xs transition-all active:scale-95"
+                    title={language === 'de' ? 'Schedule löschen' : 'Delete schedule'}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>

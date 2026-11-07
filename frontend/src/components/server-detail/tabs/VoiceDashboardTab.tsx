@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../../context/AppContext';
 import { useTranslation } from '../../../i18n/useTranslation';
+import { api } from '../../../api/client';
 import {
   FolderTree,
   Activity,
@@ -81,7 +82,26 @@ export const VoiceDashboardTab: React.FC = () => {
 
   const isRunning = selectedServer?.status === 'running';
 
-  // Synchronize channels to localStorage
+  // Load persistent channels from backend
+  useEffect(() => {
+    const loadVoice = async () => {
+      if (!serverUuid) return;
+      try {
+        const res = await api.voice.getStatus(serverUuid);
+        if (res?.channels && Array.isArray(res.channels)) {
+          setChannels(res.channels);
+        }
+        if (res?.token) {
+          setSavedToken(res.token);
+        }
+      } catch (err) {
+        console.warn('Could not load voice channels from backend:', err);
+      }
+    };
+    loadVoice();
+  }, [serverUuid]);
+
+  // Synchronize channels to localStorage and backend
   useEffect(() => {
     if (serverUuid) {
       try {
@@ -149,7 +169,11 @@ export const VoiceDashboardTab: React.FC = () => {
       maxClients: 32,
     };
 
-    setChannels((prev) => [...prev, newChan]);
+    const updated = [...channels, newChan];
+    setChannels(updated);
+    if (serverUuid) {
+      api.voice.saveChannels(serverUuid, { channels: updated, token: savedToken }).catch(() => {});
+    }
     setNewChannelName('');
     setNewChannelTopic('');
     setIsAddingChannel(false);

@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"sync"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pteronext/panel-core/middleware"
+	"github.com/pteronext/panel-core/models"
 	"gorm.io/gorm"
 )
 
@@ -36,19 +38,51 @@ func NewReverseProxyController(db *gorm.DB) *ReverseProxyController {
 	}
 }
 
-func (rpc *ReverseProxyController) seedDefaults(serverUUID string) []ReverseProxyEntry {
-	return []ReverseProxyEntry{
-		{
-			ID:           "proxy-bluemap-1",
-			ServerUUID:   serverUUID,
-			Domain:       "map.ptero-demo.org",
-			InternalPort: 8123,
-			PluginName:   "BlueMap 3D",
-			SSLStatus:    "active",
-			SSLCertType:  "Let's Encrypt (Automated TLS)",
-			CreatedAt:    time.Now().Add(-72 * time.Hour).Format("02.01.2006 15:04"),
-			TargetURL:    "https://map.ptero-demo.org",
-		},
+func (rpc *ReverseProxyController) getDBKey(serverUUID string) string {
+	return fmt.Sprintf("reverse_proxy:%s", serverUUID)
+}
+
+func (rpc *ReverseProxyController) loadList(serverUUID string) []ReverseProxyEntry {
+	rpc.mu.RLock()
+	inMem, exists := rpc.proxies[serverUUID]
+	rpc.mu.RUnlock()
+	if exists && inMem != nil {
+		return inMem
+	}
+
+	var list []ReverseProxyEntry
+	if rpc.db != nil {
+		var s models.SystemSetting
+		if err := rpc.db.Where("key = ?", rpc.getDBKey(serverUUID)).First(&s).Error; err == nil && s.Value != "" {
+			_ = json.Unmarshal([]byte(s.Value), &list)
+		}
+	}
+
+	if list == nil {
+		list = []ReverseProxyEntry{}
+	}
+
+	rpc.mu.Lock()
+	rpc.proxies[serverUUID] = list
+	rpc.mu.Unlock()
+	return list
+}
+
+func (rpc *ReverseProxyController) saveList(serverUUID string, list []ReverseProxyEntry) {
+	rpc.mu.Lock()
+	rpc.proxies[serverUUID] = list
+	rpc.mu.Unlock()
+
+	if rpc.db != nil {
+		valBytes, _ := json.Marshal(list)
+		var s models.SystemSetting
+		key := rpc.getDBKey(serverUUID)
+		if err := rpc.db.Where("key = ?", key).First(&s).Error; err != nil {
+			s = models.SystemSetting{Key: key, Value: string(valBytes)}
+		} else {
+			s.Value = string(valBytes)
+		}
+		rpc.db.Save(&s)
 	}
 }
 
@@ -56,13 +90,7 @@ func (rpc *ReverseProxyController) seedDefaults(serverUUID string) []ReverseProx
 func (rpc *ReverseProxyController) ListProxies(c *gin.Context) {
 	server, _ := middleware.GetRequestServer(c)
 
-	rpc.mu.Lock()
-	list, exists := rpc.proxies[server.UUID]
-	if !exists {
-		list = rpc.seedDefaults(server.UUID)
-		rpc.proxies[server.UUID] = list
-	}
-	rpc.mu.Unlock()
+	list := rpc.loadList(server.UUID)
 
 	presets := []gin.H{
 		{"name": "BlueMap", "default_port": 8123, "description": "3D High-Performance Web Map"},
@@ -113,9 +141,9 @@ func (rpc *ReverseProxyController) CreateProxy(c *gin.Context) {
 		TargetURL:    fmt.Sprintf("https://%s", req.Domain),
 	}
 
-	rpc.mu.Lock()
-	rpc.proxies[server.UUID] = append(rpc.proxies[server.UUID], newEntry)
-	rpc.mu.Unlock()
+	current := rpc.loadList(server.UUID)
+	current = append(current, newEntry)
+	rpc.saveList(server.UUID, current)
 
 	c.JSON(http.StatusCreated, gin.H{
 		"success": true,
@@ -129,16 +157,14 @@ func (rpc *ReverseProxyController) DeleteProxy(c *gin.Context) {
 	server, _ := middleware.GetRequestServer(c)
 	proxyID := c.Param("id")
 
-	rpc.mu.Lock()
-	defer rpc.mu.Unlock()
-
+	current := rpc.loadList(server.UUID)
 	var updated []ReverseProxyEntry
-	for _, p := range rpc.proxies[server.UUID] {
+	for _, p := range current {
 		if p.ID != proxyID {
 			updated = append(updated, p)
 		}
 	}
-	rpc.proxies[server.UUID] = updated
+	rpc.saveList(server.UUID, updated)
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,

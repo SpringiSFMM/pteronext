@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { api } from '../../api/client';
 import { ServerCard } from './ServerCard';
 import { ServerCardSkeleton, ServerTableRowSkeleton } from './ServerCardSkeleton';
 import { Server, ServerStatus, PowerAction, ServerGroup } from '../../types';
@@ -145,6 +146,22 @@ export const ServerListView: React.FC = () => {
   // Reload the user's specific groups whenever the logged-in user changes or mounts
   useEffect(() => {
     setServerGroups(loadGroupsForUser(currentUser?.id));
+    if (api.auth.isAuthenticated()) {
+      api.account.getServerGroups().then((res) => {
+        if (res?.server_groups) {
+          try {
+            const parsed = JSON.parse(res.server_groups);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setServerGroups(parsed);
+              const key = getGroupsStorageKey(currentUser?.id);
+              try {
+                localStorage.setItem(key, JSON.stringify(parsed));
+              } catch {}
+            }
+          } catch {}
+        }
+      }).catch(() => {});
+    }
   }, [currentUser?.id]);
 
   const saveGroups = (newGroups: ServerGroup[]) => {
@@ -159,6 +176,9 @@ export const ServerListView: React.FC = () => {
       localStorage.setItem(key, JSON.stringify(scopedGroups));
     } catch (err) {
       console.error('Failed to save server groups:', err);
+    }
+    if (api.auth.isAuthenticated()) {
+      api.account.saveServerGroups(JSON.stringify(scopedGroups)).catch(() => {});
     }
   };
 

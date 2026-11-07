@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../../context/AppContext';
 import { useTranslation } from '../../../i18n/useTranslation';
+import { api } from '../../../api/client';
 import {
   Bot,
   ShieldCheck,
@@ -79,40 +80,77 @@ export const BotSuiteTab: React.FC = () => {
   const [tokenStatus, setTokenStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
   const [tokenDetails, setTokenDetails] = useState<{ username?: string; id?: string; intents?: string[] } | null>(null);
 
-  const handleRunDependencies = (command: string) => {
+  const handleRunDependencies = async (command: string) => {
+    const serverUuid = selectedServer?.uuid || selectedServer?.id;
+    if (!serverUuid) return;
+
     setRunningDeps(true);
     setTerminalLogs((prev) => [
       ...prev,
       `$ ${command}`,
-      '[runner] Initializing container runtime environment...',
-      '[runner] Resolving dependency graph and package lock checksums...',
+      '[runner] Executing package manager in server volume...',
     ]);
 
-    setTimeout(() => {
-      setTerminalLogs((prev) => [
-        ...prev,
-        'added 48 packages, and audited 112 packages in 1.4s',
-        'found 0 vulnerabilities',
-        '[runner] ✓ Dependencies installed successfully.',
-      ]);
+    const parts = command.trim().split(/\s+/);
+    const manager = parts[0] || (isNode ? 'npm' : 'pip');
+    const action = parts[1] || 'install';
+    const args = parts.slice(2);
 
-      if (autoRestartAfterInstall) {
-        setTerminalLogs((prev) => [
-          ...prev,
-          '[runner] ↻ Triggering container reboot as requested...',
-        ]);
-        if (selectedServer?.uuid || selectedServer?.id) {
-          handlePowerAction(selectedServer.uuid || selectedServer.id, 'restart');
-        }
+    try {
+      const res = await api.packages.run(serverUuid, {
+        manager,
+        command: action,
+        args,
+      });
+
+      if (res?.output) {
+        const outLines = res.output.split('\n').filter((l: string) => l.trim().length > 0);
+        setTerminalLogs((prev) => [...prev, ...outLines]);
       }
 
-      setRunningDeps(false);
+      if (res?.success) {
+        setTerminalLogs((prev) => [
+          ...prev,
+          `[runner] ✓ ${res.command || command} completed successfully.`,
+        ]);
+
+        if (autoRestartAfterInstall) {
+          setTerminalLogs((prev) => [
+            ...prev,
+            '[runner] ↻ Triggering container reboot as requested...',
+          ]);
+          handlePowerAction(serverUuid, 'restart');
+        }
+
+        addToast({
+          title: isDe ? 'Pakete erfolgreich installiert' : 'Dependencies Installed',
+          description: isDe ? 'Dependencies wurden fehlerfrei im Container bereitgestellt.' : 'Dependencies installed successfully.',
+          type: 'success',
+        });
+      } else {
+        setTerminalLogs((prev) => [
+          ...prev,
+          `[runner] ✗ Package execution exited with error: ${res?.error || 'Non-zero exit code'}`,
+        ]);
+        addToast({
+          title: isDe ? 'Installationsfehler' : 'Installation Error',
+          description: res?.error || 'Package manager returned an error',
+          type: 'error',
+        });
+      }
+    } catch (err: any) {
+      setTerminalLogs((prev) => [
+        ...prev,
+        `[runner] ✗ Execution error: ${err?.message || err}`,
+      ]);
       addToast({
-        title: isDe ? 'Pakete erfolgreich installiert' : 'Dependencies Installed',
-        description: isDe ? 'Dependencies wurden fehlerfrei im Container bereitgestellt.' : 'Dependencies installed successfully.',
-        type: 'success',
+        title: isDe ? 'Fehler beim Ausführen' : 'Execution Failed',
+        description: err?.message || 'Package run failed',
+        type: 'error',
       });
-    }, 1800);
+    } finally {
+      setRunningDeps(false);
+    }
   };
 
   const handleResetShield = () => {

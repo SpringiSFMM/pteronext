@@ -1207,7 +1207,7 @@ export const PlayersTab: React.FC = () => {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[10px] uppercase font-mono text-slate-500">
-                    {language === 'de' ? 'Inventar (27 Slots) & Hotbar' : 'Main Inventory & Hotbar'}
+                    {language === 'de' ? 'Inventar & Hotbar (Live-Vorschau)' : 'Main Inventory & Hotbar (Live Preview)'}
                   </span>
                   <span className="text-[10px] font-mono text-slate-400">
                     XP Level: <strong className="text-emerald-400">48</strong> (82%)

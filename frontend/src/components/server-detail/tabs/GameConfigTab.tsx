@@ -99,6 +99,21 @@ export const GameConfigTab: React.FC = () => {
         }
         if (props['hardcore'] !== undefined) setHardcore(props['hardcore'].toLowerCase() === 'true');
         if (props['force-gamemode'] !== undefined) setForceGamemode(props['force-gamemode'].toLowerCase() === 'true');
+
+        // Load Auto-Updater real backend config
+        try {
+          const autoCfg = await api.autoUpdater.getConfig(selectedServer.uuid);
+          if (autoCfg && isMounted) {
+            if (autoCfg.core_type) setCoreType(autoCfg.core_type);
+            if (autoCfg.release_stream) setReleaseStream(autoCfg.release_stream);
+            if (autoCfg.nightly_cron) setNightlyCron(autoCfg.nightly_cron);
+            if (autoCfg.auto_restart !== undefined) setAutoRestart(Boolean(autoCfg.auto_restart));
+            if (autoCfg.auto_revert !== undefined) setAutoRevert(Boolean(autoCfg.auto_revert));
+            if (autoCfg.enabled !== undefined) setUpdaterEnabled(Boolean(autoCfg.enabled));
+          }
+        } catch (e) {
+          console.warn('Could not load auto-updater config:', e);
+        }
       } catch (err) {
         console.warn('Failed to load server.properties, keeping defaults:', err);
       } finally {
@@ -141,12 +156,28 @@ enable-command-block=true
     try {
       const content = generateProperties();
       saveFileContent('server.properties', content);
+
+      if (selectedServer?.uuid) {
+        try {
+          await api.autoUpdater.updateConfig(selectedServer.uuid, {
+            core_type: coreType,
+            release_stream: releaseStream,
+            nightly_cron: nightlyCron,
+            auto_restart: autoRestart,
+            auto_revert: autoRevert,
+            enabled: updaterEnabled,
+          });
+        } catch (cfgErr) {
+          console.warn('Could not update auto-updater settings:', cfgErr);
+        }
+      }
+
       addToast({
         title: language === 'de' ? 'Spiel-Konfiguration gespeichert' : 'Game Config Saved',
         description:
           language === 'de'
-            ? 'Visuelle Einstellungen wurden mit server.properties synchronisiert.'
-            : 'Synchronized visual settings with server.properties file.',
+            ? 'Visuelle Einstellungen und Auto-Updater wurden synchronisiert.'
+            : 'Synchronized visual settings and auto-updater configuration.',
         type: 'success',
       });
     } finally {

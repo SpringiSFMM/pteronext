@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../../context/AppContext';
 import { useTranslation } from '../../../i18n/useTranslation';
+import { api } from '../../../api/client';
 import {
   Globe,
   ShieldCheck,
@@ -41,25 +42,37 @@ export const WebSuiteTab: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<'domains' | 'analytics' | 'maintenance'>('domains');
 
   const serverUuid = selectedServer?.uuid || selectedServer?.id || '';
-  const storageKey = `pteronext_custom_domains_${serverUuid}`;
 
-  // Custom Domains State: per-server storage, clean empty start
-  const [domainRules, setDomainRules] = useState<CustomDomainRule[]>(() => {
+  // Custom Domains State backed by backend reverse-proxy API
+  const [domainRules, setDomainRules] = useState<CustomDomainRule[]>([]);
+  const [loadingDomains, setLoadingDomains] = useState(false);
+
+  const fetchDomains = async () => {
+    if (!serverUuid) return;
+    setLoadingDomains(true);
     try {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return [];
-  });
-
-  // Save rules to localStorage
-  useEffect(() => {
-    if (serverUuid) {
-      try {
-        localStorage.setItem(storageKey, JSON.stringify(domainRules));
-      } catch {}
+      const res = await api.reverseProxy.list(serverUuid);
+      const list = res?.proxies || [];
+      const mapped: CustomDomainRule[] = list.map((p: any) => ({
+        id: p.id,
+        domain: p.domain,
+        containerPort: p.internal_port,
+        sslStatus: p.ssl_status || 'active',
+        sslProvider: "Let's Encrypt",
+        protocol: 'http',
+        autoRedirect: true,
+      }));
+      setDomainRules(mapped);
+    } catch (e) {
+      console.warn('Failed to load reverse proxies:', e);
+    } finally {
+      setLoadingDomains(false);
     }
-  }, [domainRules, serverUuid, storageKey]);
+  };
+
+  useEffect(() => {
+    fetchDomains();
+  }, [serverUuid]);
 
   const [newDomain, setNewDomain] = useState('');
   const [newPort, setNewPort] = useState(3000);
@@ -94,31 +107,60 @@ export const WebSuiteTab: React.FC = () => {
     status500: 0,
   };
 
-  const handleAddDomain = (e: React.FormEvent) => {
+  const handleAddDomain = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newDomain.trim()) return;
+    if (!newDomain.trim() || !serverUuid) return;
 
-    const newRule: CustomDomainRule = {
-      id: `dom_${Date.now()}`,
-      domain: newDomain.trim().toLowerCase(),
-      containerPort: newPort,
-      sslStatus: 'active',
-      sslProvider: 'Let\'s Encrypt',
-      protocol: 'http',
-      autoRedirect: true,
-    };
+    try {
+      const res = await api.reverseProxy.create(serverUuid, {
+        domain: newDomain.trim().toLowerCase(),
+        internal_port: newPort,
+        plugin_name: `Web Port ${newPort}`,
+      });
+      const created = res?.proxy;
+      const newRule: CustomDomainRule = created ? {
+        id: created.id,
+        domain: created.domain,
+        containerPort: created.internal_port,
+        sslStatus: 'active',
+        sslProvider: "Let's Encrypt",
+        protocol: 'http',
+        autoRedirect: true,
+      } : {
+        id: `dom_${Date.now()}`,
+        domain: newDomain.trim().toLowerCase(),
+        containerPort: newPort,
+        sslStatus: 'active',
+        sslProvider: "Let's Encrypt",
+        protocol: 'http',
+        autoRedirect: true,
+      };
 
-    setDomainRules((prev) => [...prev, newRule]);
-    setNewDomain('');
-    setIsAddingDomain(false);
-    addToast({
-      title: isDe ? 'Custom Domain hinterlegt' : 'Custom Domain Added',
-      description: `${newRule.domain} → Port ${newRule.containerPort} (Caddy SSL aktiviert)`,
-      type: 'success',
-    });
+      setDomainRules((prev) => [...prev, newRule]);
+      setNewDomain('');
+      setIsAddingDomain(false);
+      addToast({
+        title: isDe ? 'Custom Domain eingerichtet' : 'Custom Domain Provisioned',
+        description: `${newRule.domain} → Port ${newRule.containerPort} (Caddy SSL aktiv)`,
+        type: 'success',
+      });
+    } catch (err: any) {
+      addToast({
+        title: isDe ? 'Fehler beim Erstellen' : 'Failed to create proxy',
+        description: err?.message || 'Proxy could not be created',
+        type: 'error',
+      });
+    }
   };
 
-  const handleDeleteDomain = (id: string) => {
+  const handleDeleteDomain = async (id: string) => {
+    if (serverUuid) {
+      try {
+        await api.reverseProxy.delete(serverUuid, id);
+      } catch (e) {
+        console.warn('Failed to delete proxy route on backend:', e);
+      }
+    }
     setDomainRules((prev) => prev.filter((d) => d.id !== id));
     addToast({
       title: isDe ? 'Domain entfernt' : 'Domain Removed',

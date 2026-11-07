@@ -607,8 +607,9 @@ interface AppContextType {
   uploadFiles: (newFiles: FileItem[]) => void;
   uploadRawFiles: (root: string, rawFiles: File[], onProgress?: (percent: number, loaded: number, total: number) => void) => Promise<boolean>;
   installMinecraftVersion: (version: string, jarFileName?: string) => void;
-  toggleSchedule: (scheduleId: string) => void;
-  triggerScheduleNow: (scheduleId: string) => void;
+  toggleSchedule: (scheduleId: string) => void | Promise<void>;
+  triggerScheduleNow: (scheduleId: string) => void | Promise<void>;
+  deleteSchedule: (scheduleId: string) => Promise<boolean>;
   addSchedule: (schedule: Omit<ScheduleTask, 'id' | 'lastRun'>) => void;
   addDatabase: (db: Omit<DatabaseInstance, 'id' | 'connections' | 'sizeMB'>) => void;
   deleteDatabase: (id: string) => void;
@@ -2767,7 +2768,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ]);
   };
 
-  const toggleSchedule = (scheduleId: string) => {
+  const toggleSchedule = async (scheduleId: string) => {
+    if (selectedServer?.uuid) {
+      try {
+        await api.schedules.toggle(selectedServer.uuid, scheduleId);
+      } catch (e) {
+        console.warn('Failed to toggle schedule on backend:', e);
+      }
+    }
     setSchedules((prev) =>
       prev.map((s) => (s.id === scheduleId ? { ...s, isActive: !s.isActive } : s))
     );
@@ -2778,9 +2786,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  const triggerScheduleNow = (scheduleId: string) => {
+  const triggerScheduleNow = async (scheduleId: string) => {
     const sch = schedules.find((s) => s.id === scheduleId);
     if (!sch) return;
+
+    if (selectedServer?.uuid) {
+      try {
+        await api.schedules.execute(selectedServer.uuid, scheduleId);
+      } catch (e) {
+        console.warn('Failed to trigger schedule execution on backend:', e);
+      }
+    }
+
     setSchedules((prev) =>
       prev.map((s) =>
         s.id === scheduleId ? { ...s, lastRun: 'Just now (Success)' } : s
@@ -2791,6 +2808,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       description: `Immediately queued run for "${sch.name}".`,
       type: 'success',
     });
+  };
+
+  const deleteSchedule = async (scheduleId: string): Promise<boolean> => {
+    if (selectedServer?.uuid) {
+      try {
+        await api.schedules.delete(selectedServer.uuid, scheduleId);
+      } catch (e) {
+        console.warn('Failed to delete schedule on backend:', e);
+      }
+    }
+    setSchedules((prev) => prev.filter((s) => s.id !== scheduleId));
+    addToast({
+      title: 'Schedule Deleted',
+      description: 'The automated schedule was deleted.',
+      type: 'info',
+    });
+    return true;
   };
 
   const addSchedule = async (schedule: Omit<ScheduleTask, 'id' | 'lastRun'>) => {
@@ -3658,13 +3692,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // -------------------------------------------------------------
-  // Dashboard Notes (local persistence)
+  // Dashboard Notes (DB & local persistence)
   // -------------------------------------------------------------
+  useEffect(() => {
+    if (api.auth.isAuthenticated()) {
+      api.account.getNotes().then((res) => {
+        if (res?.notes) {
+          try {
+            const parsed = JSON.parse(res.notes);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setNotes(parsed);
+              try {
+                localStorage.setItem('pteronext_notes', JSON.stringify(parsed));
+              } catch {}
+            }
+          } catch {}
+        }
+      }).catch(() => {});
+    }
+  }, []);
+
   useEffect(() => {
     try {
       localStorage.setItem('pteronext_notes', JSON.stringify(notes));
     } catch {
       /* storage full or unavailable */
+    }
+    if (api.auth.isAuthenticated()) {
+      api.account.saveNotes(JSON.stringify(notes)).catch(() => {});
     }
   }, [notes]);
 
@@ -3877,6 +3932,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         installMinecraftVersion,
         toggleSchedule,
         triggerScheduleNow,
+        deleteSchedule,
         addSchedule,
         addDatabase,
         deleteDatabase,

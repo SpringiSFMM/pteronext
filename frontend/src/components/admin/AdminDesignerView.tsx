@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useTranslation } from '../../i18n/useTranslation';
+import { api } from '../../api/client';
 import {
   Palette,
   Sparkles,
@@ -161,6 +162,27 @@ export const AdminDesignerView: React.FC = () => {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importText, setImportText] = useState('');
 
+  // Fetch backend global theme config on mount
+  useEffect(() => {
+    const loadGlobalTheme = async () => {
+      try {
+        const res = await api.theme.getGlobal();
+        if (res?.global_config) {
+          try {
+            const parsed = JSON.parse(res.global_config);
+            if (parsed && typeof parsed === 'object') {
+              setConfig(parsed);
+              return;
+            }
+          } catch {}
+        }
+      } catch (err) {
+        console.warn('Could not load global theme from backend:', err);
+      }
+    };
+    loadGlobalTheme();
+  }, []);
+
   // Apply theme to document variables in real time for instant live preview
   useEffect(() => {
     const root = document.documentElement;
@@ -211,18 +233,25 @@ export const AdminDesignerView: React.FC = () => {
     });
   };
 
-  const handleSaveGlobal = () => {
+  const handleSaveGlobal = async () => {
     try {
       localStorage.setItem('pteronext_global_theme_config', JSON.stringify(config));
       localStorage.setItem('pteronext_theme_accent', config.primaryAccent);
+
+      await api.theme.updateGlobalTheme({
+        theme: 'zinc',
+        custom_css: config.customCss,
+        global_config: config,
+      });
+
       setIsSaved(true);
       setTimeout(() => setIsSaved(false), 2500);
 
       addToast({
         title: isDe ? 'Theme global gespeichert' : 'Theme Saved Globally',
         description: isDe
-          ? 'Das Design wurde als Standard für das gesamte Panel angewendet.'
-          : 'Theme configurations set as global defaults for all users.',
+          ? 'Das Design wurde im Backend persistiert und für alle Nutzer angewendet.'
+          : 'Theme configurations set as global defaults in backend for all users.',
         type: 'success',
       });
     } catch {

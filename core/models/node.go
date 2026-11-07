@@ -128,10 +128,19 @@ remote_query:
 	)
 }
 
+const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
 func generateRandomString(n int) string {
 	bytes := make([]byte, n)
 	if _, err := rand.Read(bytes); err != nil {
-		return uuid.New().String()
+		s := hex.EncodeToString([]byte(uuid.New().String()))
+		if len(s) > n {
+			return s[:n]
+		}
+		return s
 	}
-	return hex.EncodeToString(bytes)
+	for i := range bytes {
+		bytes[i] = charset[int(bytes[i])%len(charset)]
+	}
+	return string(bytes)
 }

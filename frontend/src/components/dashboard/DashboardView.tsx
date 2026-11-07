@@ -35,9 +35,9 @@ export const DashboardView: React.FC = () => {
     <div className="space-y-6 view-enter pb-8">
       {/* Sleek Hero Welcome & Cluster Hub Banner */}
       <div className="glass-panel rounded-2xl p-6 sm:p-7 border border-slate-800/80 relative overflow-hidden shadow-xl bg-gradient-to-r from-[#161b22]/95 via-[#1c2230]/80 to-[#161b22]/95">
-        {/* Subtle Ambient Background Orbs */}
-        <div className="absolute top-0 right-0 w-80 h-40 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/3 w-64 h-32 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+        {/* Hardware-accelerated subtle ambient background accents */}
+        <div className="absolute top-0 right-0 w-80 h-40 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none transform-gpu" />
+        <div className="absolute bottom-0 left-1/3 w-64 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none transform-gpu" />
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>

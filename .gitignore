@@ -60,3 +60,6 @@ id_ed25519*
 .phpunit.result.cache
 .php-cs-fixer.cache
 coverage.xml
+/image*.png
+/logs/
+/pteronext_core_bot_banner.*

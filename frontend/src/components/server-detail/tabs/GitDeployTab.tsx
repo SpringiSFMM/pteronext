@@ -311,43 +311,91 @@ export const GitDeployTab: React.FC = () => {
     setActiveDeployLogs(initialLogs);
 
     try {
-      // Step 1: Simulate git pull / command execution
-      await new Promise((r) => setTimeout(r, 900));
-      setActiveDeployLogs((prev) => [
-        ...prev,
-        `📥 git pull origin ${targetBranch} --ff-only`,
-        `✅ Successfully fetched latest commits. Head is at origin/${targetBranch}.`,
-      ]);
-
-      // Step 2: Install dependencies
-      if (installDependencies) {
-        await new Promise((r) => setTimeout(r, 1200));
-        const depCommand = isBot(selectedServer) || isWeb(selectedServer)
-          ? 'npm install --production --prefer-offline'
-          : 'pip install -r requirements.txt';
+      // Step 1: Real git pull / checkout via backend deployment engine
+      let pullLogs = '';
+      try {
+        const deployRes = await api.packages.deployWebhook(cleanUuid, {
+          branch: targetBranch,
+          auto_restart: false,
+        });
+        pullLogs = deployRes?.log || '';
         setActiveDeployLogs((prev) => [
           ...prev,
-          `📦 Resolving dependencies: ${depCommand}`,
-          `✅ All packages and lockfiles up to date.`,
+          `📥 git pull origin ${targetBranch}`,
+          ...(pullLogs ? pullLogs.split('\n').filter(Boolean) : [`✅ Head updated to branch ${targetBranch}.`]),
         ]);
+      } catch (pullErr: any) {
+        setActiveDeployLogs((prev) => [
+          ...prev,
+          `⚠️ Git checkout warning: ${pullErr?.message || pullErr}`,
+        ]);
+      }
+
+      // Step 2: Install dependencies via real package runner
+      if (installDependencies) {
+        const mgr = isBot(selectedServer) || isWeb(selectedServer) ? 'npm' : 'pip';
+        const args = mgr === 'pip' ? ['-r', 'requirements.txt'] : ['--production'];
+        setActiveDeployLogs((prev) => [
+          ...prev,
+          `📦 Resolving dependencies: ${mgr} install ${args.join(' ')}...`,
+        ]);
+        try {
+          const depRes = await api.packages.run(cleanUuid, {
+            manager: mgr,
+            command: 'install',
+            args,
+          });
+          if (depRes?.output) {
+            setActiveDeployLogs((prev) => [...prev, ...depRes.output.split('\n').filter(Boolean)]);
+          }
+          setActiveDeployLogs((prev) => [
+            ...prev,
+            depRes?.success ? `✅ Packages installed successfully.` : `⚠️ Package installation warning: ${depRes?.error || 'code non-zero'}`,
+          ]);
+        } catch (depErr: any) {
+          setActiveDeployLogs((prev) => [
+            ...prev,
+            `⚠️ Package installation notice: ${depErr?.message || depErr}`,
+          ]);
+        }
       }
 
       // Step 3: Run build command
       if (runBuildCommand && buildCommand) {
-        await new Promise((r) => setTimeout(r, 1100));
         setActiveDeployLogs((prev) => [
           ...prev,
-          `🔨 Executing build step: ${buildCommand}`,
-          `⚡ Production build artifact compiled successfully.`,
+          `🔨 Executing build step: ${buildCommand}...`,
         ]);
+        try {
+          const buildParts = buildCommand.trim().split(/\s+/);
+          const mgr = buildParts[0] || 'npm';
+          const act = buildParts[1] || 'run';
+          const args = buildParts.slice(2);
+          const bRes = await api.packages.run(cleanUuid, {
+            manager: mgr,
+            command: act,
+            args,
+          });
+          if (bRes?.output) {
+            setActiveDeployLogs((prev) => [...prev, ...bRes.output.split('\n').filter(Boolean)]);
+          }
+          setActiveDeployLogs((prev) => [
+            ...prev,
+            `⚡ Build step completed.`,
+          ]);
+        } catch (bErr: any) {
+          setActiveDeployLogs((prev) => [
+            ...prev,
+            `⚠️ Build step warning: ${bErr?.message || bErr}`,
+          ]);
+        }
       }
 
       // Step 4: Restart container
       if (autoRestart && hasValidUuid) {
-        await new Promise((r) => setTimeout(r, 800));
         setActiveDeployLogs((prev) => [
           ...prev,
-          `🔁 Restarting container runtime to initialize updated bundle...`,
+          `🔁 Restarting container runtime to apply changes...`,
         ]);
         try {
           await api.servers.power(cleanUuid, 'restart');
@@ -358,7 +406,7 @@ export const GitDeployTab: React.FC = () => {
         } catch {
           setActiveDeployLogs((prev) => [
             ...prev,
-            `⚠️ Note: Server restart command dispatched to Wings node.`,
+            `⚠️ Server restart command dispatched to Wings node.`,
           ]);
         }
       }

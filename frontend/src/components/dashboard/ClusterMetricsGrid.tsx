@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useTranslation } from '../../i18n/useTranslation';
 import { Server, Cpu, HardDrive, Radio, Activity, Zap, ShieldCheck } from 'lucide-react';
@@ -7,49 +7,64 @@ export const ClusterMetricsGrid: React.FC = () => {
   const { clusterMetrics, servers, nodes, adminNodes } = useApp();
   const { t } = useTranslation();
 
-  const runningCount = servers.filter((s) => s.status === 'running').length;
-  const startingCount = servers.filter((s) => s.status === 'starting').length;
-  const stoppedCount = servers.filter((s) => s.status === 'stopped' || s.status === 'offline').length;
+  const metrics = useMemo(() => {
+    const runningCount = servers.filter((s) => s.status === 'running').length;
+    const startingCount = servers.filter((s) => s.status === 'starting').length;
+    const stoppedCount = servers.filter((s) => s.status === 'stopped' || s.status === 'offline').length;
 
-  const totalServersCount = clusterMetrics.totalServers > 0 ? clusterMetrics.totalServers : servers.length;
-  const serverProgress =
-    totalServersCount > 0
-      ? (runningCount / totalServersCount) * 100
-      : 0;
+    const totalServersCount = clusterMetrics.totalServers > 0 ? clusterMetrics.totalServers : servers.length;
+    const serverProgress = totalServersCount > 0 ? (runningCount / totalServersCount) * 100 : 0;
 
-  // Aggregate across all nodes
-  const effectiveNodes = adminNodes.length > 0 ? adminNodes : nodes;
-  const nodesSumRAMMB = effectiveNodes.reduce((acc, n) => acc + (n.ramTotalMB || 8192), 0);
-  const nodesSumRAMGB = nodesSumRAMMB > 0 ? +(nodesSumRAMMB / 1024).toFixed(1) : 16.0;
+    // Aggregate across all nodes
+    const effectiveNodes = adminNodes.length > 0 ? adminNodes : nodes;
+    const nodesSumRAMMB = effectiveNodes.reduce((acc, n) => acc + (n.ramTotalMB || 8192), 0);
+    const nodesSumRAMGB = nodesSumRAMMB > 0 ? +(nodesSumRAMMB / 1024).toFixed(1) : 16.0;
 
-  const ramTotal = clusterMetrics.ramTotalGB > 0 ? clusterMetrics.ramTotalGB : nodesSumRAMGB;
+    const ramTotal = clusterMetrics.ramTotalGB > 0 ? clusterMetrics.ramTotalGB : nodesSumRAMGB;
 
-  // Calculate allocated RAM from clusterMetrics or sum of deployed servers
-  const serversAllocatedRAMMB = servers.reduce((acc, s) => acc + (s.stats.memoryLimit || 0), 0);
-  const serversAllocatedRAMGB = serversAllocatedRAMMB > 0 ? +(serversAllocatedRAMMB / 1024).toFixed(1) : 0;
-  const ramUsed = Number.isFinite(clusterMetrics.ramUsedGB) && clusterMetrics.ramUsedGB > 0
-    ? clusterMetrics.ramUsedGB
-    : serversAllocatedRAMGB;
+    // Calculate allocated RAM from clusterMetrics or sum of deployed servers
+    const serversAllocatedRAMMB = servers.reduce((acc, s) => acc + (s.stats.memoryLimit || 0), 0);
+    const serversAllocatedRAMGB = serversAllocatedRAMMB > 0 ? +(serversAllocatedRAMMB / 1024).toFixed(1) : 0;
+    
+    // Consistent memory: live used if reported, otherwise allocated server limits
+    const ramUsed = (Number.isFinite(clusterMetrics.ramUsedGB) && clusterMetrics.ramUsedGB > 0)
+      ? clusterMetrics.ramUsedGB
+      : serversAllocatedRAMGB;
 
-  const ramPercent =
-    ramTotal > 0
-      ? Math.round((ramUsed / ramTotal) * 100)
-      : 0;
+    const ramPercent = ramTotal > 0 ? Math.round((ramUsed / ramTotal) * 100) : 0;
+    const isOverallocated = ramUsed > ramTotal;
+    const freeRAM = Math.max(0, ramTotal - ramUsed);
 
-  const safeCpuLoad = Number.isFinite(clusterMetrics.cpuUsedPercent) ? clusterMetrics.cpuUsedPercent : 0;
-  const totalNodesCount = clusterMetrics.totalNodes > 0
-    ? clusterMetrics.totalNodes
-    : (effectiveNodes.length > 0 ? effectiveNodes.length : (servers.length > 0 ? 1 : 0));
-  const activeNodesCount = clusterMetrics.activeNodes > 0
-    ? clusterMetrics.activeNodes
-    : (effectiveNodes.filter((n) => n.status === 'healthy').length || totalNodesCount);
+    const safeCpuLoad = Number.isFinite(clusterMetrics.cpuUsedPercent) ? clusterMetrics.cpuUsedPercent : 0;
+    const totalNodesCount = clusterMetrics.totalNodes > 0
+      ? clusterMetrics.totalNodes
+      : (effectiveNodes.length > 0 ? effectiveNodes.length : (servers.length > 0 ? 1 : 0));
+    const activeNodesCount = clusterMetrics.activeNodes > 0
+      ? clusterMetrics.activeNodes
+      : (effectiveNodes.filter((n) => n.status === 'healthy').length || totalNodesCount);
+
+    return {
+      runningCount,
+      startingCount,
+      stoppedCount,
+      totalServersCount,
+      serverProgress,
+      ramTotal,
+      ramUsed,
+      ramPercent,
+      isOverallocated,
+      freeRAM,
+      safeCpuLoad,
+      totalNodesCount,
+      activeNodesCount,
+    };
+  }, [servers, nodes, adminNodes, clusterMetrics]);
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {/* 1. Online Workloads Card */}
-      <div className="glass-panel glass-card-interactive rounded-2xl p-5 border border-slate-800/80 hover:border-emerald-500/40 transition-all duration-300 relative group overflow-hidden">
-        {/* Ambient Top Glow Line */}
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      <div className="glass-panel glass-card-interactive rounded-2xl p-5 border border-slate-800/80 hover:border-emerald-500/40 transition-all duration-200 relative group overflow-hidden">
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
         
         <div className="flex items-center justify-between mb-3.5">
           <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider font-mono">
@@ -62,41 +77,39 @@ export const ClusterMetricsGrid: React.FC = () => {
 
         <div className="flex items-baseline gap-2 mb-2">
           <span className="text-3xl font-extrabold text-white font-mono tracking-tight tabular-nums">
-            {runningCount}
+            {metrics.runningCount}
           </span>
           <span className="text-xs text-slate-400 font-mono">
-            / {totalServersCount} Deployed
+            / {metrics.totalServersCount} Deployed
           </span>
         </div>
 
-        {/* Dynamic Progress Bar */}
         <div className="w-full bg-[#0d1117] rounded-full h-1.5 overflow-hidden mb-3 border border-slate-800/60">
           <div
-            className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-700 ease-out shadow-sm"
-            style={{ width: `${Math.max(5, Math.min(100, serverProgress))}%` }}
+            className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-500 ease-out shadow-sm"
+            style={{ width: `${Math.max(5, Math.min(100, metrics.serverProgress))}%` }}
           />
         </div>
 
         <div className="flex items-center justify-between text-[11px] font-mono">
           <span className="flex items-center gap-1.5 text-emerald-400 font-semibold">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            {runningCount} {t('dash_active')}
+            {metrics.runningCount} {t('dash_active')}
           </span>
-          {startingCount > 0 && (
+          {metrics.startingCount > 0 && (
             <span className="text-amber-400 font-medium">
-              +{startingCount} {t('dash_starting')}
+              +{metrics.startingCount} {t('dash_starting')}
             </span>
           )}
           <span className="text-slate-500">
-            {stoppedCount} {t('dash_offline')}
+            {metrics.stoppedCount} {t('dash_offline')}
           </span>
         </div>
       </div>
 
       {/* 2. Wings Nodes & Cluster Health */}
-      <div className="glass-panel glass-card-interactive rounded-2xl p-5 border border-slate-800/80 hover:border-cyan-500/40 transition-all duration-300 relative group overflow-hidden">
-        {/* Ambient Top Glow Line */}
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-500/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      <div className="glass-panel glass-card-interactive rounded-2xl p-5 border border-slate-800/80 hover:border-cyan-500/40 transition-all duration-200 relative group overflow-hidden">
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-500/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
 
         <div className="flex items-center justify-between mb-3.5">
           <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider font-mono">
@@ -109,19 +122,18 @@ export const ClusterMetricsGrid: React.FC = () => {
 
         <div className="flex items-baseline gap-2 mb-2">
           <span className="text-3xl font-extrabold text-white font-mono tracking-tight tabular-nums">
-            {activeNodesCount}
+            {metrics.activeNodesCount}
           </span>
           <span className="text-xs text-slate-400 font-mono">
-            / {totalNodesCount} {totalNodesCount === 1 ? 'Node Online' : 'Nodes Online'}
+            / {metrics.totalNodesCount} {metrics.totalNodesCount === 1 ? 'Node Online' : 'Nodes Online'}
           </span>
         </div>
 
-        {/* Dynamic Progress Bar */}
         <div className="w-full bg-[#0d1117] rounded-full h-1.5 overflow-hidden mb-3 border border-slate-800/60">
           <div
-            className="h-full bg-gradient-to-r from-cyan-500 to-sky-400 rounded-full transition-all duration-700 ease-out shadow-sm"
+            className="h-full bg-gradient-to-r from-cyan-500 to-sky-400 rounded-full transition-all duration-500 ease-out shadow-sm"
             style={{
-              width: `${totalNodesCount > 0 ? (activeNodesCount / totalNodesCount) * 100 : 0}%`,
+              width: `${metrics.totalNodesCount > 0 ? (metrics.activeNodesCount / metrics.totalNodesCount) * 100 : 0}%`,
             }}
           />
         </div>
@@ -138,9 +150,8 @@ export const ClusterMetricsGrid: React.FC = () => {
       </div>
 
       {/* 3. Total Cluster CPU Allocation */}
-      <div className="glass-panel glass-card-interactive rounded-2xl p-5 border border-slate-800/80 hover:border-indigo-500/40 transition-all duration-300 relative group overflow-hidden">
-        {/* Ambient Top Glow Line */}
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-indigo-500/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      <div className="glass-panel glass-card-interactive rounded-2xl p-5 border border-slate-800/80 hover:border-indigo-500/40 transition-all duration-200 relative group overflow-hidden">
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-indigo-500/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
 
         <div className="flex items-center justify-between mb-3.5">
           <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider font-mono">
@@ -153,24 +164,23 @@ export const ClusterMetricsGrid: React.FC = () => {
 
         <div className="flex items-baseline gap-2 mb-2">
           <span className="text-3xl font-extrabold text-white font-mono tracking-tight tabular-nums">
-            {safeCpuLoad}%
+            {metrics.safeCpuLoad}%
           </span>
           <span className="text-xs text-slate-400 font-mono">
             {t('dash_allocated_load')}
           </span>
         </div>
 
-        {/* Dynamic Multi-Stage Color Progress Bar */}
         <div className="w-full bg-[#0d1117] rounded-full h-1.5 overflow-hidden mb-3 border border-slate-800/60">
           <div
-            className={`h-full rounded-full transition-all duration-700 ease-out ${
-              safeCpuLoad > 85
+            className={`h-full rounded-full transition-all duration-500 ease-out ${
+              metrics.safeCpuLoad > 85
                 ? 'bg-rose-500'
-                : safeCpuLoad > 65
+                : metrics.safeCpuLoad > 65
                 ? 'bg-amber-500'
                 : 'bg-gradient-to-r from-indigo-500 to-purple-400'
             }`}
-            style={{ width: `${Math.max(3, Math.min(100, safeCpuLoad))}%` }}
+            style={{ width: `${Math.max(3, Math.min(100, metrics.safeCpuLoad))}%` }}
           />
         </div>
 
@@ -186,9 +196,8 @@ export const ClusterMetricsGrid: React.FC = () => {
       </div>
 
       {/* 4. Distributed Cluster Memory */}
-      <div className="glass-panel glass-card-interactive rounded-2xl p-5 border border-slate-800/80 hover:border-fuchsia-500/40 transition-all duration-300 relative group overflow-hidden">
-        {/* Ambient Top Glow Line */}
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-fuchsia-500/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      <div className="glass-panel glass-card-interactive rounded-2xl p-5 border border-slate-800/80 hover:border-fuchsia-500/40 transition-all duration-200 relative group overflow-hidden">
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-fuchsia-500/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
 
         <div className="flex items-center justify-between mb-3.5">
           <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider font-mono">
@@ -201,33 +210,38 @@ export const ClusterMetricsGrid: React.FC = () => {
 
         <div className="flex items-baseline gap-2 mb-2">
           <span className="text-3xl font-extrabold text-white font-mono tracking-tight tabular-nums">
-            {clusterMetrics.ramUsedGB} GB
+            {metrics.ramUsed} GB
           </span>
           <span className="text-xs text-slate-400 font-mono">
-            / {clusterMetrics.ramTotalGB} GB Total
+            / {metrics.ramTotal} GB Total
           </span>
         </div>
 
-        {/* Dynamic Progress Bar */}
         <div className="w-full bg-[#0d1117] rounded-full h-1.5 overflow-hidden mb-3 border border-slate-800/60">
           <div
-            className={`h-full rounded-full transition-all duration-700 ease-out ${
-              ramPercent > 90
+            className={`h-full rounded-full transition-all duration-500 ease-out ${
+              metrics.ramPercent > 100
+                ? 'bg-gradient-to-r from-rose-500 to-amber-500 shadow-sm'
+                : metrics.ramPercent > 85
                 ? 'bg-rose-500'
-                : ramPercent > 75
+                : metrics.ramPercent > 70
                 ? 'bg-amber-500'
                 : 'bg-gradient-to-r from-fuchsia-500 to-pink-400'
             }`}
-            style={{ width: `${Math.max(3, Math.min(100, ramPercent))}%` }}
+            style={{ width: `${Math.max(3, Math.min(100, metrics.ramPercent))}%` }}
           />
         </div>
 
         <div className="flex items-center justify-between text-[11px] font-mono">
-          <span className="text-fuchsia-300 font-semibold">
-            {ramPercent}% {t('dash_capacity')}
+          <span className={`font-semibold ${metrics.isOverallocated ? 'text-amber-400' : 'text-fuchsia-300'}`}>
+            {metrics.ramPercent}% {t('dash_capacity')}
           </span>
-          <span className="text-slate-400">
-            {Math.max(0, clusterMetrics.ramTotalGB - clusterMetrics.ramUsedGB).toFixed(1)} GB {t('dash_free')}
+          <span className={metrics.isOverallocated ? 'text-rose-400 font-semibold' : 'text-slate-400'}>
+            {metrics.isOverallocated ? (
+              `+${(metrics.ramUsed - metrics.ramTotal).toFixed(1)} GB Overallocated`
+            ) : (
+              `${metrics.freeRAM.toFixed(1)} GB ${t('dash_free')}`
+            )}
           </span>
         </div>
       </div>

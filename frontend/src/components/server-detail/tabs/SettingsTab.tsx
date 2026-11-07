@@ -170,6 +170,7 @@ export const SettingsTab: React.FC = () => {
     adminUsers,
     currentUser,
     reinstallServer,
+    refreshServers,
   } = useApp();
   const { language } = useTranslation();
   const isRootAdmin = Boolean(currentUser?.rootAdmin || currentUser?.role === 'root_admin');
@@ -230,16 +231,22 @@ export const SettingsTab: React.FC = () => {
     e.preventDefault();
     if (!selectedServer) return;
     const branchTitle = newBranchName.trim() || `Staging - ${selectedServer.name} - Test`;
+    const serverUuid = selectedServer.uuid || selectedServer.id;
 
     setIsCloningBranch(true);
     try {
-      // Simulate/Trigger sandbox branch provisioning
-      await new Promise((r) => setTimeout(r, 900));
+      // Trigger real server clone on backend
+      const res = await api.servers.clone(serverUuid, {
+        name: branchTitle,
+        description: `Staging Sandbox of ${selectedServer.name}`,
+        start_on_completion: true,
+      });
 
+      const cloned = res?.server;
       const newBranch = {
-        id: `branch-${Date.now()}`,
+        id: cloned?.uuid || cloned?.id || `branch-${Date.now()}`,
         sourceServerId: selectedServer.id || selectedServer.uuid,
-        branchServerId: `srv-sandbox-${Date.now().toString(36)}`,
+        branchServerId: cloned?.identifier || cloned?.uuid || `srv-sandbox-${Date.now().toString(36)}`,
         name: branchTitle,
         createdAt: new Date().toLocaleDateString(language === 'de' ? 'de-DE' : 'en-US', {
           year: 'numeric',
@@ -248,14 +255,15 @@ export const SettingsTab: React.FC = () => {
           hour: '2-digit',
           minute: '2-digit',
         }),
-        status: 'running',
-        port: `${Math.floor(25565 + Math.random() * 5000)}`,
+        status: cloned?.status || 'running',
+        port: cloned?.allocation?.port ? String(cloned.allocation.port) : 'Allocated',
         copiedFiles: copyFilesToBranch,
       };
 
       const updated = [newBranch, ...serverBranches];
       saveBranches(updated);
       setNewBranchName('');
+      await refreshServers();
 
       addToast({
         title: language === 'de' ? 'Staging-Branch bereitgestellt' : 'Staging Branch Created',
@@ -273,7 +281,16 @@ export const SettingsTab: React.FC = () => {
     }
   };
 
-  const handleDeleteBranch = (branchId: string) => {
+  const handleDeleteBranch = async (branchId: string) => {
+    const branch = serverBranches.find((b) => b.id === branchId);
+    if (branch && branch.id && !String(branch.id).startsWith('branch-')) {
+      try {
+        await api.servers.delete(branch.id);
+        await refreshServers();
+      } catch (e) {
+        console.warn('Could not delete cloned branch server:', e);
+      }
+    }
     const updated = serverBranches.filter((b) => b.id !== branchId);
     saveBranches(updated);
     addToast({

@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -490,9 +491,10 @@ func (a *AccountController) GetActivity(c *gin.Context) {
 }
 
 type UpdateThemeRequest struct {
-	Theme       string `json:"theme"`
-	GlobalTheme string `json:"global_theme"`
-	CustomCSS   string `json:"custom_css"`
+	Theme        string          `json:"theme"`
+	GlobalTheme  string          `json:"global_theme"`
+	CustomCSS    string          `json:"custom_css"`
+	GlobalConfig json.RawMessage `json:"global_config"`
 }
 
 func (r *UpdateThemeRequest) GetTheme() string {
@@ -584,9 +586,13 @@ func (a *AccountController) GetGlobalTheme(c *gin.Context) {
 	var cssSetting models.SystemSetting
 	a.db.Where("key = ?", "theme_global_css").First(&cssSetting)
 
+	var configSetting models.SystemSetting
+	a.db.Where("key = ?", "theme_global_config").First(&configSetting)
+
 	c.JSON(http.StatusOK, gin.H{
-		"global_theme": val,
-		"global_css":   cssSetting.Value,
+		"global_theme":  val,
+		"global_css":    cssSetting.Value,
+		"global_config": configSetting.Value,
 	})
 }
 
@@ -612,14 +618,100 @@ func (a *AccountController) UpdateGlobalTheme(c *gin.Context) {
 		a.db.Save(&s)
 	}
 
-	var css models.SystemSetting
-	a.db.Where("key = ?", "theme_global_css").FirstOrCreate(&css, models.SystemSetting{Key: "theme_global_css"})
-	css.Value = req.CustomCSS
-	a.db.Save(&css)
+	if req.CustomCSS != "" || c.Request.ContentLength > 0 {
+		var css models.SystemSetting
+		a.db.Where("key = ?", "theme_global_css").FirstOrCreate(&css, models.SystemSetting{Key: "theme_global_css"})
+		css.Value = req.CustomCSS
+		a.db.Save(&css)
+	}
+
+	if len(req.GlobalConfig) > 0 {
+		var cfg models.SystemSetting
+		a.db.Where("key = ?", "theme_global_config").FirstOrCreate(&cfg, models.SystemSetting{Key: "theme_global_config"})
+		cfg.Value = string(req.GlobalConfig)
+		a.db.Save(&cfg)
+	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"success":      true,
-		"message":      "Global theme updated successfully.",
-		"global_theme": themeToSet,
+		"success":       true,
+		"message":       "Global theme updated successfully.",
+		"global_theme":  themeToSet,
+		"global_config": string(req.GlobalConfig),
 	})
+}
+
+// GetNotes handles GET /api/account/notes
+func (a *AccountController) GetNotes(c *gin.Context) {
+	user, ok := middleware.GetRequestUser(c)
+	if !ok || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	var s models.SystemSetting
+	key := fmt.Sprintf("user_notes:%d", user.ID)
+	_ = a.db.Where("key = ?", key).First(&s).Error
+	c.JSON(http.StatusOK, gin.H{"notes": s.Value})
+}
+
+// SaveNotes handles POST /api/account/notes
+func (a *AccountController) SaveNotes(c *gin.Context) {
+	user, ok := middleware.GetRequestUser(c)
+	if !ok || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	var req struct {
+		Notes string `json:"notes"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	key := fmt.Sprintf("user_notes:%d", user.ID)
+	var s models.SystemSetting
+	if err := a.db.Where("key = ?", key).First(&s).Error; err != nil {
+		s = models.SystemSetting{Key: key, Value: req.Notes}
+	} else {
+		s.Value = req.Notes
+	}
+	a.db.Save(&s)
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+// GetServerGroups handles GET /api/account/server-groups
+func (a *AccountController) GetServerGroups(c *gin.Context) {
+	user, ok := middleware.GetRequestUser(c)
+	if !ok || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	var s models.SystemSetting
+	key := fmt.Sprintf("server_groups:%d", user.ID)
+	_ = a.db.Where("key = ?", key).First(&s).Error
+	c.JSON(http.StatusOK, gin.H{"server_groups": s.Value})
+}
+
+// SaveServerGroups handles POST /api/account/server-groups
+func (a *AccountController) SaveServerGroups(c *gin.Context) {
+	user, ok := middleware.GetRequestUser(c)
+	if !ok || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	var req struct {
+		ServerGroups string `json:"server_groups"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	key := fmt.Sprintf("server_groups:%d", user.ID)
+	var s models.SystemSetting
+	if err := a.db.Where("key = ?", key).First(&s).Error; err != nil {
+		s = models.SystemSetting{Key: key, Value: req.ServerGroups}
+	} else {
+		s.Value = req.ServerGroups
+	}
+	a.db.Save(&s)
+	c.JSON(http.StatusOK, gin.H{"success": true})
 }

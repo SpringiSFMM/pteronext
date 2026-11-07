@@ -23,6 +23,7 @@ import {
   Terminal,
   Shield,
   Zap,
+  MapPin,
 } from 'lucide-react';
 
 interface WorldDimension {
@@ -122,6 +123,59 @@ export const WorldManagerTab: React.FC = () => {
   const [isCreatingWorld, setIsCreatingWorld] = useState(false);
 
   const [backupLoading, setBackupLoading] = useState<string | null>(null);
+
+  // Anvil .mca chunk visualizer state
+  const [regionData, setRegionData] = useState<any | null>(null);
+  const [loadingRegion, setLoadingRegion] = useState(false);
+  const [hoveredChunk, setHoveredChunk] = useState<any | null>(null);
+
+  const fetchRegion = useCallback(async () => {
+    if (!selectedServer?.uuid) return;
+    setLoadingRegion(true);
+    try {
+      const res = await api.world.getRegion(selectedServer.uuid, 0, 0);
+      setRegionData(res);
+    } catch (e) {
+      console.warn('Failed to load anvil region:', e);
+    } finally {
+      setLoadingRegion(false);
+    }
+  }, [selectedServer?.uuid]);
+
+  useEffect(() => {
+    fetchRegion();
+  }, [fetchRegion]);
+
+  useEffect(() => {
+    if (!regionData?.chunks) return;
+    const canvas = document.getElementById('anvil-region-canvas') as HTMLCanvasElement | null;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.fillStyle = '#0a0e14';
+    ctx.fillRect(0, 0, 320, 320);
+
+    const chunkSize = 10;
+    for (const chunk of regionData.chunks) {
+      const px = ((chunk.x % 32 + 32) % 32) * chunkSize;
+      const pz = ((chunk.z % 32 + 32) % 32) * chunkSize;
+
+      ctx.fillStyle = chunk.color || '#2d5a27';
+      ctx.fillRect(px, pz, chunkSize - 1, chunkSize - 1);
+    }
+
+    // Spawn point indicator
+    if (regionData.spawn_point) {
+      const sx = (((regionData.spawn_point.x >> 4) % 32 + 32) % 32) * chunkSize + 5;
+      const sz = (((regionData.spawn_point.z >> 4) % 32 + 32) % 32) * chunkSize + 5;
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(sx, sz, 4, 0, 2 * Math.PI);
+      ctx.stroke();
+    }
+  }, [regionData]);
 
   // Load active world and detect existing worlds
   const loadWorldsAndConfig = useCallback(async () => {
@@ -702,6 +756,111 @@ export const WorldManagerTab: React.FC = () => {
                 }`}
               />
             </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Live Anvil Region & Chunk Radar */}
+      <div className="p-5 sm:p-6 rounded-2xl bg-[#0d1117] border border-slate-800 space-y-4 shadow-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+              <Compass className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-white uppercase font-mono tracking-wider">
+                  Anvil Region & Chunk Map Radar
+                </h3>
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                  {regionData?.file_name || 'r.0.0.mca'} (32x32 Chunks)
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                {isDe
+                  ? 'Echtzeit-Terrain- und Chunk-Visualisierung direkt aus den Anvil-Region-Dateien des Servers.'
+                  : 'Real-time terrain and chunk map extracted from server Anvil .mca region files.'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => fetchRegion()}
+            disabled={loadingRegion}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-mono text-xs font-semibold transition-all"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loadingRegion ? 'animate-spin' : ''}`} />
+            <span>{isDe ? 'Neu laden' : 'Reload Chunks'}</span>
+          </button>
+        </div>
+
+        <div className="flex flex-col lg:flex-row items-center gap-6">
+          <div className="relative p-2 rounded-xl bg-[#070a0f] border border-slate-800 shadow-inner">
+            <canvas
+              id="anvil-region-canvas"
+              width={320}
+              height={320}
+              className="rounded-lg cursor-crosshair"
+              onMouseMove={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = Math.floor((e.clientX - rect.left) / 10);
+                const z = Math.floor((e.clientY - rect.top) / 10);
+                const found = regionData?.chunks?.find(
+                  (c: any) => ((c.x % 32 + 32) % 32) === x && ((c.z % 32 + 32) % 32) === z
+                );
+                setHoveredChunk(found || { x, z, biome: 'plains', avg_height: 64, status: 'generated' });
+              }}
+            />
+          </div>
+
+          <div className="flex-1 space-y-3 font-mono text-xs w-full">
+            <div className="p-3.5 rounded-xl bg-[#161b22] border border-slate-800 space-y-2">
+              <span className="text-[10px] text-slate-400 uppercase tracking-wider block">
+                {isDe ? 'Chunk-Inspektor' : 'Chunk Inspector'}
+              </span>
+              {hoveredChunk ? (
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div>
+                    <span className="text-slate-500">Chunk Koordinaten:</span>
+                    <p className="text-white font-bold">X: {hoveredChunk.x}, Z: {hoveredChunk.z}</p>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Biom:</span>
+                    <p className="text-emerald-400 capitalize">{hoveredChunk.biome || 'Plains'}</p>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Durchschnittshöhe:</span>
+                    <p className="text-white">Y: {hoveredChunk.avg_height || 64}</p>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Status:</span>
+                    <p className="text-cyan-400 capitalize">{hoveredChunk.status || 'full'}</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-slate-500 text-[11px]">
+                  {isDe ? 'Bewege die Maus über die Karte, um Chunks zu inspizieren.' : 'Hover over map to inspect individual chunks.'}
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center gap-4 text-[10px] text-slate-400 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                <span>{isDe ? 'Spawn-Punkt' : 'Spawn Point'}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded bg-emerald-600" />
+                <span>{isDe ? 'Wald / Wiese' : 'Forest / Plains'}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded bg-blue-600" />
+                <span>{isDe ? 'Gewässer' : 'Water'}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded bg-amber-600" />
+                <span>{isDe ? 'Wüste / Berg' : 'Desert / Mountain'}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

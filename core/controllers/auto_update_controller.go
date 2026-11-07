@@ -1,11 +1,13 @@
 package controllers
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -61,8 +63,11 @@ func (a *AutoUpdateController) GetConfig(c *gin.Context) {
 		LastUpdated:   time.Now().Add(-14 * time.Hour).Format(time.RFC3339),
 	}
 
-	if err := a.db.Where("key = ?", key).First(&setting).Error; err == nil {
-		// Use saved settings if available
+	if err := a.db.Where("key = ?", key).First(&setting).Error; err == nil && setting.Value != "" {
+		if strings.HasPrefix(setting.Value, "{") {
+			_ = json.Unmarshal([]byte(setting.Value), &cfg)
+		}
+		cfg.ServerUUID = server.UUID
 	}
 
 	c.JSON(http.StatusOK, cfg)
@@ -80,11 +85,18 @@ func (a *AutoUpdateController) UpdateConfig(c *gin.Context) {
 
 	req.ServerUUID = server.UUID
 	key := fmt.Sprintf("autoupdate:%s", server.UUID)
-	a.db.Save(&models.SystemSetting{
-		Key:       key,
-		Value:     fmt.Sprintf("%s|%s|%t|%t", req.CoreType, req.ReleaseStream, req.AutoRestart, req.AutoRevert),
-		UpdatedAt: time.Now().UTC(),
-	})
+	jsonBytes, _ := json.Marshal(req)
+
+	var setting models.SystemSetting
+	if err := a.db.Where("key = ?", key).First(&setting).Error; err != nil {
+		setting = models.SystemSetting{
+			Key:   key,
+			Value: string(jsonBytes),
+		}
+	} else {
+		setting.Value = string(jsonBytes)
+	}
+	a.db.Save(&setting)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Auto-Updater Konfiguration erfolgreich gespeichert.",

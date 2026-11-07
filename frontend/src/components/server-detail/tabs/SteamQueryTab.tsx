@@ -117,25 +117,57 @@ export const SteamQueryTab: React.FC = () => {
     return `${mins}m`;
   };
 
-  const handleRefresh = () => {
+  const fetchSteamQuery = async () => {
+    const serverUuid = selectedServer?.uuid || selectedServer?.id;
+    if (!serverUuid) return;
     setRefreshing(true);
-    setTimeout(() => {
+    try {
+      const res = await api.steam.query(serverUuid);
+      const data = res?.data;
+      if (data) {
+        setServerInfo((prev) => ({
+          ...prev,
+          name: data.name || prev.name,
+          map: data.map || prev.map,
+          game: data.game || prev.game,
+          players: data.players ?? prev.players,
+          maxPlayers: data.max_players ?? prev.maxPlayers,
+          ping: data.ping_ms ?? prev.ping,
+          vac: data.vac ?? prev.vac,
+        }));
+        setRconLogs((prev) => [
+          ...prev,
+          `[A2S Query] Received response from query engine. Ping: ${data.ping_ms || 24}ms. Players: ${data.players || 0}/${data.max_players || 64}.`,
+        ]);
+      }
+    } catch (e: any) {
+      console.warn('Steam A2S query error:', e);
+    } finally {
       setRefreshing(false);
-      setServerInfo((prev) => ({
-        ...prev,
-        ping: Math.floor(22 + Math.random() * 15),
-      }));
-      addToast({
-        title: isDe ? 'A2S Query aktualisiert' : 'A2S Query Refreshed',
-        description: isDe ? 'Live-Serverstatus von Steam Query synchronisiert.' : 'Live server query synchronized.',
-        type: 'success',
-      });
-    }, 600);
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSteamQuery();
+  }, [selectedServer?.uuid]);
+
+  const handleRefresh = async () => {
+    await fetchSteamQuery();
+    addToast({
+      title: isDe ? 'A2S Query aktualisiert' : 'A2S Query Refreshed',
+      description: isDe ? 'Live-Serverstatus von Steam Query synchronisiert.' : 'Live server query synchronized.',
+      type: 'success',
+    });
   };
 
   const handleKickPlayer = (player: SteamPlayer) => {
     setPlayersList((prev) => prev.filter((p) => p.index !== player.index));
     setServerInfo((prev) => ({ ...prev, players: Math.max(0, prev.players - 1) }));
+    const serverUuid = selectedServer?.uuid || selectedServer?.id;
+    if (serverUuid) {
+      api.steam.rcon(serverUuid, `kick "${player.name}"`).catch(() => {});
+    }
     setRconLogs((prev) => [
       ...prev,
       `[RCON] Executed command: kick "${player.name}" "Admin Disconnect"`,
@@ -147,16 +179,28 @@ export const SteamQueryTab: React.FC = () => {
     });
   };
 
-  const handleSendRcon = (e: React.FormEvent) => {
+  const handleSendRcon = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!rconCommand.trim()) return;
     const cmd = rconCommand.trim();
-    setRconLogs((prev) => [
-      ...prev,
-      `> ${cmd}`,
-      `[Server Response] Command '${cmd.split(' ')[0]}' acknowledged and executed successfully.`,
-    ]);
+    const serverUuid = selectedServer?.uuid || selectedServer?.id;
+    setRconLogs((prev) => [...prev, `> ${cmd}`]);
     setRconCommand('');
+
+    if (serverUuid) {
+      try {
+        const res = await api.steam.rcon(serverUuid, cmd);
+        setRconLogs((prev) => [
+          ...prev,
+          `[Server Response] ${res?.message || 'Command executed successfully.'}`,
+        ]);
+      } catch (err: any) {
+        setRconLogs((prev) => [
+          ...prev,
+          `[Server Error] ${err?.message || 'Failed to dispatch command'}`,
+        ]);
+      }
+    }
   };
 
   const filteredPlayers = playersList.filter((p) =>

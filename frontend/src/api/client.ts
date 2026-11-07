@@ -668,6 +668,18 @@ export const api = {
         method: 'DELETE',
       });
     },
+
+    toggle: async (serverUuid: string, scheduleId: number | string): Promise<{ schedule: BackendSchedule }> => {
+      return request<{ schedule: BackendSchedule }>(`/api/servers/${serverUuid}/schedules/${scheduleId}/toggle`, {
+        method: 'POST',
+      });
+    },
+
+    execute: async (serverUuid: string, scheduleId: number | string): Promise<{ message: string; schedule: BackendSchedule }> => {
+      return request<{ message: string; schedule: BackendSchedule }>(`/api/servers/${serverUuid}/schedules/${scheduleId}/execute`, {
+        method: 'POST',
+      });
+    },
   },
 
   // Subusers (Granular team access & delegation)
@@ -1073,9 +1085,13 @@ export const api = {
     list: async (serverUuid?: string): Promise<{ data: any[] }> => {
       if (serverUuid) {
         try {
-          return await request<{ data: any[] }>(`/api/servers/${serverUuid}/users`);
+          return await request<{ data: any[] }>(`/api/servers/${serverUuid}/subusers`);
         } catch {
-          return { data: [] };
+          try {
+            return await request<{ data: any[] }>(`/api/servers/${serverUuid}/users`);
+          } catch {
+            return { data: [] };
+          }
         }
       }
       return request<{ data: any[] }>('/api/admin/users');
@@ -1340,6 +1356,28 @@ export const api = {
 
     activity: async (): Promise<{ data: any[] }> => {
       return request<{ data: any[] }>('/api/account/activity');
+    },
+
+    getNotes: async (): Promise<{ notes: string }> => {
+      return request('/api/account/notes');
+    },
+
+    saveNotes: async (notes: string): Promise<{ success: boolean }> => {
+      return request('/api/account/notes', {
+        method: 'POST',
+        body: JSON.stringify({ notes }),
+      });
+    },
+
+    getServerGroups: async (): Promise<{ server_groups: string }> => {
+      return request('/api/account/server-groups');
+    },
+
+    saveServerGroups: async (groups: string): Promise<{ success: boolean }> => {
+      return request('/api/account/server-groups', {
+        method: 'POST',
+        body: JSON.stringify({ server_groups: groups }),
+      });
     },
   },
 
@@ -1656,6 +1694,29 @@ export const api = {
     },
   },
 
+  // Developer Suite & Package Manager Runner
+  packages: {
+    run: async (
+      serverUuid: string,
+      payload: { manager: string; command?: string; args?: string[] }
+    ): Promise<{ success: boolean; output: string; manager: string; command: string; error?: string }> => {
+      return request(`/api/servers/${serverUuid}/deploy/run-pkg`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+
+    deployWebhook: async (
+      serverUuid: string,
+      payload: { branch?: string; repo_url?: string; auto_restart?: boolean }
+    ): Promise<{ success: boolean; branch: string; log: string; restart_triggered: boolean }> => {
+      return request(`/api/servers/${serverUuid}/deploy/webhook`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+  },
+
   // Smart SFTP- & Access-Key-Manager
   sftpKeys: {
     list: async (serverUuid: string): Promise<{
@@ -1692,6 +1753,32 @@ export const api = {
     delete: async (serverUuid: string, keyId: number): Promise<any> => {
       return request(`/api/servers/${serverUuid}/sftp-keys/${keyId}`, {
         method: 'DELETE',
+      });
+    },
+  },
+
+  // Steam Game Dedicated Server (A2S Query & RCON)
+  steam: {
+    query: async (serverUuid: string): Promise<{ data: any }> => {
+      return request(`/api/servers/${serverUuid}/steam/query`);
+    },
+    rcon: async (serverUuid: string, command: string): Promise<{ success: boolean; message: string }> => {
+      return request(`/api/servers/${serverUuid}/steam/rcon`, {
+        method: 'POST',
+        body: JSON.stringify({ command }),
+      });
+    },
+  },
+
+  // TeamSpeak / Voice Dashboard
+  voice: {
+    getStatus: async (serverUuid: string): Promise<{ is_running: boolean; channels: any[]; token: string }> => {
+      return request(`/api/servers/${serverUuid}/voice/status`);
+    },
+    saveChannels: async (serverUuid: string, payload: { channels: any[]; token?: string }): Promise<any> => {
+      return request(`/api/servers/${serverUuid}/voice/channels`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
       });
     },
   },
@@ -1959,7 +2046,7 @@ export const api = {
 
   // Personal & Global Theme API
   theme: {
-    getGlobal: async (): Promise<{ global_theme: string; global_css?: string }> => {
+    getGlobal: async (): Promise<{ global_theme: string; global_css?: string; global_config?: string }> => {
       return request('/api/theme/global');
     },
     getUserTheme: async (): Promise<{ personal_theme: string; personal_custom_css?: string; global_theme: string; effective_theme: string }> => {
@@ -1971,7 +2058,7 @@ export const api = {
         body: JSON.stringify(payload),
       });
     },
-    updateGlobalTheme: async (payload: { theme: string; custom_css?: string }): Promise<{ success: boolean; global_theme: string }> => {
+    updateGlobalTheme: async (payload: { theme?: string; custom_css?: string; global_config?: any }): Promise<{ success: boolean; global_theme?: string; global_config?: string }> => {
       return request('/api/admin/theme', {
         method: 'PUT',
         body: JSON.stringify(payload),

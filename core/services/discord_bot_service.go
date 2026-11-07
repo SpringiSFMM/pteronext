@@ -759,6 +759,15 @@ func (s *DiscordBotService) handleInteraction(raw json.RawMessage, botToken stri
 
 	cmdName := interaction.Data.Name
 
+	// Only handle general slash commands if slash commands are explicitly enabled in panel settings.
+	// When disabled, external management bots (such as PteroNext-Core-Bot) handle guild commands,
+	// and this panel gateway loop should only handle account linking ("/link").
+	var slashSetting models.SystemSetting
+	s.db.Where("key = 'discord_slash_commands_enabled'").First(&slashSetting)
+	if slashSetting.Value != "true" && cmdName != "link" {
+		return
+	}
+
 	switch cmdName {
 	case "panel":
 		var serverCount int64
