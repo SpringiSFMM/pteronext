@@ -322,7 +322,13 @@ func SetupRouter(
 
 			// TeamSpeak / Voice Dashboard
 			serverAccess.GET("/voice/status", gameQueryCtrl.GetVoiceStatus)
-			serverAccess.POST("/voice/channels", gameQueryCtrl.SaveVoiceChannels)
+			serverAccess.POST("/voice/channels", gameQueryCtrl.CreateVoiceChannel)
+			serverAccess.DELETE("/voice/channels/:cid", gameQueryCtrl.DeleteVoiceChannel)
+			serverAccess.POST("/voice/roles", gameQueryCtrl.CreateVoiceRole)
+			serverAccess.DELETE("/voice/roles/:sgid", gameQueryCtrl.DeleteVoiceRole)
+			serverAccess.POST("/voice/tokens", gameQueryCtrl.CreateVoiceToken)
+			serverAccess.DELETE("/voice/tokens/:token", gameQueryCtrl.DeleteVoiceToken)
+			serverAccess.POST("/voice/kick", gameQueryCtrl.KickVoiceClient)
 
 			// Auto-Updater für Cores (Paper, Purpur, Velocity) & Plugins mit Nightly-Cron & Auto-Revert
 			autoUpdateCtrl := controllers.NewAutoUpdateController(db, fileService, wingsClient)

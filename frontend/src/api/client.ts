@@ -1772,8 +1772,64 @@ export const api = {
 
   // TeamSpeak / Voice Dashboard
   voice: {
-    getStatus: async (serverUuid: string): Promise<{ is_running: boolean; channels: any[]; token: string }> => {
+    getStatus: async (serverUuid: string): Promise<{
+      is_running: boolean;
+      server_name?: string;
+      clients: any[];
+      channels: any[];
+      roles: any[];
+      tokens: any[];
+      token?: string;
+    }> => {
       return request(`/api/servers/${serverUuid}/voice/status`);
+    },
+    createChannel: async (
+      serverUuid: string,
+      payload: { name: string; topic?: string; codec?: string; max_clients?: number }
+    ): Promise<any> => {
+      return request(`/api/servers/${serverUuid}/voice/channels`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+    deleteChannel: async (serverUuid: string, channelId: number): Promise<any> => {
+      return request(`/api/servers/${serverUuid}/voice/channels/${channelId}`, {
+        method: 'DELETE',
+      });
+    },
+    createRole: async (serverUuid: string, payload: { name: string }): Promise<any> => {
+      return request(`/api/servers/${serverUuid}/voice/roles`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+    deleteRole: async (serverUuid: string, roleId: number): Promise<any> => {
+      return request(`/api/servers/${serverUuid}/voice/roles/${roleId}`, {
+        method: 'DELETE',
+      });
+    },
+    createToken: async (
+      serverUuid: string,
+      payload: { group_id: number; description?: string }
+    ): Promise<any> => {
+      return request(`/api/servers/${serverUuid}/voice/tokens`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+    deleteToken: async (serverUuid: string, token: string): Promise<any> => {
+      return request(`/api/servers/${serverUuid}/voice/tokens/${encodeURIComponent(token)}`, {
+        method: 'DELETE',
+      });
+    },
+    kickClient: async (
+      serverUuid: string,
+      payload: { clid: number; message?: string }
+    ): Promise<any> => {
+      return request(`/api/servers/${serverUuid}/voice/kick`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
     },
     saveChannels: async (serverUuid: string, payload: { channels: any[]; token?: string }): Promise<any> => {
       return request(`/api/servers/${serverUuid}/voice/channels`, {
